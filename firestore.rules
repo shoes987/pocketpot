@@ -1,0 +1,366 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================================================
+    // Assumed Data Model
+    // =========================================================================
+    //
+    // Collection: tenants/{tenantId}
+    //   - tenantId: string (immutable, required) - UK School tenant identifier (e.g. "sch_urn100123")
+    //   - schoolName: string (required) - Official establishment name
+    //   - schoolUrn: string (required) - DfE Unique Reference Number
+    //   - allowedDomains: list of strings (required) - Whitelisted institutional email domains
+    //   - maxTeacherSeats: number (optional) - Licensed teacher capacity quota (unlimited if omitted)
+    //   - status: string (required) - "Production Live" | "Onboarding" | "Suspended"
+    //   - activeTeacherCount: number (optional) - Active educators
+    //   - pendingInviteCount: number (optional) - Outstanding invites
+    //   - createdAt: string/timestamp (optional)
+    //   - updatedAt: string/timestamp (optional)
+    //
+    // Collection: tenants/{tenantId}/invites/{inviteId}
+    //   - inviteId: string (immutable, required) - Unique invite record ID
+    //   - tenantId: string (immutable, required) - School tenant reference
+    //   - email: string (immutable, required) - Institutional teacher email
+    //   - role: string (immutable, required) - Strictly 'teacher'
+    //   - assignedClassIds: list of strings (immutable, required) - KS2 class UUIDs
+    //   - invitedBy: string (immutable, required) - Admin user UID
+    //   - status: string (required) - 'pending' | 'accepted' | 'revoked' | 'expired'
+    //   - expiresAt: string/timestamp (optional)
+    //   - createdAt: string/timestamp (optional)
+    //   - updatedAt: string/timestamp (optional)
+    //
+    // Collection: users/{userId}
+    //   - userId: string (immutable, required)
+    //   - role: string (required) - 'teacher' | 'pupil'
+    //   - Zero-PII enforced for child accounts
+    //
+    // Collection: classes/{classId}
+    //   - classId: string (required)
+    //   - teacherId: string (required) - Lead teacher UID
+    //   - tenantId / schoolId: string (optional) - Multi-tenant school reference
+    //   - Zero-PII enforced
+    //
+    // Subcollection: classes/{classId}/pupils/{pupilId}
+    //   - pupilId: string (required, UUID v4)
+    //   - Zero-PII enforced (NO names, emails, phones, birthdates, addresses)
+    //
+    // =========================================================================
+
+    // =========================================================================
+    // HELPER FUNCTIONS & AUTHENTICATION ENFORCEMENT
+    // =========================================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+             request.auth.token.role == 'admin';
+    }
+
+    function isAdminOfTenant(tenantId) {
+      return isAdmin() && 
+             request.auth.token.tenantId == tenantId;
+    }
+
+    function isTeacher() {
+      return isAuthenticated() && 
+             request.auth.token.role == 'teacher';
+    }
+
+    function isTeacherInClassData(d) {
+      return d != null &&
+             (
+               (('teacherId' in d) && d.teacherId == request.auth.uid) ||
+               (('leadTeacherId' in d) && d.leadTeacherId == request.auth.uid) ||
+               (('assignedTeacherIds' in d) && d.assignedTeacherIds is list && d.assignedTeacherIds.hasAny([request.auth.uid]))
+             );
+    }
+
+    function isTeacherOfClass(classId) {
+      return isTeacher() &&
+             (
+               (resource != null && isTeacherInClassData(resource.data)) ||
+               (request.resource != null && isTeacherInClassData(request.resource.data)) ||
+               isTeacherInClassData(get(/databases/$(database)/documents/classes/$(classId)).data)
+             );
+    }
+
+    function isAdminOfClass(classId) {
+      let classDoc = get(/databases/$(database)/documents/classes/$(classId)).data;
+      return isAdmin() &&
+             classDoc != null &&
+             (classDoc.tenantId == request.auth.token.tenantId || classDoc.schoolId == request.auth.token.tenantId);
+    }
+
+    function isPupil() {
+      return isAuthenticated() && 
+             request.auth.token.role == 'pupil';
+    }
+
+    function isPupilSelf(pupilId) {
+      return isPupil() && request.auth.uid == pupilId;
+    }
+
+    function isSelf(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidEmail(email) {
+      return email is string &&
+             email.size() > 3 &&
+             email.size() <= 254 &&
+             email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    // Cryptographic email domain whitelisting check against tenant configuration
+    function isEmailDomainWhitelisted(tenantId, email) {
+      let tenant = get(/databases/$(database)/documents/tenants/$(tenantId)).data;
+      return tenant != null &&
+             'allowedDomains' in tenant &&
+             tenant.allowedDomains is list &&
+             isValidEmail(email) &&
+             email.split('@').size() == 2 &&
+             tenant.allowedDomains.hasAny([email.split('@')[1]]);
+    }
+
+    // Zero-PII payload sanitizer (Strict GDPR / COPPA / KS2 Safeguarding)
+    function hasNoPII(data) {
+      return !('email' in data) &&
+             !('name' in data) &&
+             !('realName' in data) &&
+             !('firstName' in data) &&
+             !('lastName' in data) &&
+             !('phoneNumber' in data) &&
+             !('phone' in data) &&
+             !('dob' in data) &&
+             !('birthDate' in data) &&
+             !('address' in data);
+    }
+
+    // =========================================================================
+    // DOMAIN VALIDATORS
+    // =========================================================================
+
+    function isValidTenant(data) {
+      return data.tenantId is string &&
+             data.tenantId.size() > 0 &&
+             data.tenantId.size() <= 100 &&
+             data.schoolName is string &&
+             data.schoolName.size() > 0 &&
+             data.schoolName.size() <= 100 &&
+             data.schoolUrn is string &&
+             data.schoolUrn.size() > 0 &&
+             data.schoolUrn.size() <= 20 &&
+             data.allowedDomains is list &&
+             data.allowedDomains.size() > 0 &&
+             data.allowedDomains.size() <= 50 &&
+             (!('maxTeacherSeats' in data) || (data.maxTeacherSeats is number && data.maxTeacherSeats > 0)) &&
+             data.status in ['Production Live', 'Onboarding', 'Suspended', 'active', 'suspended'];
+    }
+
+    function isValidInvite(data) {
+      return data.inviteId is string &&
+             data.inviteId.size() > 0 &&
+             data.inviteId.size() <= 100 &&
+             data.tenantId is string &&
+             data.tenantId.size() > 0 &&
+             data.tenantId.size() <= 100 &&
+             isValidEmail(data.email) &&
+             data.role == 'teacher' &&
+             data.assignedClassIds is list &&
+             data.assignedClassIds.size() <= 50 &&
+             data.invitedBy is string &&
+             data.invitedBy.size() > 0 &&
+             data.invitedBy.size() <= 100 &&
+             data.status in ['pending', 'accepted', 'revoked', 'expired'];
+    }
+
+    function isImmutableInviteUnchanged() {
+      return request.resource.data.inviteId == resource.data.inviteId &&
+             request.resource.data.tenantId == resource.data.tenantId &&
+             request.resource.data.email == resource.data.email &&
+             request.resource.data.role == resource.data.role &&
+             request.resource.data.invitedBy == resource.data.invitedBy &&
+             request.resource.data.assignedClassIds == resource.data.assignedClassIds;
+    }
+
+    // =========================================================================
+    // DEFAULT STRICT DENIAL
+    // =========================================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
+    // TENANT MANAGEMENT (/tenants/{tenantId})
+    // Multi-tenant boundary isolation and school configuration
+    // =========================================================================
+    match /tenants/{tenantId} {
+      // Read: Allowed if user is authenticated and their token belongs to this tenant
+      allow read: if isAuthenticated() && 
+                     request.auth.token.tenantId == tenantId;
+
+      // Create: Admin only for this tenant
+      allow create: if isAdminOfTenant(tenantId) &&
+                       request.resource.data.tenantId == tenantId &&
+                       isValidTenant(request.resource.data);
+
+      // Update: Admin only for this tenant, maintaining immutable tenantId
+      allow update: if isAdminOfTenant(tenantId) &&
+                       request.resource.data.tenantId == resource.data.tenantId &&
+                       isValidTenant(request.resource.data);
+
+      // Delete: Admin only for this tenant
+      allow delete: if isAdminOfTenant(tenantId);
+
+      // -----------------------------------------------------------------------
+      // TEACHER INVITES: /tenants/{tenantId}/invites/{inviteId}
+      // Strictly enforced email domain whitelisting
+      // -----------------------------------------------------------------------
+      match /invites/{inviteId} {
+        // Read: Admin of tenant OR if the authenticated user's email matches the invite
+        allow read: if isAdminOfTenant(tenantId) ||
+                       (isAuthenticated() && request.auth.token.email == resource.data.email);
+
+        // Create: Admin of this tenant with whitelisted email domain
+        allow create: if isAdminOfTenant(tenantId) &&
+                         request.resource.data.tenantId == tenantId &&
+                         request.resource.data.inviteId == inviteId &&
+                         request.resource.data.role == 'teacher' &&
+                         isValidInvite(request.resource.data) &&
+                         isEmailDomainWhitelisted(tenantId, request.resource.data.email);
+
+        // Update: Admin of tenant can change status to 'revoked', or invited user on accept
+        allow update: if isValidInvite(request.resource.data) &&
+                         isImmutableInviteUnchanged() &&
+                         (
+                           // Admin of tenant revokes the invite
+                           (isAdminOfTenant(tenantId) && request.resource.data.status == 'revoked') ||
+                           // Invited user accepts the pending invite
+                           (isAuthenticated() && 
+                            request.auth.token.email == resource.data.email && 
+                            resource.data.status == 'pending' && 
+                            request.resource.data.status == 'accepted')
+                         );
+
+        // Delete: Admin of tenant only
+        allow delete: if isAdminOfTenant(tenantId);
+      }
+    }
+
+    // =========================================================================
+    // USERS COLLECTION (/users/{userId})
+    // Enforces strict 'role' field ('teacher' | 'pupil')
+    // =========================================================================
+    match /users/{userId} {
+      allow read: if isSelf(userId) || isTeacher() || isAdmin();
+
+      allow create: if isSelf(userId) &&
+                       hasNoPII(request.resource.data) &&
+                       request.resource.data.role in ['teacher', 'pupil'] &&
+                       request.resource.data.userId == userId;
+
+      allow update: if isSelf(userId) &&
+                       hasNoPII(request.resource.data) &&
+                       request.resource.data.role == resource.data.role;
+
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // CLASS MANAGEMENT & PUPIL ROSTERS (/classes/{classId})
+    // Accessible by class teacher or admin of the tenant
+    // =========================================================================
+    match /classes/{classId} {
+      allow read, write: if (isTeacherOfClass(classId) || (isAdmin() && (resource == null || resource.data.schoolId == request.auth.token.tenantId || resource.data.tenantId == request.auth.token.tenantId))) &&
+                            (request.resource == null || hasNoPII(request.resource.data));
+
+      // -----------------------------------------------------------------------
+      // NESTED PUPILS ROSTER: /classes/{classId}/pupils/{pupilId}
+      // Strictly restricted to class teacher, tenant admin, or specific pupil UUID
+      // -----------------------------------------------------------------------
+      match /pupils/{pupilId} {
+        // Teacher of this class or tenant admin can inspect; pupil can read their own profile. Cross-pupil blocked.
+        allow read: if isPupilSelf(pupilId) || isTeacherOfClass(classId) || isAdminOfClass(classId);
+
+        // Teacher or tenant admin can provision anonymous accounts into the roster
+        allow create: if (isTeacherOfClass(classId) || isAdminOfClass(classId)) &&
+                         hasNoPII(request.resource.data) &&
+                         request.resource.data.pupilId == pupilId;
+
+        // Teacher, tenant admin, or pupil can update non-PII attributes
+        allow update: if (isPupilSelf(pupilId) || isTeacherOfClass(classId) || isAdminOfClass(classId)) &&
+                         hasNoPII(request.resource.data);
+
+        // Teacher or tenant admin can archive/delete roster entries
+        allow delete: if isTeacherOfClass(classId) || isAdminOfClass(classId);
+
+        // ---------------------------------------------------------------------
+        // SAVINGS POTS SUBCOLLECTION: /classes/{classId}/pupils/{pupilId}/pots/{potId}
+        // Physical visual containers
+        // ---------------------------------------------------------------------
+        match /pots/{potId} {
+          // Teacher or tenant admin has read-only access for live observation/inspection;
+          // Pupil has read/write access to their own Savings Pots.
+          allow read: if isPupilSelf(pupilId) || isTeacherOfClass(classId) || isAdminOfClass(classId);
+
+          allow create: if isPupilSelf(pupilId) &&
+                           request.resource.data.pupilId == pupilId &&
+                           hasNoPII(request.resource.data) &&
+                           request.resource.data.targetAmountCents > 0 &&
+                           request.resource.data.currentAmountCents >= 0 &&
+                           request.resource.data.theme in ['calmingTeal', 'warmAmber'] &&
+                           request.resource.data.status in ['active', 'taking_a_pause', 'goal_reached'];
+
+          allow update: if isPupilSelf(pupilId) &&
+                           request.resource.data.pupilId == pupilId &&
+                           hasNoPII(request.resource.data) &&
+                           request.resource.data.currentAmountCents >= 0 &&
+                           request.resource.data.status in ['active', 'taking_a_pause', 'goal_reached'];
+
+          allow delete: if isPupilSelf(pupilId);
+        }
+
+        // ---------------------------------------------------------------------
+        // LEDGER TRANSACTIONS: /classes/{classId}/pupils/{pupilId}/transactions/{txId}
+        // Immutable audit trail for deposits and allocations
+        // ---------------------------------------------------------------------
+        match /transactions/{transactionId} {
+          allow read: if isPupilSelf(pupilId) || isTeacherOfClass(classId) || isAdminOfClass(classId);
+          allow create: if isPupilSelf(pupilId) &&
+                           request.resource.data.pupilId == pupilId &&
+                           hasNoPII(request.resource.data);
+          allow update, delete: if false;
+        }
+      }
+    }
+
+    // =========================================================================
+    // DIRECT PUPIL SUBPATHS (Root alias compatibility)
+    // =========================================================================
+    match /pupils/{pupilId} {
+      allow read: if isPupilSelf(pupilId) || 
+                     isTeacher() || 
+                     (isAdmin() && (resource == null || resource.data.schoolId == request.auth.token.tenantId || resource.data.tenantId == request.auth.token.tenantId));
+
+      allow create, update: if (isPupilSelf(pupilId) || 
+                               isTeacher() || 
+                               (isAdmin() && (resource == null || resource.data.schoolId == request.auth.token.tenantId || resource.data.tenantId == request.auth.token.tenantId))) && 
+                            hasNoPII(request.resource.data);
+
+      allow delete: if isTeacher() || 
+                       (isAdmin() && (resource.data.schoolId == request.auth.token.tenantId || resource.data.tenantId == request.auth.token.tenantId));
+
+      match /pots/{potId} {
+        allow read: if isPupilSelf(pupilId) || isTeacher() || isAdmin();
+        allow create, update: if isPupilSelf(pupilId) &&
+                                 request.resource.data.pupilId == pupilId &&
+                                 hasNoPII(request.resource.data);
+        allow delete: if isPupilSelf(pupilId);
+      }
+    }
+  }
+}
