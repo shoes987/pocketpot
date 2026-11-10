@@ -194,7 +194,7 @@ export default function PupilJobsPage(props: PupilJobsPageProps) {
         notificationBell={<PupilNotificationBell pupilId={safePupilId} inverted={true} />}
       />
 
-      <main className="flex-1 w-full max-w-4xl mx-auto p-4 md:p-8 pb-36 sm:pb-40 space-y-6 text-left">
+      <main className="flex-1 w-full max-w-4xl mx-auto p-4 md:p-8 pb-56 sm:pb-64 md:pb-72 space-y-6 text-left">
         {/* 2. PUPIL NOTIFICATIONS DRAWER (Approved/Green, Denied/Amber, References) */}
       {notifications.filter((n) => !n.read).length > 0 && (
         <section className="space-y-2.5 text-left">
@@ -344,83 +344,105 @@ export default function PupilJobsPage(props: PupilJobsPageProps) {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {availableJobs.map((job) => {
                 const alreadyApplied = applications.some((a) => a.jobId === job.jobId);
 
                 return (
                   <div
                     key={job.jobId}
-                    className="bg-surface rounded-islandCard p-6 border border-borderMuted shadow-islandCard flex flex-col justify-between space-y-4 text-left hover:shadow-md transition-all"
+                    className="bg-surface rounded-3xl border border-borderMuted shadow-islandCard flex flex-col justify-between overflow-hidden hover:shadow-md transition-all text-left"
                   >
-                    <div className="space-y-2.5">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <h3 className="text-xl font-bold text-primaryText leading-tight">
-                            {job.title}
-                          </h3>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="inline-flex items-center gap-1 text-xs font-bold text-brandPrimary">
-                              <Coins className="w-3.5 h-3.5" />
-                              {formatCurrency(job.wageCents)} / week
-                            </span>
-                            <span className="text-primaryText/40">&bull;</span>
-                            <span className="inline-flex items-center gap-1 text-xs font-bold text-brandSecondary">
-                              <Clock className="w-3.5 h-3.5" />
-                              {job.termWeeks}-week term
-                            </span>
-                          </div>
+                    {/* Green Header with Job Title */}
+                    <div className="bg-brandPrimary text-white px-5 py-3.5 flex items-center justify-between gap-3 shadow-xs">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-white/20 border border-white/25 flex items-center justify-center flex-shrink-0">
+                          <Briefcase className="w-4 h-4 text-white" />
                         </div>
-
-                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-tealSurface text-brandPrimary border border-brandPrimary/30">
-                          Open
-                        </span>
+                        <h3 className="text-base sm:text-lg font-extrabold text-white leading-tight truncate">
+                          {job.title}
+                        </h3>
                       </div>
-
-                      {/* Outline of role written by teacher */}
-                      <p className="text-sm text-primaryText/80 leading-relaxed font-medium">
-                        {job.description}
-                      </p>
-
-                      {/* Required Qualities */}
-                      <div className="space-y-1 pt-1">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-primaryText/55 block">
-                          Qualities Looked For:
-                        </span>
-                        <div className="flex flex-wrap gap-1.5">
-                          {job.requiredQualities.map((q, i) => (
-                            <span
-                              key={i}
-                              className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-canvas border border-borderMuted text-primaryText"
-                            >
-                              {q}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
+                      <span className="px-2.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-white/20 text-white border border-white/30 flex-shrink-0">
+                        Open Role
+                      </span>
                     </div>
 
-                    {/* Action */}
-                    <div className="pt-3 border-t border-borderMuted/60 flex items-center justify-between">
-                      <span className="text-[11px] text-primaryText/55 font-medium">
-                        Wage paid with weekly basic income
-                      </span>
+                    {/* Card Body with Component Information in Clean Pills */}
+                    <div className="p-5 sm:p-6 space-y-4 flex-1 flex flex-col justify-between text-left">
+                      <div className="space-y-4 text-left">
+                        {/* 1. Component Information Pills */}
+                        <div className="flex flex-wrap items-center gap-2">
+                          {/* Wage Pill */}
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-tealSurface text-brandPrimary border border-brandPrimary/30 shadow-2xs">
+                            <Coins className="w-3.5 h-3.5 text-brandPrimary" />
+                            <span>{formatCurrency(job.wageCents)} / week</span>
+                          </span>
 
-                      {alreadyApplied ? (
-                        <span className="px-4 py-2 rounded-full text-xs font-bold bg-tealSurface text-brandPrimary border border-brandPrimary/30 flex items-center gap-1">
-                          <Check className="w-3.5 h-3.5" />
-                          <span>Applied &bull; Pending</span>
+                          {/* Term Duration Pill */}
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amberSurface text-brandSecondary border border-brandSecondary/30 shadow-2xs">
+                            <Clock className="w-3.5 h-3.5 text-brandSecondary" />
+                            <span>{job.termWeeks}-week term</span>
+                          </span>
+
+                          {/* Pay Schedule Pill */}
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-canvas text-primaryText/75 border border-borderMuted shadow-2xs">
+                            <Calendar className="w-3.5 h-3.5 text-primaryText/60" />
+                            <span>Paid with basic income</span>
+                          </span>
+                        </div>
+
+                        {/* 2. Role Description */}
+                        <div className="space-y-1 text-left">
+                          <span className="text-[11px] font-extrabold uppercase tracking-wider text-primaryText/50 block">
+                            Role Summary
+                          </span>
+                          <p className="text-sm text-primaryText/85 leading-relaxed font-normal">
+                            {job.description}
+                          </p>
+                        </div>
+
+                        {/* 3. Required Qualities in Distinct Scannable Pills */}
+                        <div className="space-y-1.5 pt-1 text-left">
+                          <span className="text-[11px] font-extrabold uppercase tracking-wider text-primaryText/50 block">
+                            Qualities Looked For:
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {job.requiredQualities.map((q, i) => (
+                              <span
+                                key={i}
+                                className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/80 shadow-2xs flex items-center gap-1"
+                              >
+                                <Check className="w-3 h-3 text-emerald-600 stroke-[3]" />
+                                <span>{q}</span>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 4. Action Footer */}
+                      <div className="pt-4 mt-2 border-t border-borderMuted/70 flex items-center justify-between gap-3">
+                        <span className="text-[11px] text-primaryText/50 font-medium hidden sm:inline">
+                          Weekly wage credited to your card
                         </span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenApplyModal(job)}
-                          className="px-5 py-2.5 rounded-full bg-brandPrimary hover:bg-teal-700 text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1.5"
-                        >
-                          <Send className="w-3.5 h-3.5" />
-                          <span>Apply for Role</span>
-                        </button>
-                      )}
+
+                        {alreadyApplied ? (
+                          <span className="ml-auto px-4 py-2 rounded-full text-xs font-bold bg-tealSurface text-brandPrimary border border-brandPrimary/30 flex items-center gap-1.5 shadow-2xs">
+                            <Check className="w-3.5 h-3.5 stroke-[3]" />
+                            <span>Applied • Pending Review</span>
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenApplyModal(job)}
+                            className="ml-auto px-5 py-2.5 rounded-full bg-brandPrimary hover:bg-teal-700 text-white font-bold text-xs shadow-xs hover:shadow transition-all flex items-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brandPrimary"
+                          >
+                            <Send className="w-3.5 h-3.5" />
+                            <span>Apply for Role</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -443,40 +465,57 @@ export default function PupilJobsPage(props: PupilJobsPageProps) {
             </div>
 
             {activeJob ? (
-              <div className="p-5 rounded-island bg-amberSurface/40 border border-brandSecondary/30 space-y-3 text-left">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <span className="text-xs font-bold uppercase tracking-wider text-brandSecondary block">
-                      Assigned Classroom Job
-                    </span>
-                    <h4 className="text-xl font-bold text-primaryText mt-0.5">
+              <div className="rounded-3xl border border-borderMuted shadow-xs overflow-hidden text-left bg-surface">
+                {/* Green Header with Active Role Title */}
+                <div className="bg-brandPrimary text-white px-5 py-3.5 flex items-center justify-between gap-3 shadow-xs">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-white/20 border border-white/25 flex items-center justify-center flex-shrink-0">
+                      <Award className="w-4 h-4 text-white" />
+                    </div>
+                    <h4 className="text-base sm:text-lg font-extrabold text-white leading-tight truncate">
                       {activeJob.title}
                     </h4>
-                    <p className="text-xs text-primaryText/80 mt-1 max-w-xl font-medium">
-                      {activeJob.description}
-                    </p>
                   </div>
-                  <div className="text-right">
-                    <span className="text-lg font-bold text-brandPrimary block">
-                      +{formatCurrency(activeJob.wageCents)} / week
-                    </span>
-                    <span className="text-[11px] text-primaryText/60 font-semibold block">
-                      Paid automatically with your basic income
-                    </span>
-                  </div>
+                  <span className="px-2.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-white/20 text-white border border-white/30 flex-shrink-0">
+                    Active in Classroom
+                  </span>
                 </div>
 
-                {/* Term Progress Bar */}
-                <div className="pt-2 border-t border-brandSecondary/25 space-y-1 text-left">
-                  <div className="flex justify-between text-xs font-bold text-primaryText/75">
-                    <span>Term Duration: {activeJob.termWeeks} Weeks</span>
-                    <span className="text-brandSecondary">Active in Classroom</span>
+                <div className="p-5 sm:p-6 space-y-4">
+                  {/* Component Information Pills */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-tealSurface text-brandPrimary border border-brandPrimary/30 shadow-2xs">
+                      <Coins className="w-3.5 h-3.5 text-brandPrimary" />
+                      <span>+{formatCurrency(activeJob.wageCents)} / week</span>
+                    </span>
+
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amberSurface text-brandSecondary border border-brandSecondary/30 shadow-2xs">
+                      <Clock className="w-3.5 h-3.5 text-brandSecondary" />
+                      <span>{activeJob.termWeeks}-week term</span>
+                    </span>
+
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-canvas text-primaryText/75 border border-borderMuted shadow-2xs">
+                      <Calendar className="w-3.5 h-3.5 text-primaryText/60" />
+                      <span>Paid automatically with basic income</span>
+                    </span>
                   </div>
-                  <div className="w-full h-3 rounded-full bg-slate-200 overflow-hidden">
-                    <div
-                      className="h-full bg-brandSecondary rounded-full transition-all"
-                      style={{ width: "50%" }}
-                    />
+
+                  <p className="text-sm text-primaryText/85 leading-relaxed font-normal">
+                    {activeJob.description}
+                  </p>
+
+                  {/* Term Progress Bar */}
+                  <div className="pt-3 border-t border-borderMuted/70 space-y-1.5 text-left">
+                    <div className="flex justify-between text-xs font-bold text-primaryText/75">
+                      <span>Term Duration: {activeJob.termWeeks} Weeks</span>
+                      <span className="text-brandPrimary font-extrabold">Active Role</span>
+                    </div>
+                    <div className="w-full h-3 rounded-full bg-slate-100 overflow-hidden border border-borderMuted/40">
+                      <div
+                        className="h-full bg-brandPrimary rounded-full transition-all"
+                        style={{ width: "50%" }}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -742,6 +781,9 @@ export default function PupilJobsPage(props: PupilJobsPageProps) {
           </div>
         </div>
       )}
+
+      {/* Extra spacer to guarantee a generous gap above the fixed bottom navigation */}
+      <div className="h-10 sm:h-14 w-full" aria-hidden="true" />
       </main>
 
       {/* 7. STRICT 3-TAB PUPIL BOTTOM NAVIGATION */}

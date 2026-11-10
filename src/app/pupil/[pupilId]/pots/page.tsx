@@ -26,6 +26,7 @@ import { PupilBottomNav } from "@/components/ui/PupilBottomNav";
 import { PupilNotificationBell } from "@/components/pupil/PupilNotificationBell";
 import { AppTopHeader } from "@/components/ui/AppTopHeader";
 import { PotGraphic } from "@/components/ui/PotGraphic";
+import { CoinBuddyMascot } from "@/components/ui/CoinBuddyMascot";
 import {
   Plus,
   Sparkles,
@@ -209,7 +210,69 @@ export default function PupilPotsPage(props: PotsPageProps) {
         notificationBell={<PupilNotificationBell pupilId={safePupilId} inverted={true} />}
       />
 
-      <main className="flex-1 w-full max-w-5xl mx-auto p-4 md:p-8 pb-36 sm:pb-40 space-y-6 text-left">
+      <main className="flex-1 w-full max-w-5xl mx-auto p-4 md:p-8 pb-56 sm:pb-64 md:pb-72 space-y-6 text-left">
+        {/* 1.5 PEDAGOGICAL COIN BUDDY SPEECH BUBBLE */}
+        <section className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+          {/* Thoughtful Coin Buddy Mascot */}
+          <div className="shrink-0 flex items-center justify-center pt-1">
+            <CoinBuddyMascot
+              size="md"
+              className="w-20 sm:w-24 md:w-28 h-auto drop-shadow-sm hover:scale-105 transition-transform duration-200 cursor-pointer"
+              ariaLabel="PocketPot coin buddy explaining the purpose of savings pots"
+            />
+          </div>
+
+          {/* Speech Bubble Container */}
+          <div className="relative flex-1 bg-surface border border-teal-200/80 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-islandCard">
+            {/* Desktop Speech Bubble Pointer (Left) */}
+            <div
+              className="hidden sm:block absolute -left-2.5 top-8 w-0 h-0 border-y-8 border-y-transparent border-r-8 border-r-teal-300"
+              aria-hidden="true"
+            />
+            <div
+              className="hidden sm:block absolute -left-2 top-8 w-0 h-0 border-y-8 border-y-transparent border-r-8 border-r-surface"
+              aria-hidden="true"
+            />
+            {/* Mobile Speech Bubble Pointer (Top) */}
+            <div
+              className="sm:hidden absolute -top-2.5 left-1/2 -translate-x-1/2 w-0 h-0 border-x-8 border-x-transparent border-b-8 border-b-teal-300"
+              aria-hidden="true"
+            />
+            <div
+              className="sm:hidden absolute -top-2 left-1/2 -translate-x-1/2 w-0 h-0 border-x-8 border-x-transparent border-b-8 border-b-surface"
+              aria-hidden="true"
+            />
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs sm:text-sm text-primaryText/85">
+              <div className="space-y-1.5 text-left">
+                <div className="flex items-center gap-2">
+                  <span className="text-base text-brandPrimary leading-none">💡</span>
+                  <span className="text-xs sm:text-sm font-extrabold text-brandPrimary uppercase tracking-wider">
+                    What are Savings Pots for?
+                  </span>
+                </div>
+                <p className="leading-relaxed text-xs sm:text-sm text-primaryText/80">
+                  Your <strong className="font-bold text-primaryText">debit card</strong> is for everyday
+                  spending, but <strong className="font-bold text-brandPrimary">Savings Pots</strong> let
+                  you lock money safely away for bigger dreams! Stashing coins in a pot stops you from
+                  accidentally spending them on quick treats so you can reach rewards like choosing your
+                  own desk or special privileges.
+                </p>
+              </div>
+
+              {/* Action Button: Open Create Pot Modal */}
+              <button
+                type="button"
+                onClick={() => setIsCreateModalOpen(true)}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-tealSurface hover:bg-brandPrimary hover:text-white text-brandPrimary font-bold text-xs shrink-0 transition-colors border border-brandPrimary/20 self-end sm:self-center shadow-xs"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>New Pot</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
         {/* 2. OVERVIEW ISLANDS: [DEBIT CARD WITH AMOUNT UNDERNEATH] & [STACKED POTS WITH AMOUNT UNDERNEATH] */}
       <section className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
         {/* Card 1: Available on Debit Card with Debit Card Graphic */}
@@ -392,6 +455,9 @@ export default function PupilPotsPage(props: PotsPageProps) {
           </div>
         )}
       </section>
+
+      {/* Extra spacer to guarantee a generous gap above the fixed bottom navigation */}
+      <div className="h-10 sm:h-14 w-full" aria-hidden="true" />
 
       {/* CREATE NEW POT MODAL */}
       <CreatePotModal

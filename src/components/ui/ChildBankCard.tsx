@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { Wifi, Sparkles } from "lucide-react";
+import { Wifi } from "lucide-react";
+import { PocketPotLogoMark } from "./PocketPotLogo";
 
 interface ChildBankCardProps {
   cardholderName: string;
@@ -32,20 +33,13 @@ export const ChildBankCard: React.FC<ChildBankCardProps> = ({
 
       {/* Card Content Stack */}
       <div className="relative z-10 flex flex-col justify-between h-full text-left">
-        {/* Top Row: App Brand & Contactless Icon */}
+        {/* Top Row: Accurate PocketPot Vector Logo & App Name (Learner Debit removed) */}
         <div className="flex items-center justify-between text-left">
-          <div className="flex items-center gap-2 text-left">
-            <div className="w-7 h-7 rounded-lg bg-white/20 backdrop-blur-md flex items-center justify-center text-white font-bold text-sm border border-white/30">
-              <Sparkles className="w-4 h-4 text-white" />
-            </div>
-            <div className="text-left">
-              <span className="font-bold text-base tracking-wide text-white block text-left">
-                PocketPot
-              </span>
-              <span className="text-[10px] uppercase tracking-wider text-tealSurface/80 block text-left font-medium">
-                Learner Debit
-              </span>
-            </div>
+          <div className="flex items-center gap-2.5 text-left">
+            <PocketPotLogoMark className="w-10 h-10 flex-shrink-0 drop-shadow-sm" withCircle={true} />
+            <span className="font-black text-xl tracking-tight text-white block text-left leading-none">
+              PocketPot
+            </span>
           </div>
 
           <div className="flex items-center gap-2 text-white/80">

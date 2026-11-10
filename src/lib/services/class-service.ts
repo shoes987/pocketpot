@@ -243,7 +243,10 @@ export function getSavedPupils(): PupilDocument[] {
     try {
       const parsed: PupilDocument[] = JSON.parse(stored);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+        return parsed.map((p) => ({
+          ...p,
+          pinNumber: p.pinNumber || p.cardLastFour || "1234",
+        }));
       }
     } catch {
       // Fallback
@@ -257,7 +260,10 @@ export function getSavedPupils(): PupilDocument[] {
     try {
       const parsed: PupilDocument[] = JSON.parse(seeded);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+        return parsed.map((p) => ({
+          ...p,
+          pinNumber: p.pinNumber || p.cardLastFour || "1234",
+        }));
       }
     } catch {
       // Fallback
@@ -923,6 +929,31 @@ export function deletePupil(pupilId: string): { success: boolean; deletedPupilId
   }
 
   return { success: true, deletedPupilId: pupilId };
+}
+
+/**
+ * Resets a pupil's 4-digit card/login PIN (Teacher or Admin action).
+ */
+export function resetPupilPin(
+  pupilId: string,
+  newCustomPin?: string
+): { pupil: PupilDocument; newPin: string } {
+  const pupils = getSavedPupils();
+  const idx = pupils.findIndex((p) => p.pupilId === pupilId);
+  if (idx === -1) throw new Error("Student account not found");
+
+  const generatedPin = Math.floor(1000 + Math.random() * 9000).toString();
+  const finalPin = newCustomPin && /^\d{4}$/.test(newCustomPin) ? newCustomPin : generatedPin;
+
+  const updated: PupilDocument = {
+    ...pupils[idx],
+    pinNumber: finalPin,
+    updatedAt: new Date().toISOString(),
+  };
+
+  pupils[idx] = updated;
+  savePupils(pupils);
+  return { pupil: updated, newPin: finalPin };
 }
 
 /**

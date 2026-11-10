@@ -108,6 +108,7 @@ const ALLOWED_NON_PII_KEYS = new Set([
   "leadteacherid",
   "assignedteacherids",
   "assignedclassids",
+  "pinnumber",
   "createdat",
   "updatedat",
 ]);
@@ -154,6 +155,7 @@ export function createAnonymousPupilProfile(
   const randomAnimal = ANIMALS[Math.floor(Math.random() * ANIMALS.length)];
   const deskBadgeNumber = 100 + badgeSequenceNumber;
   const cardLastFour = Math.floor(1000 + Math.random() * 9000).toString();
+  const pinNumber = Math.floor(1000 + Math.random() * 9000).toString();
 
   const anonymize = options?.anonymize ?? true;
   const localDisplayName = !anonymize && options?.localDisplayName
@@ -174,6 +176,7 @@ export function createAnonymousPupilProfile(
     avatarIconKey: `badge-${randomAnimal.toLowerCase()}`,
     deskBadgeNumber,
     cardLastFour,
+    pinNumber,
     mainBalanceCents,
     totalSavedCents: 0,
     activePotsCount: 2,

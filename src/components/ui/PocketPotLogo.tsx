@@ -6,115 +6,115 @@ interface PocketPotLogoProps {
   className?: string;
   size?: "sm" | "md" | "lg" | "xl";
   variant?: "full" | "mark" | "horizontal";
-  inverted?: boolean; // When placed on dark / teal backgrounds
+  inverted?: boolean; // When placed on dark / teal backgrounds (affects text)
   showTagline?: boolean;
+  withCircle?: boolean; // Encapsulate in white circle
 }
 
 export const PocketPotLogoMark: React.FC<{
   className?: string;
-  inverted?: boolean;
-}> = ({ className = "w-8 h-8", inverted = false }) => {
-  // Brand colors:
-  // Amber / Terracotta: #E57A18 (stroke for "P")
-  // Dark navy: #15263A (outline for pots & text)
-  // Teal: #0D9488 / #0F766E (pot bodies)
-  const pColor = inverted ? "#F59E0B" : "#D97706"; // Warm amber
-  const potOutline = inverted ? "#FFFFFF" : "#13263E"; // Dark navy or crisp white on teal
-  const potFill = inverted ? "#14B8A6" : "#0D9488"; // Brighter teal when inverted on darker teal
+  withCircle?: boolean;
+}> = ({ className = "w-10 h-10", withCircle = true }) => {
+  // Exact brand colors directly extracted from the official PocketPot artwork:
+  // "P" Outer Stroke: #CC7600 (Rich Warm Amber)
+  // Pots Outline: #27394D (Midnight Navy)
+  // Pots Fill: #188781 (Deep Peacock Sea Teal)
+  const pColor = "#CC7600";
+  const potOutline = "#27394D";
+  const potFill = "#188781";
 
   return (
     <svg
-      viewBox="0 0 140 160"
+      viewBox="0 0 240 240"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
-      aria-label="PocketPot Logo Mark"
+      aria-label="PocketPot Official Logo Mark"
       role="img"
     >
-      {/* Outer Stylized "P" Stroke */}
+      {/* Pristine White Circle Background */}
+      {withCircle && <circle cx="120" cy="120" r="114" fill="#FFFFFF" />}
+
+      {/* 1. LAYER 1: More Rounded Stylized "P" Stroke with generous breathing gap from circle */}
       <path
-        d="M 58 142 
-           C 42 142, 30 134, 30 118 
-           L 30 38 
-           C 30 20, 46 14, 68 14 
-           L 90 14 
-           C 114 14, 126 26, 126 48 
-           C 126 70, 114 84, 94 84 
-           C 84 84, 76 82, 70 80"
+        d="M 96 193
+           H 86
+           C 70.5 193, 58 180.5, 58 165
+           V 75
+           C 58 59.5, 70.5 47, 86 47
+           H 154
+           C 169.5 47, 182 59.5, 182 75
+           V 112
+           C 182 127.5, 169.5 140, 154 140
+           H 142"
         stroke={pColor}
-        strokeWidth="9"
+        strokeWidth="11"
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
       />
 
-      {/* 3 STACKED POTS */}
-      {/* Top Pot (Smallest) */}
+      {/* 2. LAYER 2: 3 STACKED POTS (Exact proportions & balanced rim nesting) */}
+      {/* TOP POT */}
       <g id="top-pot">
-        {/* Pot Body */}
         <path
-          d="M 56 34 L 59 48 C 59.5 52, 63 54, 70 54 L 84 54 C 91 54, 94.5 52, 95 48 L 98 34 Z"
+          d="M 83 79 L 86 99 H 154 L 157 79 Z"
           fill={potFill}
           stroke={potOutline}
-          strokeWidth="3.2"
+          strokeWidth="6"
           strokeLinejoin="round"
         />
-        {/* Pot Rim */}
         <rect
-          x="53"
-          y="25"
-          width="48"
-          height="10.5"
-          rx="5.25"
+          x="77"
+          y="63"
+          width="86"
+          height="19"
+          rx="9.5"
           fill={potFill}
           stroke={potOutline}
-          strokeWidth="3.2"
+          strokeWidth="6"
         />
       </g>
 
-      {/* Middle Pot */}
+      {/* MIDDLE POT */}
       <g id="middle-pot">
-        {/* Pot Body */}
         <path
-          d="M 53 58 L 57 76 C 57.5 81, 62 83, 70 83 L 84 83 C 92 83, 96.5 81, 97 76 L 101 58 Z"
+          d="M 83 115 L 86 135 H 154 L 157 115 Z"
           fill={potFill}
           stroke={potOutline}
-          strokeWidth="3.5"
+          strokeWidth="6"
           strokeLinejoin="round"
         />
-        {/* Pot Rim */}
         <rect
-          x="50"
-          y="49"
-          width="54"
-          height="11.5"
-          rx="5.75"
+          x="77"
+          y="99"
+          width="86"
+          height="19"
+          rx="9.5"
           fill={potFill}
           stroke={potOutline}
-          strokeWidth="3.5"
+          strokeWidth="6"
         />
       </g>
 
-      {/* Bottom Pot (Largest) */}
+      {/* BOTTOM POT (Tallest with flat rounded base) */}
       <g id="bottom-pot">
-        {/* Pot Body */}
         <path
-          d="M 50 86 L 55 116 C 55.5 125, 62 129, 70 129 L 84 129 C 92 129, 98.5 125, 99 116 L 104 86 Z"
+          d="M 83 151 L 91 187 C 92.5 192, 96 193.5, 101 193.5 H 139 C 144 193.5, 147.5 192, 149 187 L 157 151 Z"
           fill={potFill}
           stroke={potOutline}
-          strokeWidth="3.8"
+          strokeWidth="6"
           strokeLinejoin="round"
         />
-        {/* Pot Rim */}
         <rect
-          x="47"
-          y="76"
-          width="60"
-          height="12.5"
-          rx="6.25"
+          x="77"
+          y="135"
+          width="86"
+          height="19"
+          rx="9.5"
           fill={potFill}
           stroke={potOutline}
-          strokeWidth="3.8"
+          strokeWidth="6"
         />
       </g>
     </svg>
@@ -127,27 +127,33 @@ export const PocketPotLogo: React.FC<PocketPotLogoProps> = ({
   variant = "horizontal",
   inverted = false,
   showTagline = false,
+  withCircle = true,
 }) => {
   const sizeMap = {
-    sm: { mark: "w-7 h-7", text: "text-base", sub: "text-[9px]" },
-    md: { mark: "w-9 h-9", text: "text-xl", sub: "text-[11px]" },
-    lg: { mark: "w-12 h-12", text: "text-2xl", sub: "text-xs" },
-    xl: { mark: "w-16 h-16", text: "text-3xl", sub: "text-sm" },
+    sm: { mark: "w-8 h-8", text: "text-lg", sub: "text-[10px]" },
+    md: { mark: "w-10 h-10", text: "text-xl", sub: "text-xs" },
+    lg: { mark: "w-14 h-14", text: "text-2xl", sub: "text-sm" },
+    xl: { mark: "w-20 h-20", text: "text-3xl", sub: "text-base" },
   };
 
   const currentSize = sizeMap[size];
   const textColor = inverted ? "text-white" : "text-[#13263E]";
-  const subColor = inverted ? "text-teal-100/90" : "text-primaryText/70";
+  const subColor = inverted ? "text-teal-100/90" : "text-[#13263E]/80";
 
   if (variant === "mark") {
-    return <PocketPotLogoMark className={`${currentSize.mark} ${className}`} inverted={inverted} />;
+    return (
+      <PocketPotLogoMark
+        className={`${currentSize.mark} ${className}`}
+        withCircle={withCircle}
+      />
+    );
   }
 
   if (variant === "full") {
     return (
       <div className={`flex flex-col items-center text-center ${className}`}>
-        <PocketPotLogoMark className={currentSize.mark} inverted={inverted} />
-        <span className={`font-extrabold tracking-tight mt-1.5 ${currentSize.text} ${textColor}`}>
+        <PocketPotLogoMark className={currentSize.mark} withCircle={withCircle} />
+        <span className={`font-black tracking-tight mt-2 ${currentSize.text} ${textColor}`}>
           PocketPot
         </span>
         {showTagline && (
@@ -161,8 +167,11 @@ export const PocketPotLogo: React.FC<PocketPotLogoProps> = ({
 
   // Horizontal layout (standard for headers)
   return (
-    <div className={`flex items-center gap-2.5 ${className}`}>
-      <PocketPotLogoMark className={`${currentSize.mark} flex-shrink-0`} inverted={inverted} />
+    <div className={`flex items-center gap-3 ${className}`}>
+      <PocketPotLogoMark
+        className={`${currentSize.mark} flex-shrink-0 drop-shadow-xs`}
+        withCircle={withCircle}
+      />
       <div className="flex flex-col text-left leading-none">
         <span className={`font-black tracking-tight ${currentSize.text} ${textColor}`}>
           PocketPot

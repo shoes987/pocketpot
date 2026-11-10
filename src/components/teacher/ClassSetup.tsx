@@ -16,14 +16,19 @@ import {
   updateClassSettings,
   autoReconcileAllClassesWeeklyIncome,
   getNextScheduledPayoutTime,
+  getSavedClassesForUser,
+  resetPupilPin,
   BALANCE_SYNC_EVENT,
 } from "@/lib/services/class-service";
+import { getCurrentTeacherUser } from "@/lib/services/auth-service";
 import { formatCurrency } from "@/lib/firebase/zero-pii";
 import {
   getActiveJobForPupil,
   getCompletedJobsForPupil,
 } from "@/lib/services/jobs-service";
 import { PupilInspectModal } from "./PupilInspectModal";
+import { PrintPupilCardsModal } from "./PrintPupilCardsModal";
+import { ResetPinModal } from "./ResetPinModal";
 import {
   PlusCircle,
   Plus,
@@ -48,11 +53,14 @@ import {
   UserPlus,
   FileSpreadsheet,
   Users,
+  Printer,
+  KeyRound,
 } from "lucide-react";
 import { SinglePupilAddModal } from "./SinglePupilAddModal";
 import { CsvClasslistUploadModal } from "./CsvClasslistUploadModal";
 
 interface ClassSetupProps {
+  classes?: ClassDocument[];
   onOpenSetupWizard?: () => void;
   activeClassId?: string;
   onSelectClassId?: (classId: string) => void;
@@ -62,19 +70,28 @@ interface ClassSetupProps {
 }
 
 export const ClassSetup: React.FC<ClassSetupProps> = ({
+  classes: propsClasses,
   onOpenSetupWizard,
   activeClassId,
   onSelectClassId,
-  isAdmin,
+  isAdmin = false,
   onOpenAssignModal,
   onPupilsChanged,
 }) => {
-  const [classes, setClasses] = useState<ClassDocument[]>([]);
+  const [classes, setClasses] = useState<ClassDocument[]>(propsClasses || []);
   const [pupils, setPupils] = useState<PupilDocument[]>([]);
   const [pots, setPots] = useState<SavingsPotDocument[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>("");
   const [isSingleAddOpen, setIsSingleAddOpen] = useState(false);
   const [isCsvUploadOpen, setIsCsvUploadOpen] = useState(false);
+
+  // Print Debit Cards Modal state (Requirement 2 & 3)
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [printTargetPupils, setPrintTargetPupils] = useState<PupilDocument[]>([]);
+  const [printModalTitle, setPrintModalTitle] = useState<string | undefined>(undefined);
+
+  // Reset PIN Modal state (Requirement 3)
+  const [resettingPupil, setResettingPupil] = useState<PupilDocument | null>(null);
 
   // Form states
   const [classNameInput, setClassNameInput] = useState<string>("Year 4 Teal");
@@ -132,7 +149,15 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
     autoReconcileAllClassesWeeklyIncome();
 
     const refreshData = () => {
-      const loadedClasses = getSavedClasses();
+      // Requirement 1: In teacher view, strictly scope to classes assigned to this educator. In admin view, show all classes.
+      const currentTeacher = getCurrentTeacherUser();
+      const loadedClasses =
+        propsClasses && propsClasses.length > 0
+          ? propsClasses
+          : isAdmin
+          ? getSavedClasses()
+          : getSavedClassesForUser(currentTeacher);
+
       const loadedPupils = getSavedPupils();
       const loadedPots = getSavedPots();
 
@@ -141,7 +166,15 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
       setPots(loadedPots);
 
       if (loadedClasses.length > 0) {
-        setSelectedClassId((prev) => activeClassId || prev || loadedClasses[0].classId);
+        setSelectedClassId((prev) => {
+          if (activeClassId && loadedClasses.some((c) => c.classId === activeClassId)) {
+            return activeClassId;
+          }
+          if (prev && loadedClasses.some((c) => c.classId === prev)) {
+            return prev;
+          }
+          return loadedClasses[0].classId;
+        });
       }
     };
 
@@ -158,13 +191,13 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
       window.removeEventListener("storage", handleSync);
       window.removeEventListener(BALANCE_SYNC_EVENT, handleSync);
     };
-  }, []);
+  }, [propsClasses, isAdmin, activeClassId]);
 
   useEffect(() => {
-    if (activeClassId) {
+    if (activeClassId && classes.some((c) => c.classId === activeClassId)) {
       setSelectedClassId(activeClassId);
     }
-  }, [activeClassId]);
+  }, [activeClassId, classes]);
 
   // Validation: Check if class name is duplicated
   const isDuplicateName = classes.some(
@@ -320,6 +353,28 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : "Failed to update allowance settings.");
     }
+  };
+
+  const handleOpenPrintClassCards = () => {
+    setPrintTargetPupils(classPupils);
+    setPrintModalTitle(`Print Debit Cards • ${activeClass?.className || "Class"} (${classPupils.length} Pupils)`);
+    setIsPrintModalOpen(true);
+  };
+
+  const handleOpenPrintSingleCard = (pupil: PupilDocument) => {
+    setPrintTargetPupils([pupil]);
+    setPrintModalTitle(`Print Debit Card • ${pupil.localDisplayName || pupil.educationalCodename}`);
+    setIsPrintModalOpen(true);
+  };
+
+  const handlePinResetConfirm = (pupil: PupilDocument, newPin: string) => {
+    const res = resetPupilPin(pupil.pupilId, newPin);
+    setPupils((prev) =>
+      prev.map((p) => (p.pupilId === pupil.pupilId ? res.pupil : p))
+    );
+    setActionSuccessMessage(`PIN for ${pupil.localDisplayName || pupil.educationalCodename} has been reset to ${res.newPin}.`);
+    setTimeout(() => setActionSuccessMessage(null), 5000);
+    onPupilsChanged?.();
   };
 
   return (
@@ -956,6 +1011,18 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
+                {/* Print Class Cards Button - Requirement 2 */}
+                <button
+                  type="button"
+                  onClick={handleOpenPrintClassCards}
+                  disabled={classPupils.length === 0}
+                  className="px-3 py-1.5 rounded-xl bg-tealSurface hover:bg-tealSurface/80 text-brandPrimary border border-brandPrimary/30 font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  title="Print individual PocketPot debit cards with child PINs for all pupils in this class"
+                >
+                  <Printer className="w-3.5 h-3.5 text-brandPrimary" />
+                  <span>Print Class Cards</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setIsSingleAddOpen(true)}
@@ -1079,7 +1146,7 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
                             )}
                           </div>
 
-                          <div className="flex items-center gap-2 text-xs text-primaryText/60">
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-primaryText/60">
                             {hasLocalName && (
                               <span className="font-medium text-primaryText/70">
                                 Codename: {pupil.educationalCodename} •{" "}
@@ -1087,6 +1154,11 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
                             )}
                             <span className="font-mono">
                               UUID: {pupil.pupilId.slice(0, 8)}...
+                            </span>
+                            <span>•</span>
+                            <span className="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-slate-700 bg-canvas px-2 py-0.5 rounded-md border border-borderMuted">
+                              <KeyRound className="w-3 h-3 text-amber-500" />
+                              PIN: {pupil.pinNumber || pupil.cardLastFour || "1234"}
                             </span>
                           </div>
                         </div>
@@ -1182,8 +1254,30 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
                         })()}
                       </div>
 
-                      {/* Action Buttons: Inspect View, Open Child View & Delete Pupil */}
-                      <div className="flex items-center gap-2 text-left">
+                      {/* Action Buttons: Print Card, Reset PIN, Inspect View, Open Child View & Delete Pupil */}
+                      <div className="flex items-center gap-1.5 text-left flex-wrap sm:flex-nowrap">
+                        {/* Requirement 3: Print Card button */}
+                        <button
+                          type="button"
+                          onClick={() => handleOpenPrintSingleCard(pupil)}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-island bg-surface hover:bg-tealSurface border border-borderMuted hover:border-brandPrimary/40 text-primaryText/80 hover:text-brandPrimary font-bold text-xs transition-colors shadow-2xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-brandPrimary"
+                          title={`Print PocketPot debit card for ${hasLocalName ? pupil.localDisplayName : pupil.educationalCodename}`}
+                        >
+                          <Printer className="w-3.5 h-3.5 text-brandPrimary" />
+                          <span className="hidden sm:inline">Print Card</span>
+                        </button>
+
+                        {/* Requirement 3: Reset PIN button */}
+                        <button
+                          type="button"
+                          onClick={() => setResettingPupil(pupil)}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-island bg-surface hover:bg-amberSurface border border-borderMuted hover:border-brandSecondary/40 text-brandSecondary font-bold text-xs transition-colors shadow-2xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-brandSecondary"
+                          title={`Reset 4-digit PIN for ${hasLocalName ? pupil.localDisplayName : pupil.educationalCodename}`}
+                        >
+                          <KeyRound className="w-3.5 h-3.5 text-brandSecondary" />
+                          <span className="hidden sm:inline">Reset PIN</span>
+                        </button>
+
                         <button
                           type="button"
                           onClick={() => setInspectingPupil(pupil)}
@@ -1470,6 +1564,27 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
           onPupilsChanged?.();
           setActionSuccessMessage(`${newPupils.length} students enrolled via CSV!`);
           setTimeout(() => setActionSuccessMessage(null), 4000);
+        }}
+      />
+
+      {/* 6. PRINT CLASS DEBIT CARDS MODAL (Requirement 2 & 3) */}
+      <PrintPupilCardsModal
+        isOpen={isPrintModalOpen}
+        onClose={() => setIsPrintModalOpen(false)}
+        pupils={printTargetPupils}
+        className={activeClass?.className}
+        classJoinCode={activeClass?.classJoinCode}
+        title={printModalTitle}
+      />
+
+      {/* 7. RESET PUPIL PIN MODAL (Requirement 3) */}
+      <ResetPinModal
+        isOpen={Boolean(resettingPupil)}
+        pupil={resettingPupil}
+        onClose={() => setResettingPupil(null)}
+        onPinReset={handlePinResetConfirm}
+        onOpenPrintCard={(updatedPupil) => {
+          handleOpenPrintSingleCard(updatedPupil);
         }}
       />
     </div>

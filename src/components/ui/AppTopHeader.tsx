@@ -15,6 +15,7 @@ export interface AppTopHeaderProps {
   notificationBell?: React.ReactNode;
   rightActions?: React.ReactNode;
   className?: string;
+  children?: React.ReactNode;
 }
 
 export const AppTopHeader: React.FC<AppTopHeaderProps> = ({
@@ -27,6 +28,7 @@ export const AppTopHeader: React.FC<AppTopHeaderProps> = ({
   notificationBell,
   rightActions,
   className = "",
+  children,
 }) => {
   // Determine default return-to link based on role
   const resolvedMainLink =
@@ -69,10 +71,12 @@ export const AppTopHeader: React.FC<AppTopHeaderProps> = ({
             <PocketPotLogo variant="horizontal" size="md" inverted={true} />
           </Link>
 
-          {/* View Badge Tag */}
-          <span className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-white/15 text-white/95 border border-white/20">
-            {roleLabel}
-          </span>
+          {/* View Badge Tag - hidden for pupil view */}
+          {role !== "pupil" && (
+            <span className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-white/15 text-white/95 border border-white/20">
+              {roleLabel}
+            </span>
+          )}
         </div>
 
         {/* 2. RIGHT: Contextual Actions, Notification Bell, and Username */}
@@ -124,6 +128,15 @@ export const AppTopHeader: React.FC<AppTopHeaderProps> = ({
           </div>
         </div>
       </div>
+
+      {/* PERMANENT SECONDARY MENU UNDERNEATH TOP BANNER */}
+      {children && (
+        <div className="w-full bg-surface text-primaryText border-t border-teal-800/30 border-b border-borderMuted shadow-xs">
+          <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 sm:py-2.5 flex flex-wrap items-center justify-between gap-3">
+            {children}
+          </div>
+        </div>
+      )}
     </header>
   );
 };

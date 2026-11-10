@@ -108,6 +108,7 @@ export interface PupilDocument {
   avatarIconKey: string;       // e.g. "badge-otter", "badge-falcon"
   deskBadgeNumber: number;     // Random identifier (e.g. 101, 102) for classroom handout
   cardLastFour: string;        // Last 4 digits of pupil's bank card, e.g. "4821"
+  pinNumber?: string;          // 4-digit login & debit card PIN (e.g. "4821")
   mainBalanceCents: number;    // Available card balance (e.g. 1550 = £15.50)
   totalSavedCents: number;     // Total allocated across pots (e.g. 2650 = £26.50)
   activePotsCount: number;

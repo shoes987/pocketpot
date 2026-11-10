@@ -15,7 +15,12 @@ import {
   getSavedBonusAwards,
   DEFAULT_POSITIVE_BEHAVIOURS,
 } from "@/lib/services/bonus-service";
-import { getSavedPupils, getSavedClasses } from "@/lib/services/class-service";
+import {
+  getSavedPupils,
+  getSavedClasses,
+  getSavedClassesForUser,
+} from "@/lib/services/class-service";
+import { getCurrentTeacherUser, isUserAdmin } from "@/lib/services/auth-service";
 import { formatCurrency } from "@/lib/firebase/zero-pii";
 import {
   Sparkles,
@@ -68,11 +73,19 @@ const THEME_STYLES: Record<string, { bg: string; border: string; text: string; b
   },
 };
 
-export function TeacherBonusesDashboard() {
+export interface TeacherBonusesDashboardProps {
+  classes?: import("@/lib/firebase/types").ClassDocument[];
+  activeClassId?: string;
+}
+
+export function TeacherBonusesDashboard({
+  classes: propsClasses,
+  activeClassId,
+}: TeacherBonusesDashboardProps = {}) {
   const [behaviours, setBehaviours] = useState<PositiveBehaviourDocument[]>([]);
   const [pupils, setPupils] = useState<PupilDocument[]>([]);
   const [recentAwards, setRecentAwards] = useState<BonusAwardDocument[]>([]);
-  const [selectedClassId, setSelectedClassId] = useState<string>("");
+  const [selectedClassId, setSelectedClassId] = useState<string>(activeClassId || "");
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [isWhiteboardMode, setIsWhiteboardMode] = useState<boolean>(false);
 
@@ -135,8 +148,17 @@ export function TeacherBonusesDashboard() {
 
   // Load Data
   const loadData = () => {
-    const loadedClasses = getSavedClasses();
-    const activeClass = loadedClasses[0];
+    const currentTeacher = getCurrentTeacherUser();
+    const loadedClasses =
+      propsClasses && propsClasses.length > 0
+        ? propsClasses
+        : isUserAdmin()
+        ? getSavedClasses()
+        : getSavedClassesForUser(currentTeacher);
+
+    const activeClass =
+      (activeClassId && loadedClasses.find((c) => c.classId === activeClassId)) ||
+      loadedClasses[0];
     const classId = activeClass ? activeClass.classId : "class-year4-teal";
     setSelectedClassId(classId);
 
@@ -147,7 +169,7 @@ export function TeacherBonusesDashboard() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [propsClasses, activeClassId]);
 
   // Audio Synthesizer Chime (Web Audio API - 100% reliable, zero network latency)
   const playCelebrationChime = () => {

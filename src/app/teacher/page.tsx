@@ -30,8 +30,6 @@ import {
   School,
   CheckCircle2,
   Briefcase,
-  PanelLeftClose,
-  PanelLeftOpen,
   Sparkles,
   ShoppingBag,
   HelpCircle,
@@ -43,7 +41,6 @@ import {
 
 export default function TeacherPortalPage() {
   const [activeTab, setActiveTab] = useState<"class-setup" | "jobs-board" | "bonuses" | "marketplace" | "faqs">("class-setup");
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSetupWizardOpen, setIsSetupWizardOpen] = useState(false);
 
   // Authenticated Teacher State (Strictly role === 'teacher')
@@ -122,7 +119,7 @@ export default function TeacherPortalPage() {
 
   return (
     <div className="min-h-screen bg-canvas text-primaryText font-lexend text-left flex flex-col">
-      {/* 1. TRUE FULL-WIDTH STICKY TOP HEADER IN TEAL */}
+      {/* 1. TRUE FULL-WIDTH STICKY TOP HEADER IN TEAL WITH PERMANENT SUB-BAR */}
       <AppTopHeader
         role="teacher"
         userName={currentTeacher?.displayName || "Classroom Teacher"}
@@ -183,280 +180,187 @@ export default function TeacherPortalPage() {
             </button>
           </div>
         }
-      />
-
-      <main
-        className={`flex-1 w-full p-4 md:p-6 lg:p-8 space-y-6 mx-auto font-lexend text-left transition-all duration-300 ${
-          isSidebarCollapsed ? "max-w-none px-4 sm:px-8 lg:px-12" : "max-w-7xl"
-        }`}
       >
+        {/* PERMANENT HORIZONTAL NAVIGATION MENU UNDERNEATH TOP BANNER */}
+        <nav className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-0.5" aria-label="Teacher Dashboard Tabs">
+          <button
+            type="button"
+            onClick={() => setActiveTab("class-setup")}
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all shrink-0 ${
+              activeTab === "class-setup"
+                ? "bg-tealSurface text-brandPrimary border border-brandPrimary/30 shadow-xs font-extrabold"
+                : "text-primaryText/70 hover:text-primaryText hover:bg-canvas border border-transparent"
+            }`}
+          >
+            <School className="w-4 h-4" />
+            <span>Class Setup</span>
+          </button>
 
-      {/* TEACHER ACCOUNT SWITCHER MODAL (STRICTLY TEACHERS ONLY - NO ADMIN) */}
-      {isTeacherSwitcherOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 bg-primaryText/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
-        >
-          <div className="bg-surface rounded-pot border border-borderMuted shadow-2xl p-5 sm:p-6 md:p-8 space-y-4 max-w-md w-full text-left">
-            <div className="flex items-start justify-between border-b border-borderMuted/60 pb-3">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-brandPrimary">
-                  Teacher Portal
-                </span>
-                <h3 className="text-xl font-bold text-primaryText">Switch Teacher Account</h3>
-                <p className="text-xs text-primaryText/60">
-                  Select an educator profile. Teacher level accounts are scoped strictly to their assigned classes.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsTeacherSwitcherOpen(false)}
-                className="text-primaryText/40 hover:text-primaryText text-2xl font-bold p-1 leading-none"
-              >
-                &times;
-              </button>
-            </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab("jobs-board")}
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all shrink-0 ${
+              activeTab === "jobs-board"
+                ? "bg-tealSurface text-brandPrimary border border-brandPrimary/30 shadow-xs font-extrabold"
+                : "text-primaryText/70 hover:text-primaryText hover:bg-canvas border border-transparent"
+            }`}
+          >
+            <Briefcase className="w-4 h-4" />
+            <span>Jobs Board</span>
+          </button>
 
-            <div className="space-y-2">
-              {availableTeachers.map((teacher) => {
-                const isCurrent = teacher.userId === currentTeacher?.userId;
-                return (
-                  <button
-                    key={teacher.userId}
-                    type="button"
-                    onClick={() => handleSwitchTeacher(teacher.userId)}
-                    className={`w-full p-3.5 rounded-2xl border text-left flex items-center justify-between transition-all ${
-                      isCurrent
-                        ? "bg-tealSurface border-brandPrimary shadow-xs"
-                        : "bg-canvas border-borderMuted hover:border-brandPrimary/40"
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-base">👨‍🏫</span>
-                        <strong className="text-sm font-bold text-primaryText">{teacher.displayName}</strong>
-                      </div>
-                      <span className="text-[11px] text-primaryText/60 block mt-0.5">{teacher.email}</span>
-                      <span className="text-[10px] font-semibold text-brandPrimary block mt-0.5">
-                        Assigned: {teacher.assignedClassIds?.join(", ") || "No classes"}
-                      </span>
-                    </div>
-                    {isCurrent && <CheckCircle2 className="w-5 h-5 text-brandPrimary shrink-0" />}
-                  </button>
-                );
-              })}
-            </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab("bonuses")}
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all shrink-0 ${
+              activeTab === "bonuses"
+                ? "bg-tealSurface text-brandPrimary border border-brandPrimary/30 shadow-xs font-extrabold"
+                : "text-primaryText/70 hover:text-primaryText hover:bg-canvas border border-transparent"
+            }`}
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>Bonuses</span>
+          </button>
 
-            {/* Note on Admin Isolation */}
-            <div className="p-3 rounded-xl bg-canvas border border-borderMuted text-xs text-primaryText/60 flex items-center gap-2">
-              <Lock className="w-4 h-4 text-primaryText/40 flex-shrink-0" />
-              <span>Admin governance is handled on a separate administrative level.</span>
-            </div>
-          </div>
-        </div>
-      )}
+          <button
+            type="button"
+            onClick={() => setActiveTab("marketplace")}
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all shrink-0 ${
+              activeTab === "marketplace"
+                ? "bg-tealSurface text-brandPrimary border border-brandPrimary/30 shadow-xs font-extrabold"
+                : "text-primaryText/70 hover:text-primaryText hover:bg-canvas border border-transparent"
+            }`}
+          >
+            <ShoppingBag className="w-4 h-4" />
+            <span>Marketplace</span>
+          </button>
 
-      {/* 2. CLASSROOM LAYOUT */}
-      <div
-        className={`grid grid-cols-1 ${
-          isSidebarCollapsed ? "grid-cols-1" : "lg:grid-cols-12"
-        } gap-6 items-start transition-all duration-300`}
-      >
-        {/* SIDEBAR NAVIGATION MENU */}
-        {!isSidebarCollapsed && (
-          <aside className="lg:col-span-3 bg-surface rounded-pot p-4 border border-borderMuted shadow-islandCard space-y-2 text-left sticky top-4">
-            <div className="flex items-center justify-between px-3 py-1 mb-1 border-b border-borderMuted/50 pb-2">
-              <div className="text-left">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-primaryText/50 block">
-                  {activeClass?.className || "Class Navigation"}
-                </span>
-                <span className="text-xs font-bold text-brandPrimary block">
-                  Join Code: {activeClass?.classJoinCode || "N/A"}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsSidebarCollapsed(true)}
-                className="p-1 rounded-lg text-primaryText/50 hover:text-primaryText hover:bg-canvas transition-colors"
-                title="Collapse Sidebar"
-              >
-                <PanelLeftClose className="w-4 h-4" />
-              </button>
-            </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab("faqs")}
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all shrink-0 ${
+              activeTab === "faqs"
+                ? "bg-tealSurface text-brandPrimary border border-brandPrimary/30 shadow-xs font-extrabold"
+                : "text-primaryText/70 hover:text-primaryText hover:bg-canvas border border-transparent"
+            }`}
+          >
+            <HelpCircle className="w-4 h-4" />
+            <span>FAQs</span>
+          </button>
+        </nav>
 
-            <nav className="space-y-1.5" aria-label="Teacher Dashboard Navigation">
-              {/* Option 1: Class Setup */}
-              <button
-                type="button"
-                onClick={() => setActiveTab("class-setup")}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold text-sm transition-all text-left ${
-                  activeTab === "class-setup"
-                    ? "bg-tealSurface text-brandPrimary border border-brandPrimary/30 shadow-xs"
-                    : "text-primaryText/75 hover:bg-canvas hover:text-primaryText border border-transparent"
-                }`}
-              >
-                <div
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${
-                    activeTab === "class-setup"
-                      ? "bg-brandPrimary text-white"
-                      : "bg-canvas text-primaryText/60"
-                  }`}
-                >
-                  <School className="w-4 h-4" />
-                </div>
-                <div className="text-left">
-                  <span className="block leading-tight">Class Setup</span>
-                  <span className="text-[11px] text-primaryText/55 font-medium block">
-                    Roster &amp; Policies
-                  </span>
-                </div>
-              </button>
-
-              {/* Option 2: Jobs Board */}
-              <button
-                type="button"
-                onClick={() => setActiveTab("jobs-board")}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold text-sm transition-all text-left ${
-                  activeTab === "jobs-board"
-                    ? "bg-tealSurface text-brandPrimary border border-brandPrimary/30 shadow-xs"
-                    : "text-primaryText/75 hover:bg-canvas hover:text-primaryText border border-transparent"
-                }`}
-              >
-                <div
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${
-                    activeTab === "jobs-board"
-                      ? "bg-brandPrimary text-white"
-                      : "bg-canvas text-primaryText/60"
-                  }`}
-                >
-                  <Briefcase className="w-4 h-4" />
-                </div>
-                <div className="text-left">
-                  <span className="block leading-tight">Jobs Board</span>
-                  <span className="text-[11px] text-primaryText/55 font-medium block">
-                    Roles &amp; Wages
-                  </span>
-                </div>
-              </button>
-
-              {/* Option 3: Bonuses */}
-              <button
-                type="button"
-                onClick={() => setActiveTab("bonuses")}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold text-sm transition-all text-left ${
-                  activeTab === "bonuses"
-                    ? "bg-tealSurface text-brandPrimary border border-brandPrimary/30 shadow-xs"
-                    : "text-primaryText/75 hover:bg-canvas hover:text-primaryText border border-transparent"
-                }`}
-              >
-                <div
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${
-                    activeTab === "bonuses"
-                      ? "bg-brandPrimary text-white"
-                      : "bg-canvas text-primaryText/60"
-                  }`}
-                >
-                  <Sparkles className="w-4 h-4" />
-                </div>
-                <div className="text-left">
-                  <span className="block leading-tight">Bonuses</span>
-                  <span className="text-[11px] text-primaryText/55 font-medium block">
-                    Instant Rewards
-                  </span>
-                </div>
-              </button>
-
-              {/* Option 4: Classroom Marketplace */}
-              <button
-                type="button"
-                onClick={() => setActiveTab("marketplace")}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold text-sm transition-all text-left ${
-                  activeTab === "marketplace"
-                    ? "bg-tealSurface text-brandPrimary border border-brandPrimary/30 shadow-xs"
-                    : "text-primaryText/75 hover:bg-canvas hover:text-primaryText border border-transparent"
-                }`}
-              >
-                <div
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${
-                    activeTab === "marketplace"
-                      ? "bg-brandPrimary text-white"
-                      : "bg-canvas text-primaryText/60"
-                  }`}
-                >
-                  <ShoppingBag className="w-4 h-4" />
-                </div>
-                <div className="text-left">
-                  <span className="block leading-tight">Marketplace</span>
-                  <span className="text-[11px] text-primaryText/55 font-medium block">
-                    Privileges &amp; Delayed Gratification
-                  </span>
-                </div>
-              </button>
-
-              {/* Option 5: FAQs */}
-              <button
-                type="button"
-                onClick={() => setActiveTab("faqs")}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold text-sm transition-all text-left ${
-                  activeTab === "faqs"
-                    ? "bg-tealSurface text-brandPrimary border border-brandPrimary/30 shadow-xs"
-                    : "text-primaryText/75 hover:bg-canvas hover:text-primaryText border border-transparent"
-                }`}
-              >
-                <div
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${
-                    activeTab === "faqs"
-                      ? "bg-brandPrimary text-white"
-                      : "bg-canvas text-primaryText/60"
-                  }`}
-                >
-                  <HelpCircle className="w-4 h-4" />
-                </div>
-                <div className="text-left">
-                  <span className="block leading-tight">FAQs</span>
-                  <span className="text-[11px] text-primaryText/55 font-medium block">
-                    Help &amp; Safeguarding
-                  </span>
-                </div>
-              </button>
-            </nav>
-          </aside>
-        )}
-
-        {/* MAIN CONTENT AREA */}
-        <div className={`${isSidebarCollapsed ? "w-full" : "lg:col-span-9"} space-y-6 transition-all duration-300`}>
-          {activeTab === "class-setup" ? (
-            <>
-              {/* KEY STAGE POT DASHBOARD */}
-              <KeyStageDashboard
-                totalSavingsCents={totalSavings > 0 ? totalSavings : 9741}
-                pupilCount={classPupils.length > 0 ? classPupils.length : 10}
-                pots={classPots}
-                keyStageLabel={`${activeClass?.className || "Key Stage"} Pot`}
-              />
-
-              {/* CLASS SETUP & STUDENT ROSTER (TEACHER VIEW: NO ADMIN REASSIGNMENT) */}
-              <ClassSetup
-                onOpenSetupWizard={() => setIsSetupWizardOpen(true)}
-                activeClassId={activeClass?.classId}
-                onSelectClassId={(id) => setActiveClassId(id)}
-                isAdmin={false}
-                onOpenAssignModal={() => {}}
-                onPupilsChanged={refreshState}
-              />
-            </>
-          ) : activeTab === "jobs-board" ? (
-            <TeacherJobsBoard />
-          ) : activeTab === "bonuses" ? (
-            <TeacherBonusesDashboard />
-          ) : activeTab === "marketplace" ? (
-            <TeacherMarketplace classId={activeClass?.classId} />
-          ) : (
-            <TeacherFaqs />
+        {/* Right side context: Active Class & Join Code */}
+        <div className="flex items-center gap-2 sm:gap-3 text-xs font-semibold shrink-0">
+          <span className="text-primaryText/60 hidden md:inline">Active Class:</span>
+          <span className="px-2.5 py-1 rounded-lg bg-tealSurface text-brandPrimary border border-brandPrimary/20 font-bold">
+            {activeClass?.className || "Classroom"}
+          </span>
+          {activeClass?.classJoinCode && (
+            <span className="px-2.5 py-1 rounded-lg bg-canvas text-primaryText/70 border border-borderMuted font-mono text-[11px]">
+              Code: <strong className="text-brandPrimary">{activeClass.classJoinCode}</strong>
+            </span>
           )}
         </div>
-      </div>
+      </AppTopHeader>
+
+      <main className="flex-1 w-full max-w-7xl p-4 md:p-6 lg:p-8 space-y-6 mx-auto font-lexend text-left">
+        {/* TEACHER ACCOUNT SWITCHER MODAL (STRICTLY TEACHERS ONLY - NO ADMIN) */}
+        {isTeacherSwitcherOpen && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-50 bg-primaryText/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+          >
+            <div className="bg-surface rounded-pot border border-borderMuted shadow-2xl p-5 sm:p-6 md:p-8 space-y-4 max-w-md w-full text-left">
+              <div className="flex items-start justify-between border-b border-borderMuted/60 pb-3">
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-brandPrimary">
+                    Teacher Portal
+                  </span>
+                  <h3 className="text-xl font-bold text-primaryText">Switch Teacher Account</h3>
+                  <p className="text-xs text-primaryText/60">
+                    Select an educator profile. Teacher level accounts are scoped strictly to their assigned classes.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsTeacherSwitcherOpen(false)}
+                  className="text-primaryText/40 hover:text-primaryText text-2xl font-bold p-1 leading-none"
+                >
+                  &times;
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {availableTeachers.map((teacher) => {
+                  const isCurrent = teacher.userId === currentTeacher?.userId;
+                  return (
+                    <button
+                      key={teacher.userId}
+                      type="button"
+                      onClick={() => handleSwitchTeacher(teacher.userId)}
+                      className={`w-full p-3.5 rounded-2xl border text-left flex items-center justify-between transition-all ${
+                        isCurrent
+                          ? "bg-tealSurface border-brandPrimary shadow-xs"
+                          : "bg-canvas border-borderMuted hover:border-brandPrimary/40"
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">👨‍🏫</span>
+                          <strong className="text-sm font-bold text-primaryText">{teacher.displayName}</strong>
+                        </div>
+                        <span className="text-[11px] text-primaryText/60 block mt-0.5">{teacher.email}</span>
+                        <span className="text-[10px] font-semibold text-brandPrimary block mt-0.5">
+                          Assigned: {teacher.assignedClassIds?.join(", ") || "No classes"}
+                        </span>
+                      </div>
+                      {isCurrent && <CheckCircle2 className="w-5 h-5 text-brandPrimary shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Note on Admin Isolation */}
+              <div className="p-3 rounded-xl bg-canvas border border-borderMuted text-xs text-primaryText/60 flex items-center gap-2">
+                <Lock className="w-4 h-4 text-primaryText/40 flex-shrink-0" />
+                <span>Admin governance is handled on a separate administrative level.</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 2. TABBED CLASSROOM CONTENT */}
+        {activeTab === "class-setup" ? (
+          <>
+            {/* KEY STAGE POT DASHBOARD */}
+            <KeyStageDashboard
+              totalSavingsCents={totalSavings > 0 ? totalSavings : 9741}
+              pupilCount={classPupils.length > 0 ? classPupils.length : 10}
+              pots={classPots}
+              keyStageLabel={`${activeClass?.className || "Key Stage"} Pot`}
+            />
+
+            {/* CLASS SETUP & STUDENT ROSTER (TEACHER VIEW: STRICTLY THIS TEACHER'S ASSIGNED CLASSES) */}
+            <ClassSetup
+              classes={allowedClasses}
+              onOpenSetupWizard={() => setIsSetupWizardOpen(true)}
+              activeClassId={activeClass?.classId}
+              onSelectClassId={(id) => setActiveClassId(id)}
+              isAdmin={false}
+              onOpenAssignModal={() => {}}
+              onPupilsChanged={refreshState}
+            />
+          </>
+        ) : activeTab === "jobs-board" ? (
+          <TeacherJobsBoard classes={allowedClasses} activeClassId={activeClass?.classId} />
+        ) : activeTab === "bonuses" ? (
+          <TeacherBonusesDashboard classes={allowedClasses} activeClassId={activeClass?.classId} />
+        ) : activeTab === "marketplace" ? (
+          <TeacherMarketplace classId={activeClass?.classId} />
+        ) : (
+          <TeacherFaqs />
+        )}
 
       {/* 3. MODALS (STRICTLY TEACHER SCOPED) */}
       <SetupWizardModal

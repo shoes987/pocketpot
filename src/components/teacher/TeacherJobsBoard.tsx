@@ -22,8 +22,10 @@ import {
 } from "@/lib/services/jobs-service";
 import {
   getSavedClasses,
+  getSavedClassesForUser,
   getSavedPupils,
 } from "@/lib/services/class-service";
+import { getCurrentTeacherUser, isUserAdmin } from "@/lib/services/auth-service";
 import { formatCurrency } from "@/lib/firebase/zero-pii";
 import {
   Briefcase,
@@ -47,12 +49,20 @@ import {
   BookOpen,
 } from "lucide-react";
 
-export const TeacherJobsBoard: React.FC = () => {
+export interface TeacherJobsBoardProps {
+  classes?: ClassDocument[];
+  activeClassId?: string;
+}
+
+export const TeacherJobsBoard: React.FC<TeacherJobsBoardProps> = ({
+  classes: propsClasses,
+  activeClassId,
+}) => {
   const [jobs, setJobs] = useState<JobPostingDocument[]>([]);
   const [applications, setApplications] = useState<JobApplicationDocument[]>([]);
-  const [classes, setClasses] = useState<ClassDocument[]>([]);
+  const [classes, setClasses] = useState<ClassDocument[]>(propsClasses || []);
   const [pupils, setPupils] = useState<PupilDocument[]>([]);
-  const [selectedClassId, setSelectedClassId] = useState<string>("class-year4-teal");
+  const [selectedClassId, setSelectedClassId] = useState<string>(activeClassId || "class-year4-teal");
   const [filterTab, setFilterTab] = useState<"all" | "open" | "filled" | "completed">("all");
   const [jobsBoardSubTab, setJobsBoardSubTab] = useState<"both" | "roster" | "vacancies">("both");
   const [rosterFilter, setRosterFilter] = useState<"all" | "green" | "amber">("all");
@@ -90,12 +100,23 @@ export const TeacherJobsBoard: React.FC = () => {
   const loadData = () => {
     const loadedJobs = getSavedJobs();
     const loadedApps = getSavedApplications();
-    const loadedClasses = getSavedClasses();
+    const currentTeacher = getCurrentTeacherUser();
+    const loadedClasses =
+      propsClasses && propsClasses.length > 0
+        ? propsClasses
+        : isUserAdmin()
+        ? getSavedClasses()
+        : getSavedClassesForUser(currentTeacher);
+
     const loadedPupils = getSavedPupils();
     setClasses(loadedClasses);
     setPupils(loadedPupils);
-    if (loadedClasses.length > 0 && !selectedClassId) {
-      setSelectedClassId(loadedClasses[0].classId);
+    if (loadedClasses.length > 0) {
+      if (activeClassId && loadedClasses.some((c) => c.classId === activeClassId)) {
+        setSelectedClassId(activeClassId);
+      } else if (!selectedClassId || !loadedClasses.some((c) => c.classId === selectedClassId)) {
+        setSelectedClassId(loadedClasses[0].classId);
+      }
     }
     setJobs(loadedJobs);
     setApplications(loadedApps);
@@ -103,7 +124,7 @@ export const TeacherJobsBoard: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [propsClasses, activeClassId]);
 
   const showToast = (msg: string) => {
     setSuccessToast(msg);
@@ -650,7 +671,7 @@ export const TeacherJobsBoard: React.FC = () => {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {filteredJobs.map((job) => {
             const jobApps = applications.filter((a) => a.jobId === job.jobId);
             const pendingApps = jobApps.filter((a) => a.status === "pending");
@@ -658,117 +679,150 @@ export const TeacherJobsBoard: React.FC = () => {
             return (
               <div
                 key={job.jobId}
-                className="bg-surface rounded-islandCard p-5 border border-borderMuted shadow-islandCard flex flex-col justify-between space-y-4 text-left transition-all hover:shadow-md"
+                className="bg-surface rounded-3xl border border-borderMuted shadow-islandCard flex flex-col justify-between overflow-hidden hover:shadow-md transition-all text-left"
               >
-                {/* Header */}
-                <div className="space-y-2">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h3 className="text-lg font-bold text-primaryText leading-tight">
-                        {job.title}
-                      </h3>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="inline-flex items-center gap-1 text-xs font-bold text-brandPrimary">
-                          <Coins className="w-3.5 h-3.5" />
-                          {formatCurrency(job.wageCents)} / week
-                        </span>
-                        <span className="text-primaryText/40">&bull;</span>
-                        <span className="inline-flex items-center gap-1 text-xs font-bold text-brandSecondary">
-                          <Clock className="w-3.5 h-3.5" />
-                          {job.termWeeks}-week term
-                        </span>
-                      </div>
+                {/* Green Header with Job Title and Status Badge */}
+                <div className="bg-brandPrimary text-white px-5 py-3.5 flex items-center justify-between gap-3 shadow-xs">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-white/20 border border-white/25 flex items-center justify-center flex-shrink-0">
+                      <Briefcase className="w-4 h-4 text-white" />
                     </div>
-
-                    {/* Status Badge */}
-                    <div>
-                      {job.status === "open" && (
-                        <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-tealSurface text-brandPrimary border border-brandPrimary/30">
-                          Open
-                        </span>
-                      )}
-                      {job.status === "filled" && (
-                        <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amberSurface text-brandSecondary border border-brandSecondary/30">
-                          Hired: {job.assignedPupilName}
-                        </span>
-                      )}
-                      {job.status === "completed" && (
-                        <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-greenSurface text-positiveState border border-positiveState/30">
-                          Term Ended
-                        </span>
-                      )}
-                    </div>
+                    <h3 className="text-base sm:text-lg font-extrabold text-white leading-tight truncate">
+                      {job.title}
+                    </h3>
                   </div>
 
-                  <p className="text-sm text-primaryText/80 leading-relaxed font-medium">
-                    {job.description}
-                  </p>
-
-                  {/* Required Qualities Badges */}
-                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                    <span className="text-[11px] font-bold text-primaryText/60 mr-1">
-                      Qualities:
-                    </span>
-                    {job.requiredQualities.map((q, idx) => (
-                      <span
-                        key={idx}
-                        className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-canvas border border-borderMuted text-primaryText"
-                      >
-                        {q}
+                  {/* Status Badge in Header */}
+                  <div>
+                    {job.status === "open" && (
+                      <span className="px-2.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-white/20 text-white border border-white/30 flex-shrink-0">
+                        Open Role
                       </span>
-                    ))}
+                    )}
+                    {job.status === "filled" && (
+                      <span className="px-2.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-amber-400/30 text-amber-100 border border-amber-300/40 flex-shrink-0">
+                        Hired: {job.assignedPupilName}
+                      </span>
+                    )}
+                    {job.status === "completed" && (
+                      <span className="px-2.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-emerald-400/30 text-emerald-100 border border-emerald-300/40 flex-shrink-0">
+                        Term Ended
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                {/* Footer Actions Based on Job Status */}
-                <div className="pt-3 border-t border-borderMuted/60 flex items-center justify-between gap-3 text-left">
-                  {job.status === "open" ? (
-                    <>
-                      <div className="text-xs text-primaryText/70 font-semibold">
-                        {pendingApps.length} applicant{pendingApps.length === 1 ? "" : "s"} waiting
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setReviewingJob(job)}
-                        className="px-4 py-2 rounded-full bg-brandPrimary hover:bg-teal-700 text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1.5"
-                      >
-                        <Users className="w-3.5 h-3.5" />
-                        <span>Review Applications ({jobApps.length})</span>
-                      </button>
-                    </>
-                  ) : job.status === "filled" ? (
-                    <>
-                      <div className="text-xs text-primaryText/70">
-                        <span>Assigned to: <strong>{job.assignedPupilName}</strong></span>
-                        <span className="block text-[11px] text-brandSecondary font-semibold">
-                          Wage paid on class payout day
+                {/* Card Body with Component Information in Clean Pills */}
+                <div className="p-5 sm:p-6 space-y-4 flex-1 flex flex-col justify-between text-left">
+                  <div className="space-y-4 text-left">
+                    {/* 1. Component Information Pills */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {/* Wage Pill */}
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-tealSurface text-brandPrimary border border-brandPrimary/30 shadow-2xs">
+                        <Coins className="w-3.5 h-3.5 text-brandPrimary" />
+                        <span>{formatCurrency(job.wageCents)} / week</span>
+                      </span>
+
+                      {/* Term Duration Pill */}
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amberSurface text-brandSecondary border border-brandSecondary/30 shadow-2xs">
+                        <Clock className="w-3.5 h-3.5 text-brandSecondary" />
+                        <span>{job.termWeeks}-week term</span>
+                      </span>
+
+                      {/* Schedule Pill */}
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-canvas text-primaryText/75 border border-borderMuted shadow-2xs">
+                        <Calendar className="w-3.5 h-3.5 text-primaryText/60" />
+                        <span>Paid with basic income</span>
+                      </span>
+
+                      {/* Applicants Pill for Teacher */}
+                      {job.status === "open" && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80 shadow-2xs">
+                          <Users className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>{pendingApps.length} waiting • {jobApps.length} total</span>
                         </span>
+                      )}
+                    </div>
+
+                    {/* 2. Role Summary */}
+                    <div className="space-y-1 text-left">
+                      <span className="text-[11px] font-extrabold uppercase tracking-wider text-primaryText/50 block">
+                        Role Summary
+                      </span>
+                      <p className="text-sm text-primaryText/85 leading-relaxed font-normal">
+                        {job.description}
+                      </p>
+                    </div>
+
+                    {/* 3. Required Qualities in Distinct Scannable Pills */}
+                    <div className="space-y-1.5 pt-1 text-left">
+                      <span className="text-[11px] font-extrabold uppercase tracking-wider text-primaryText/50 block">
+                        Qualities Looked For:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {job.requiredQualities.map((q, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/80 shadow-2xs flex items-center gap-1"
+                          >
+                            <Check className="w-3 h-3 text-emerald-600 stroke-[3]" />
+                            <span>{q}</span>
+                          </span>
+                        ))}
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => openReferenceModal(job)}
-                        className="px-3.5 py-2 rounded-full bg-surface hover:bg-canvas border border-borderMuted text-primaryText font-bold text-xs transition-all flex items-center gap-1.5"
-                      >
-                        <Award className="w-3.5 h-3.5 text-brandSecondary" />
-                        <span>Complete Term &amp; Reference</span>
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <div className="text-xs text-positiveState font-bold flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Term concluded ({job.assignedPupilName})</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => openReferenceModal(job)}
-                        className="px-4 py-2 rounded-full bg-brandSecondary hover:bg-amber-600 text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1.5"
-                      >
-                        <Award className="w-3.5 h-3.5" />
-                        <span>Write Reference &bull; Re-advertise</span>
-                      </button>
-                    </>
-                  )}
+                    </div>
+                  </div>
+
+                  {/* 4. Footer Actions Based on Job Status */}
+                  <div className="pt-4 mt-2 border-t border-borderMuted/70 flex items-center justify-between gap-3 text-left">
+                    {job.status === "open" ? (
+                      <>
+                        <div className="text-xs text-primaryText/70 font-semibold">
+                          {pendingApps.length} applicant{pendingApps.length === 1 ? "" : "s"} waiting
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setReviewingJob(job)}
+                          className="px-4 py-2 rounded-full bg-brandPrimary hover:bg-teal-700 text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Users className="w-3.5 h-3.5" />
+                          <span>Review Applications ({jobApps.length})</span>
+                        </button>
+                      </>
+                    ) : job.status === "filled" ? (
+                      <>
+                        <div className="text-xs text-primaryText/70">
+                          <span>Assigned: <strong>{job.assignedPupilName}</strong></span>
+                          <span className="block text-[11px] text-brandSecondary font-semibold">
+                            Wage paid on class payout day
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => openReferenceModal(job)}
+                          className="px-3.5 py-2 rounded-full bg-surface hover:bg-canvas border border-borderMuted text-primaryText font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Award className="w-3.5 h-3.5 text-brandSecondary" />
+                          <span>Complete Term &amp; Reference</span>
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-xs text-positiveState font-bold flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Term concluded ({job.assignedPupilName})</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => openReferenceModal(job)}
+                          className="px-4 py-2 rounded-full bg-brandSecondary hover:bg-amber-600 text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Award className="w-3.5 h-3.5" />
+                          <span>Write Reference &bull; Re-advertise</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             );

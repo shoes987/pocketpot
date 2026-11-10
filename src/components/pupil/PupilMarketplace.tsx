@@ -17,6 +17,7 @@ import {
 } from "@/lib/services/marketplace-service";
 import { getPupilById, getPotsForPupil, getSavedPupils, BALANCE_SYNC_EVENT } from "@/lib/services/class-service";
 import { formatCurrency } from "@/lib/firebase/zero-pii";
+import { PocketPotMascot } from "@/components/ui/PocketPotMascot";
 import {
   ShoppingBag,
   Sparkles,
@@ -28,6 +29,8 @@ import {
   CreditCard,
   PoundSterling,
   AlertCircle,
+  Coins,
+  Check,
 } from "lucide-react";
 
 interface PupilMarketplaceProps {
@@ -170,20 +173,58 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
         </div>
       </div>
 
-      {/* 2. PEDAGOGICAL ENCOURAGEMENT CARD */}
-      <div className="p-4 rounded-2xl bg-tealSurface/60 border border-brandPrimary/20 flex items-center justify-between gap-3 text-xs text-primaryText/80 font-medium">
-        <div className="flex items-center gap-2.5">
-          <Sparkles className="w-4 h-4 text-brandPrimary shrink-0" />
-          <span>
-            <strong>Smart Saving Tip:</strong> Quick rewards are fun today, but saving in a <strong>Savings Pot</strong> lets you achieve big dreams like choosing your own desk!
-          </span>
+      {/* 2. PEDAGOGICAL ENCOURAGEMENT: MASCOT SPEECH BUBBLE */}
+      <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+        {/* PocketPot Mascot Avatar */}
+        <div className="shrink-0 flex items-center justify-center pt-1">
+          <PocketPotMascot
+            size="md"
+            className="w-16 sm:w-20 drop-shadow-sm hover:scale-105 transition-transform duration-200 cursor-pointer"
+            ariaLabel="PocketPot seedling buddy giving a smart savings tip"
+          />
         </div>
-        <Link
-          href={`/pupil/${pupilId}/pots`}
-          className="text-xs font-bold text-brandPrimary hover:underline shrink-0 hidden sm:inline"
-        >
-          View My Pots &rarr;
-        </Link>
+
+        {/* Speech Bubble Container */}
+        <div className="relative flex-1 bg-surface border border-teal-200/80 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-islandCard">
+          {/* Speech bubble pointer / tail pointing towards mascot */}
+          {/* Desktop pointer on the left */}
+          <div
+            className="hidden sm:block absolute -left-2.5 top-6 w-0 h-0 border-y-8 border-y-transparent border-r-8 border-r-teal-300"
+            aria-hidden="true"
+          />
+          <div
+            className="hidden sm:block absolute -left-2 top-6 w-0 h-0 border-y-8 border-y-transparent border-r-8 border-r-surface"
+            aria-hidden="true"
+          />
+          {/* Mobile pointer on top */}
+          <div
+            className="sm:hidden absolute -top-2.5 left-1/2 -translate-x-1/2 w-0 h-0 border-x-8 border-x-transparent border-b-8 border-b-teal-300"
+            aria-hidden="true"
+          />
+          <div
+            className="sm:hidden absolute -top-2 left-1/2 -translate-x-1/2 w-0 h-0 border-x-8 border-x-transparent border-b-8 border-b-surface"
+            aria-hidden="true"
+          />
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm text-primaryText/85">
+            <div className="flex items-start gap-2.5">
+              <span className="text-base text-brandPrimary leading-none shrink-0 mt-0.5">✨</span>
+              <p className="leading-relaxed">
+                <strong className="font-extrabold text-brandPrimary">Smart Saving Tip:</strong>{" "}
+                Quick rewards are fun today, but saving in a{" "}
+                <strong className="font-bold text-primaryText">Savings Pot</strong> lets you achieve big
+                dreams like choosing your own desk!
+              </p>
+            </div>
+            <Link
+              href={`/pupil/${pupilId}/pots`}
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-full bg-tealSurface text-brandPrimary hover:bg-brandPrimary hover:text-white font-bold text-xs shrink-0 transition-colors border border-brandPrimary/20 self-end sm:self-center"
+            >
+              <span>View My Pots</span>
+              <span aria-hidden="true">&rarr;</span>
+            </Link>
+          </div>
+        </div>
       </div>
 
       {/* 3. REWARD MARKET GRID */}
@@ -220,7 +261,7 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {rewards.map((reward) => {
               const isAffordable = cardBalance >= reward.priceCoins;
               const isShortTerm = reward.tier === "short_term";
@@ -235,90 +276,166 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
               return (
                 <div
                   key={reward.rewardId}
-                  className="p-5 rounded-pot bg-surface border border-borderMuted shadow-islandCard flex flex-col justify-between space-y-4 hover:border-brandPrimary/30 transition-all text-left group"
+                  className={`bg-surface rounded-3xl border border-borderMuted shadow-islandCard flex flex-col justify-between overflow-hidden hover:shadow-md transition-all text-left ${
+                    !isAffordable ? "opacity-90" : ""
+                  }`}
                 >
-                  <div className="space-y-3">
-                    {/* Top Bar: Icon & Tier Tag */}
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="w-14 h-14 rounded-2xl bg-canvas border border-borderMuted flex items-center justify-center text-3xl shadow-xs group-hover:scale-105 transition-transform">
+                  {/* Header Band: Terracotta for Short Quick Wins (#C2410C), Teal for Long Term Goals (#0D9488) */}
+                  <div
+                    className={`px-5 py-3.5 flex items-center justify-between gap-3 shadow-xs text-white ${
+                      isShortTerm ? "bg-[#C2410C]" : "bg-brandPrimary"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-xl bg-white/20 border border-white/25 flex items-center justify-center flex-shrink-0 text-lg">
                         {reward.icon}
                       </div>
-
-                      <div className="flex flex-col items-end gap-1">
-                        <span
-                          className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase border ${
-                            isShortTerm
-                              ? "bg-tealSurface text-brandPrimary border-brandPrimary/30"
-                              : "bg-amberSurface text-brandSecondary border-brandSecondary/30"
-                          }`}
-                        >
-                          {isShortTerm ? "⚡ Quick Treat" : "🏔️ Big Goal"}
-                        </span>
-
-                        <div className="flex items-center gap-1 text-sm font-extrabold text-primaryText">
-                          <span>{formatCurrency(reward.priceCoins)}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Title & Description */}
-                    <div>
-                      <h4 className="text-base font-bold text-primaryText group-hover:text-brandPrimary transition-colors">
+                      <h3 className="text-base sm:text-lg font-extrabold text-white leading-tight truncate">
                         {reward.title}
-                      </h4>
-                      <p className="text-xs text-primaryText/75 mt-1 leading-relaxed">
-                        {reward.description}
-                      </p>
+                      </h3>
                     </div>
+
+                    {/* Tier Badge in Header */}
+                    <span className="px-2.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-white/20 text-white border border-white/30 flex-shrink-0">
+                      {isShortTerm ? "⚡ Quick Win" : "🎯 Long-Term Goal"}
+                    </span>
                   </div>
 
-                  {/* ACTION BUTTON SECTION: Mindful Purchase OR Set Up a Pot */}
-                  <div className="pt-3 border-t border-borderMuted/60 space-y-2">
-                    {isAffordable ? (
-                      /* AFFORDABLE ITEM: Mindful Direct Purchase */
-                      <div>
-                        <button
-                          type="button"
-                          onClick={() => handleStartPurchasePause(reward)}
-                          className="w-full py-2.5 px-4 rounded-xl bg-brandPrimary hover:bg-teal-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-all"
+                  {/* Card Body with Component Information in Clean Pills */}
+                  <div className="p-5 sm:p-6 space-y-4 flex-1 flex flex-col justify-between text-left">
+                    <div className="space-y-4 text-left">
+                      {/* 1. Component Information Pills */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {/* Price Pill */}
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border shadow-2xs ${
+                            isShortTerm
+                              ? "bg-amber-50 text-[#C2410C] border-[#C2410C]/30"
+                              : "bg-tealSurface text-brandPrimary border-brandPrimary/30"
+                          }`}
                         >
-                          <Sparkles className="w-4 h-4 text-white" />
-                          <span>Buy Reward ({formatCurrency(reward.priceCoins)})</span>
-                        </button>
-                        <span className="text-[10px] text-positiveState font-semibold block text-center mt-1">
-                          ✓ Ready on your card balance
+                          <Coins className="w-3.5 h-3.5" />
+                          <span>{formatCurrency(reward.priceCoins)}</span>
                         </span>
-                      </div>
-                    ) : (
-                      /* UNAFFORDABLE ITEM: Set Up a Pot (Delayed Gratification) */
-                      <div className="space-y-1.5">
-                        {existingPot ? (
-                          <Link
-                            href={`/pupil/${pupilId}/pots`}
-                            className="w-full py-2.5 px-4 rounded-xl bg-amberSurface hover:bg-amberSurface/80 text-brandSecondary border border-brandSecondary/30 font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-all"
-                          >
-                            <Layers className="w-4 h-4 text-brandSecondary" />
-                            <span>
-                              View Your Savings Pot ({formatCurrency(existingPot.currentAmountCents || 0)} / {formatCurrency(reward.priceCoins)})
-                            </span>
-                          </Link>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleSetUpPot(reward)}
-                            className="w-full py-2.5 px-4 rounded-xl bg-amberSurface hover:bg-amberSurface/80 text-brandSecondary border border-brandSecondary/30 font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-all"
-                          >
-                            <Layers className="w-4 h-4 text-brandSecondary" />
-                            <span>Set Up a Pot for This!</span>
-                          </button>
-                        )}
 
-                        {/* Encouraging Non-Punitive Microcopy (Cash representation only) */}
-                        <p className="text-[11px] text-primaryText/70 text-center font-medium leading-tight">
-                          Taking a quiet moment: you're <strong>{formatCurrency(neededCents)} away</strong>. Let's puzzle this out by saving!
+                        {/* Goal Type Pill */}
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border shadow-2xs ${
+                            isShortTerm
+                              ? "bg-orange-50 text-orange-800 border-orange-200/80"
+                              : "bg-teal-50 text-teal-800 border-teal-200/80"
+                          }`}
+                        >
+                          {isShortTerm ? (
+                            <>
+                              <Sparkles className="w-3.5 h-3.5 text-orange-600" />
+                              <span>Instant Treat</span>
+                            </>
+                          ) : (
+                            <>
+                              <Layers className="w-3.5 h-3.5 text-teal-600" />
+                              <span>Save in Pot</span>
+                            </>
+                          )}
+                        </span>
+
+                        {/* Affordability Status Pill */}
+                        {isAffordable ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
+                            <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
+                            <span>Ready on Card</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs">
+                            <Clock className="w-3.5 h-3.5 text-slate-500" />
+                            <span>{formatCurrency(neededCents)} away</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {/* 2. Privilege Description */}
+                      <div className="space-y-1 text-left">
+                        <span className="text-[11px] font-extrabold uppercase tracking-wider text-primaryText/50 block">
+                          Privilege Details
+                        </span>
+                        <p className="text-sm text-primaryText/85 leading-relaxed font-normal">
+                          {reward.description}
                         </p>
                       </div>
-                    )}
+
+                      {/* 3. Existing Savings Pot Progress Bar (if applicable) */}
+                      {existingPot && (
+                        <div className="p-3.5 rounded-2xl bg-tealSurface/60 border border-brandPrimary/20 space-y-1.5 text-left">
+                          <div className="flex items-center justify-between text-xs font-bold text-brandPrimary">
+                            <span className="flex items-center gap-1.5">
+                              <Layers className="w-3.5 h-3.5" />
+                              <span>Active Savings Pot</span>
+                            </span>
+                            <span>
+                              {formatCurrency(existingPot.currentAmountCents || 0)} / {formatCurrency(reward.priceCoins)}
+                            </span>
+                          </div>
+                          <div className="w-full h-2 rounded-full bg-canvas overflow-hidden border border-borderMuted/40">
+                            <div
+                              className="h-full bg-brandPrimary rounded-full transition-all"
+                              style={{
+                                width: `${Math.min(
+                                  100,
+                                  Math.round(((existingPot.currentAmountCents || 0) / reward.priceCoins) * 100)
+                                )}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 4. Action Footer */}
+                    <div className="pt-4 mt-2 border-t border-borderMuted/70 space-y-2 text-left">
+                      {isAffordable ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleStartPurchasePause(reward)}
+                            className="w-full py-2.5 px-4 rounded-xl bg-brandPrimary hover:bg-teal-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
+                          >
+                            <Sparkles className="w-4 h-4 text-white" />
+                            <span>Buy Reward ({formatCurrency(reward.priceCoins)})</span>
+                          </button>
+                          <span className="text-[10px] text-positiveState font-semibold block text-center">
+                            ✓ Ready to unlock from card balance
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          {existingPot ? (
+                            <Link
+                              href={`/pupil/${pupilId}/pots`}
+                              className="w-full py-2.5 px-4 rounded-xl bg-amberSurface hover:bg-amberSurface/80 text-brandSecondary border border-brandSecondary/30 font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-all"
+                            >
+                              <Layers className="w-4 h-4 text-brandSecondary" />
+                              <span>
+                                View Savings Pot ({formatCurrency(existingPot.currentAmountCents || 0)})
+                              </span>
+                            </Link>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleSetUpPot(reward)}
+                              className="w-full py-2.5 px-4 rounded-xl bg-tealSurface hover:bg-tealSurface/80 text-brandPrimary border border-brandPrimary/30 font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
+                            >
+                              <Layers className="w-4 h-4 text-brandPrimary" />
+                              <span>🌱 Save for this with a new Pot!</span>
+                            </button>
+                          )}
+                          <span className="text-[10px] text-primaryText/60 font-medium block text-center">
+                            {existingPot
+                              ? "Keep contributing weekly to reach your goal!"
+                              : "Tuck money into a Pot to work towards this reward"}
+                          </span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               );

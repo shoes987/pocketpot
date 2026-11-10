@@ -31,6 +31,7 @@ import {
   Package,
   Layers,
   PoundSterling,
+  Coins,
 } from "lucide-react";
 
 interface TeacherMarketplaceProps {
@@ -272,87 +273,144 @@ export const TeacherMarketplace: React.FC<TeacherMarketplaceProps> = ({
 
       {/* TAB 1: REWARD CATALOG GRID */}
       {activeTab === "catalog" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {rewards.map((reward) => {
             const isShortTerm = reward.tier === "short_term";
             return (
               <div
                 key={reward.rewardId}
-                className={`p-5 rounded-pot bg-surface border transition-all flex flex-col justify-between space-y-4 shadow-islandCard ${
-                  reward.isAvailable
-                    ? "border-brandPrimary/40 ring-1 ring-brandPrimary/20"
-                    : "opacity-75 border-dashed border-borderMuted bg-canvas/40"
+                className={`bg-surface rounded-3xl border border-borderMuted shadow-islandCard flex flex-col justify-between overflow-hidden hover:shadow-md transition-all text-left ${
+                  !reward.isAvailable ? "opacity-75 grayscale-25" : ""
                 }`}
               >
-                <div className="space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-canvas flex items-center justify-center text-2xl shadow-xs border border-borderMuted">
+                {/* Header Band: Terracotta for Short Quick Wins (#C2410C), Teal for Long Term Goals (#0D9488) */}
+                <div
+                  className={`px-5 py-3.5 flex items-center justify-between gap-3 shadow-xs text-white ${
+                    isShortTerm ? "bg-[#C2410C]" : "bg-brandPrimary"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-xl bg-white/20 border border-white/25 flex items-center justify-center flex-shrink-0 text-lg">
                       {reward.icon}
                     </div>
-                    <div className="flex flex-col items-end gap-1">
+                    <h3 className="text-base sm:text-lg font-extrabold text-white leading-tight truncate">
+                      {reward.title}
+                    </h3>
+                  </div>
+
+                  {/* Tier Badge in Header */}
+                  <span className="px-2.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-white/20 text-white border border-white/30 flex-shrink-0">
+                    {isShortTerm ? "⚡ Quick Win" : "🎯 Long-Term Goal"}
+                  </span>
+                </div>
+
+                {/* Card Body with Component Information in Clean Pills */}
+                <div className="p-5 sm:p-6 space-y-4 flex-1 flex flex-col justify-between text-left">
+                  <div className="space-y-4 text-left">
+                    {/* 1. Component Information Pills */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {/* Price Pill */}
                       <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border ${
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border shadow-2xs ${
                           isShortTerm
-                            ? "bg-tealSurface text-brandPrimary border-brandPrimary/30"
-                            : "bg-amberSurface text-brandSecondary border-brandSecondary/30"
+                            ? "bg-amber-50 text-[#C2410C] border-[#C2410C]/30"
+                            : "bg-tealSurface text-brandPrimary border-brandPrimary/30"
                         }`}
                       >
-                        {isShortTerm ? "⚡ Quick Win" : "🏔️ Long-Term Goal"}
+                        <Coins className="w-3.5 h-3.5" />
+                        <span>{formatCurrency(reward.priceCoins)}</span>
                       </span>
-                      <span className="text-sm font-extrabold text-primaryText">
-                        {formatCurrency(reward.priceCoins)}
+
+                      {/* Tier Type Pill */}
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border shadow-2xs ${
+                          isShortTerm
+                            ? "bg-orange-50 text-orange-800 border-orange-200/80"
+                            : "bg-teal-50 text-teal-800 border-teal-200/80"
+                        }`}
+                      >
+                        {isShortTerm ? (
+                          <>
+                            <Sparkles className="w-3.5 h-3.5 text-orange-600" />
+                            <span>Quick Privilege</span>
+                          </>
+                        ) : (
+                          <>
+                            <Layers className="w-3.5 h-3.5 text-teal-600" />
+                            <span>Target Pot Goal</span>
+                          </>
+                        )}
                       </span>
+
+                      {/* Redemptions Count Pill */}
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-canvas text-primaryText/75 border border-borderMuted shadow-2xs">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-primaryText/60" />
+                        <span>{reward.purchasesCount || 0} redeemed</span>
+                      </span>
+
+                      {/* Stock Cap Pill (if set) */}
+                      {reward.stockQuantity && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-canvas text-primaryText/75 border border-borderMuted shadow-2xs">
+                          <span>Cap: {reward.stockQuantity} spots</span>
+                        </span>
+                      )}
+
+                      {/* Active Status Pill */}
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border shadow-2xs ${
+                          reward.isAvailable
+                            ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                            : "bg-slate-100 text-slate-600 border-slate-200"
+                        }`}
+                      >
+                        <span>{reward.isAvailable ? "✓ Live on App" : "Hidden"}</span>
+                      </span>
+                    </div>
+
+                    {/* 2. Privilege Description */}
+                    <div className="space-y-1 text-left">
+                      <span className="text-[11px] font-extrabold uppercase tracking-wider text-primaryText/50 block">
+                        Privilege Details
+                      </span>
+                      <p className="text-sm text-primaryText/85 leading-relaxed font-normal">
+                        {reward.description}
+                      </p>
                     </div>
                   </div>
 
-                  <div>
-                    <h4 className="text-base font-bold text-primaryText">{reward.title}</h4>
-                    <p className="text-xs text-primaryText/70 mt-1 leading-relaxed">
-                      {reward.description}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="pt-3 border-t border-borderMuted flex items-center justify-between text-xs">
-                  <div className="text-[11px] text-primaryText/60">
-                    <span>Redeemed: <strong>{reward.purchasesCount || 0} times</strong></span>
-                    {reward.stockQuantity && (
-                      <span className="block text-[10px] text-primaryText/50">
-                        Cap: {reward.stockQuantity} spots
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    {/* Explicit Activate / Inactive Toggle (Requirement 4) */}
+                  {/* 3. Action Footer */}
+                  <div className="pt-4 mt-2 border-t border-borderMuted/70 flex items-center justify-between gap-3 text-left">
                     <button
                       type="button"
                       onClick={() => handleToggleAvailability(reward)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs ${
+                      className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 ${
                         reward.isAvailable
                           ? "bg-tealSurface text-brandPrimary border border-brandPrimary/30 hover:bg-tealSurface/80"
                           : "bg-brandPrimary text-white hover:bg-teal-700"
                       }`}
-                      title={reward.isAvailable ? "Click to deactivate" : "Click to activate for pupils"}
+                      title={reward.isAvailable ? "Click to hide from pupil app" : "Click to publish for pupils"}
                     >
-                      {reward.isAvailable ? "✓ Active in Market" : "Activate"}
+                      <span>{reward.isAvailable ? "✓ Active in Market" : "Activate on App"}</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => handleOpenEditModal(reward)}
-                      className="p-1.5 rounded-lg bg-canvas hover:bg-tealSurface text-primaryText/70 hover:text-brandPrimary border border-borderMuted transition-colors"
-                      title="Edit reward"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteReward(reward)}
-                      className="p-1.5 rounded-lg bg-canvas hover:bg-amberSurface text-primaryText/70 hover:text-warningState border border-borderMuted transition-colors"
-                      title="Delete reward"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditModal(reward)}
+                        className="p-2 rounded-xl bg-canvas hover:bg-tealSurface text-primaryText/70 hover:text-brandPrimary border border-borderMuted transition-colors"
+                        title="Edit reward"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteReward(reward)}
+                        className="p-2 rounded-xl bg-canvas hover:bg-amberSurface text-primaryText/70 hover:text-warningState border border-borderMuted transition-colors"
+                        title="Delete reward"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
