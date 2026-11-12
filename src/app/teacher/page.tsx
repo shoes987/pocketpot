@@ -25,7 +25,6 @@ import {
   getTeachersOnly,
 } from "@/lib/services/auth-service";
 import { PupilDocument, ClassDocument, SavingsPotDocument, UserDocument } from "@/lib/firebase/types";
-import { KeyStageDashboard } from "@/components/ui/KeyStageDashboard";
 import {
   School,
   CheckCircle2,
@@ -108,12 +107,20 @@ export default function TeacherPortalPage() {
     setActiveTab("class-setup");
   };
 
+  const handleClassCreated = (newClass: ClassDocument) => {
+    setActiveClassId(newClass.classId);
+    refreshState();
+  };
+
   // Strictly filter classes to those assigned to this educator
   const allowedClasses = currentTeacher ? getSavedClassesForUser(currentTeacher) : [];
   const activeClass = allowedClasses.find((c) => c.classId === activeClassId) || allowedClasses[0] || null;
 
   // Filter metrics strictly to active classroom
-  const classPupils = activeClass ? pupils.filter((p) => p.classId === activeClass.classId) : [];
+  const rawClassPupils = activeClass ? pupils.filter((p) => p.classId === activeClass.classId) : [];
+  const classPupils = rawClassPupils.filter(
+    (p, index, self) => index === self.findIndex((t) => t.pupilId === p.pupilId)
+  );
   const classPots = activeClass ? pots.filter((p) => p.classId === activeClass.classId) : [];
   const totalSavings = classPots.reduce((sum, p) => sum + (p.currentAmountCents || 0), 0);
 
@@ -332,26 +339,17 @@ export default function TeacherPortalPage() {
 
         {/* 2. TABBED CLASSROOM CONTENT */}
         {activeTab === "class-setup" ? (
-          <>
-            {/* KEY STAGE POT DASHBOARD */}
-            <KeyStageDashboard
-              totalSavingsCents={totalSavings > 0 ? totalSavings : 9741}
-              pupilCount={classPupils.length > 0 ? classPupils.length : 10}
-              pots={classPots}
-              keyStageLabel={`${activeClass?.className || "Key Stage"} Pot`}
-            />
-
-            {/* CLASS SETUP & STUDENT ROSTER (TEACHER VIEW: STRICTLY THIS TEACHER'S ASSIGNED CLASSES) */}
-            <ClassSetup
-              classes={allowedClasses}
-              onOpenSetupWizard={() => setIsSetupWizardOpen(true)}
-              activeClassId={activeClass?.classId}
-              onSelectClassId={(id) => setActiveClassId(id)}
-              isAdmin={false}
-              onOpenAssignModal={() => {}}
-              onPupilsChanged={refreshState}
-            />
-          </>
+          /* CLASS SETUP & STUDENT ROSTER (TEACHER VIEW: STRICTLY THIS TEACHER'S ASSIGNED CLASSES) */
+          <ClassSetup
+            classes={allowedClasses}
+            onOpenSetupWizard={() => setIsSetupWizardOpen(true)}
+            activeClassId={activeClass?.classId}
+            onSelectClassId={(id) => setActiveClassId(id)}
+            isAdmin={false}
+            onOpenAssignModal={() => {}}
+            onPupilsChanged={refreshState}
+            onClassCreated={handleClassCreated}
+          />
         ) : activeTab === "jobs-board" ? (
           <TeacherJobsBoard classes={allowedClasses} activeClassId={activeClass?.classId} />
         ) : activeTab === "bonuses" ? (

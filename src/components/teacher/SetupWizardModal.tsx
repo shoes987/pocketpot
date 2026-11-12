@@ -155,8 +155,8 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
   // Current Step (1 to 6)
   const [step, setStep] = useState<number>(1);
 
-  // Form State
-  const [className, setClassName] = useState("Year 4 Teal");
+  // Form State - Start blank without pre-populated class name
+  const [className, setClassName] = useState("");
   const [yearGroup, setYearGroup] = useState<"Year 3" | "Year 4" | "Year 5" | "Year 6">("Year 4");
   const [weeklyBasicIncomeCents, setWeeklyBasicIncomeCents] = useState<number>(500); // £5.00
   const [payoutDay, setPayoutDay] = useState<"Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday">("Friday");

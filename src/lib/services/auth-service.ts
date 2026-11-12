@@ -215,3 +215,34 @@ export function createStaffUser(payload: {
   saveStaffUsers([...staff, newUser]);
   return newUser;
 }
+
+/**
+ * Update a staff account's role, classes, or details (Admin action).
+ */
+export function updateStaffUser(
+  userId: string,
+  updates: Partial<Omit<UserDocument, "userId" | "schoolId" | "createdAt">>
+): UserDocument {
+  const staff = getStaffUsers();
+  const idx = staff.findIndex((u) => u.userId === userId);
+  if (idx === -1) throw new Error("Staff member not found");
+
+  const updated: UserDocument = {
+    ...staff[idx],
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  };
+
+  staff[idx] = updated;
+  saveStaffUsers(staff);
+  return updated;
+}
+
+/**
+ * Remove a staff member from the school roster.
+ */
+export function deleteStaffUser(userId: string): void {
+  const staff = getStaffUsers();
+  const filtered = staff.filter((u) => u.userId !== userId);
+  saveStaffUsers(filtered);
+}

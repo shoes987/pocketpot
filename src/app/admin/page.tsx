@@ -27,7 +27,6 @@ import {
   isUserAdmin,
 } from "@/lib/services/auth-service";
 import { PupilDocument, ClassDocument, SavingsPotDocument, UserDocument } from "@/lib/firebase/types";
-import { KeyStageDashboard } from "@/components/ui/KeyStageDashboard";
 import {
   School,
   CheckCircle2,
@@ -96,8 +95,16 @@ export default function AdminPortalPage() {
     setActiveTab("class-setup");
   };
 
+  const handleClassCreated = (newClass: ClassDocument) => {
+    setActiveClassId(newClass.classId);
+    refreshState();
+  };
+
   const activeClass = classes.find((c) => c.classId === activeClassId) || (classes.length > 0 ? classes[0] : null);
-  const activePupils = activeClassId === "overview" ? pupils : pupils.filter((p) => p.classId === activeClass?.classId);
+  const rawActivePupils = activeClassId === "overview" ? pupils : pupils.filter((p) => p.classId === activeClass?.classId);
+  const activePupils = rawActivePupils.filter(
+    (p, index, self) => index === self.findIndex((t) => t.pupilId === p.pupilId)
+  );
   const activePots = activeClassId === "overview" ? pots : pots.filter((p) => p.classId === activeClass?.classId);
   const totalSavings = activePots.reduce((sum, p) => sum + (p.currentAmountCents || 0), 0);
 
@@ -162,7 +169,7 @@ export default function AdminPortalPage() {
             }`}
           >
             <Users className="w-4 h-4" />
-            <span>Class Setup &amp; Rosters</span>
+            <span>Class Setup and List</span>
           </button>
 
           <button
@@ -271,10 +278,15 @@ export default function AdminPortalPage() {
         ) : activeTab === "class-setup" ? (
           /* CLASSROOM INSPECTION & ROSTERS VIEW */
           <div className="space-y-6">
-            <div className="p-4 rounded-2xl bg-indigoSurface/60 border border-focusIndicator/30 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2 text-focusIndicator font-bold">
-                <span>👑</span>
-                <span>Admin Classroom Inspection: Viewing {activeClass?.className || "Classroom"}</span>
+            <div className="bg-surface rounded-2xl border border-borderMuted shadow-sm p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-focusIndicator/15 border border-focusIndicator/25 flex items-center justify-center text-focusIndicator font-bold text-sm">
+                  👑
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-primaryText">Class Setup and List</h3>
+                  <p className="text-xs text-primaryText/60">Viewing and managing roster for <strong className="text-brandPrimary">{activeClass?.className || "Classroom"}</strong></p>
+                </div>
               </div>
               <button
                 type="button"
@@ -282,18 +294,12 @@ export default function AdminPortalPage() {
                   setActiveTab("overview");
                   setActiveClassId("overview");
                 }}
-                className="px-3 py-1.5 rounded-lg bg-surface text-primaryText font-bold border border-borderMuted hover:bg-tealSurface transition-colors"
+                className="px-3.5 py-2 rounded-xl bg-canvas hover:bg-tealSurface text-primaryText font-bold border border-borderMuted transition-colors flex items-center gap-1.5 self-start sm:self-auto"
               >
-                ← Back to School Governance
+                <ArrowLeft className="w-3.5 h-3.5 text-brandPrimary" />
+                <span>Back to School Governance</span>
               </button>
             </div>
-
-            <KeyStageDashboard
-              totalSavingsCents={totalSavings}
-              pupilCount={activePupils.length}
-              pots={activePots}
-              keyStageLabel={`${activeClass?.className || "Classroom"} Pot`}
-            />
 
             <ClassSetup
               classes={classes}
@@ -306,6 +312,7 @@ export default function AdminPortalPage() {
                 setIsAssignModalOpen(true);
               }}
               onPupilsChanged={refreshState}
+              onClassCreated={handleClassCreated}
             />
           </div>
         ) : activeTab === "jobs-board" ? (

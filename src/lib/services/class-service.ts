@@ -27,7 +27,7 @@ import {
   createJob,
 } from "./jobs-service";
 import { saveBehaviours } from "./bonus-service";
-import { getStaffUsers, saveStaffUsers, createStaffUser } from "./auth-service";
+import { getStaffUsers, saveStaffUsers, createStaffUser, getCurrentTeacherUser } from "./auth-service";
 import { recordClassTeacherInvitation } from "./tenant-service";
 
 const STORAGE_KEY_CLASSES = "pocketpot_classes_v1";
@@ -60,12 +60,57 @@ export interface CreateClassPayload {
   initialOpeningBalanceCents?: number; // Teacher chosen starting balance (e.g. 500 = £5.00)
   weeklyBasicIncomeCents?: number;     // Minimum basic income weekly allowance (e.g. 200 = £2.00)
   payoutDay?: "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday"; // Weekly payout day
+  teacherId?: string;
+  leadTeacherId?: string;
+  assignedTeacherIds?: string[];
 }
 
 export interface QuickAddResult {
   newClass: ClassDocument;
   pupils: PupilDocument[];
   pots: SavingsPotDocument[];
+}
+
+/**
+ * Deduplication utilities to prevent duplicate React keys or duplicate entity arrays.
+ */
+function deduplicatePupils(list: PupilDocument[]): PupilDocument[] {
+  const seen = new Set<string>();
+  const unique: PupilDocument[] = [];
+  for (const p of list) {
+    if (!p || !p.pupilId) continue;
+    if (!seen.has(p.pupilId)) {
+      seen.add(p.pupilId);
+      unique.push(p);
+    }
+  }
+  return unique;
+}
+
+function deduplicateClasses(list: ClassDocument[]): ClassDocument[] {
+  const seen = new Set<string>();
+  const unique: ClassDocument[] = [];
+  for (const c of list) {
+    if (!c || !c.classId) continue;
+    if (!seen.has(c.classId)) {
+      seen.add(c.classId);
+      unique.push(c);
+    }
+  }
+  return unique;
+}
+
+function deduplicatePots(list: SavingsPotDocument[]): SavingsPotDocument[] {
+  const seen = new Set<string>();
+  const unique: SavingsPotDocument[] = [];
+  for (const p of list) {
+    if (!p || !p.potId) continue;
+    if (!seen.has(p.potId)) {
+      seen.add(p.potId);
+      unique.push(p);
+    }
+  }
+  return unique;
 }
 
 /**
@@ -77,19 +122,35 @@ export function getSavedClasses(): ClassDocument[] {
   if (stored) {
     try {
       const parsed: ClassDocument[] = JSON.parse(stored);
-      // Ensure existing classes have opening balance and weekly income defaults
-      return parsed.map((c) => ({
-        ...c,
-        schoolId: c.schoolId || "st-marys-primary",
-        leadTeacherId: c.leadTeacherId || c.teacherId || "staff-teacher-davis",
-        assignedTeacherIds:
-          c.assignedTeacherIds && c.assignedTeacherIds.length > 0
-            ? c.assignedTeacherIds
-            : [c.leadTeacherId || c.teacherId || "staff-teacher-davis"],
-        initialOpeningBalanceCents: c.initialOpeningBalanceCents ?? 500,
-        weeklyBasicIncomeCents: c.weeklyBasicIncomeCents ?? 200,
-        payoutDay: c.payoutDay ?? "Monday",
-      }));
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const unique = deduplicateClasses(parsed);
+        if (unique.length !== parsed.length) {
+          localStorage.setItem(STORAGE_KEY_CLASSES, JSON.stringify(unique));
+        }
+        // Ensure existing classes have opening balance and weekly income defaults
+        return unique.map((c) => {
+          const validLead =
+            c.leadTeacherId && c.leadTeacherId !== "teacher-oak-lead"
+              ? c.leadTeacherId
+              : c.teacherId && c.teacherId !== "teacher-oak-lead"
+              ? c.teacherId
+              : "staff-teacher-davis";
+          const validAssigned =
+            c.assignedTeacherIds && c.assignedTeacherIds.length > 0 && !c.assignedTeacherIds.every((id) => id === "teacher-oak-lead")
+              ? c.assignedTeacherIds.filter((id) => id !== "teacher-oak-lead")
+              : [validLead];
+          return {
+            ...c,
+            schoolId: c.schoolId || "st-marys-primary",
+            teacherId: validLead,
+            leadTeacherId: validLead,
+            assignedTeacherIds: validAssigned.length > 0 ? validAssigned : [validLead],
+            initialOpeningBalanceCents: c.initialOpeningBalanceCents ?? 500,
+            weeklyBasicIncomeCents: c.weeklyBasicIncomeCents ?? 200,
+            payoutDay: c.payoutDay ?? "Monday",
+          };
+        });
+      }
     } catch {
       // Fallback
     }
@@ -232,7 +293,8 @@ export function assignTeachersToClass(
 
 export function saveClasses(classes: ClassDocument[]): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY_CLASSES, JSON.stringify(classes));
+  const unique = deduplicateClasses(classes);
+  localStorage.setItem(STORAGE_KEY_CLASSES, JSON.stringify(unique));
   notifyBalanceSync();
 }
 
@@ -243,7 +305,12 @@ export function getSavedPupils(): PupilDocument[] {
     try {
       const parsed: PupilDocument[] = JSON.parse(stored);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map((p) => ({
+        const unique = deduplicatePupils(parsed);
+        if (unique.length !== parsed.length) {
+          // Self-heal corrupted/duplicated storage
+          localStorage.setItem(STORAGE_KEY_PUPILS, JSON.stringify(unique));
+        }
+        return unique.map((p) => ({
           ...p,
           pinNumber: p.pinNumber || p.cardLastFour || "1234",
         }));
@@ -260,7 +327,11 @@ export function getSavedPupils(): PupilDocument[] {
     try {
       const parsed: PupilDocument[] = JSON.parse(seeded);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map((p) => ({
+        const unique = deduplicatePupils(parsed);
+        if (unique.length !== parsed.length) {
+          localStorage.setItem(STORAGE_KEY_PUPILS, JSON.stringify(unique));
+        }
+        return unique.map((p) => ({
           ...p,
           pinNumber: p.pinNumber || p.cardLastFour || "1234",
         }));
@@ -274,7 +345,8 @@ export function getSavedPupils(): PupilDocument[] {
 
 export function savePupils(pupils: PupilDocument[]): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY_PUPILS, JSON.stringify(pupils));
+  const unique = deduplicatePupils(pupils);
+  localStorage.setItem(STORAGE_KEY_PUPILS, JSON.stringify(unique));
   notifyBalanceSync();
 }
 
@@ -283,7 +355,14 @@ export function getSavedPots(): SavingsPotDocument[] {
   const stored = localStorage.getItem(STORAGE_KEY_POTS);
   if (stored) {
     try {
-      return JSON.parse(stored);
+      const parsed: SavingsPotDocument[] = JSON.parse(stored);
+      if (Array.isArray(parsed)) {
+        const unique = deduplicatePots(parsed);
+        if (unique.length !== parsed.length) {
+          localStorage.setItem(STORAGE_KEY_POTS, JSON.stringify(unique));
+        }
+        return unique;
+      }
     } catch {
       // Fallback
     }
@@ -293,7 +372,8 @@ export function getSavedPots(): SavingsPotDocument[] {
 
 export function savePots(pots: SavingsPotDocument[]): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY_POTS, JSON.stringify(pots));
+  const unique = deduplicatePots(pots);
+  localStorage.setItem(STORAGE_KEY_POTS, JSON.stringify(unique));
   notifyBalanceSync();
 }
 
@@ -412,10 +492,10 @@ export function createClassWithQuickAdd(
   const newTxs: PotLedgerEntry[] = [];
 
   for (let idx = 0; idx < pupilCount; idx++) {
-    const rawName = effectiveNames[idx] || undefined;
+    const rawName = effectiveNames[idx] ? effectiveNames[idx].trim() : undefined;
     const pupil = createAnonymousPupilProfile(classId, idx + 1, {
       localDisplayName: rawName,
-      anonymize,
+      anonymize: !rawName,
       initialBalanceCents: initialOpeningBalanceCents,
     });
 
@@ -445,10 +525,19 @@ export function createClassWithQuickAdd(
     newTxs.push(...txs);
   }
 
+  const currentEducator = typeof window !== "undefined" ? getCurrentTeacherUser() : null;
+  const leadTeacherId = payload.leadTeacherId || payload.teacherId || currentEducator?.userId || "staff-teacher-davis";
+  const assignedTeacherIds = payload.assignedTeacherIds && payload.assignedTeacherIds.length > 0
+    ? payload.assignedTeacherIds
+    : [leadTeacherId];
+
   const newClass: ClassDocument = {
     classId,
     className: trimmedClassName,
-    teacherId: "teacher-oak-lead",
+    schoolId: "st-marys-primary",
+    teacherId: leadTeacherId,
+    leadTeacherId,
+    assignedTeacherIds,
     classJoinCode,
     yearGroup: payload.yearGroup,
     pupilCount,
@@ -463,6 +552,22 @@ export function createClassWithQuickAdd(
     createdAt: now,
     updatedAt: now,
   };
+
+  // Ensure this classId is also recorded in the lead teacher's assignedClassIds in staff users
+  try {
+    const staff = getStaffUsers();
+    const teacherIdx = staff.findIndex((s) => s.userId === leadTeacherId);
+    if (teacherIdx !== -1) {
+      const teacher = staff[teacherIdx];
+      const existing = teacher.assignedClassIds || [];
+      if (!existing.includes(classId)) {
+        teacher.assignedClassIds = [...existing, classId];
+        saveStaffUsers(staff);
+      }
+    }
+  } catch {
+    // Ignore storage sync errors
+  }
 
   saveClasses([newClass, ...currentClasses]);
   savePupils([...newPupils, ...getSavedPupils()]);

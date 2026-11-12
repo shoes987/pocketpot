@@ -9,7 +9,7 @@
  * - Main balance is tracked for the child's fintech card account, while savings pots are isolated subcollections.
  */
 
-export type UserRole = "admin" | "teacher" | "pupil";
+export type UserRole = "admin" | "teacher" | "pupil" | "unassigned";
 
 /**
  * Path: /tenants/{tenantId}

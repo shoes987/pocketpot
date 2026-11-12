@@ -73,9 +73,11 @@ export const PupilInspectModal: React.FC<PupilInspectModalProps> = ({
 
         {/* 2. GUARANTEED ZERO-PII NOTICE & DIRECT ACCESS LINK */}
         <div className="bg-surface px-6 py-3 border-b border-borderMuted flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left">
-          <div className="flex items-center gap-2 text-xs font-semibold text-primaryText/75 text-left">
-            <ShieldCheck className="w-4 h-4 text-positiveState" />
-            <span>Zero-PII UUID: <code className="font-mono bg-canvas px-1.5 py-0.5 rounded text-brandPrimary">{pupil.pupilId}</code></span>
+          <div className="flex items-center gap-2.5 text-xs font-semibold text-primaryText/75 text-left">
+            <span className="px-2.5 py-1 rounded-full bg-tealSurface text-brandPrimary border border-brandPrimary/30 text-xs font-bold flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-brandPrimary" /> 100% Zero-PII Safeguarded
+            </span>
+            <span className="text-xs text-primaryText/60 font-medium">Desk #{pupil.deskBadgeNumber}</span>
           </div>
 
           <a

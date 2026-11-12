@@ -26,7 +26,6 @@ import {
   RotateCcw,
   Trash2,
   Edit2,
-  Lightbulb,
   ShieldCheck,
   Package,
   Layers,
@@ -58,7 +57,6 @@ export const TeacherMarketplace: React.FC<TeacherMarketplaceProps> = ({
   const [formPriceCents, setFormPriceCents] = useState<number>(150); // Default £1.50
   const [formIcon, setFormIcon] = useState("🚀");
   const [formTier, setFormTier] = useState<RewardTier>("short_term");
-  const [formStock, setFormStock] = useState<string>("");
 
   // Notification Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -96,7 +94,6 @@ export const TeacherMarketplace: React.FC<TeacherMarketplaceProps> = ({
     setFormPriceCents(150); // £1.50
     setFormIcon("🚀");
     setFormTier("short_term");
-    setFormStock("");
     setIsModalOpen(true);
   };
 
@@ -107,15 +104,12 @@ export const TeacherMarketplace: React.FC<TeacherMarketplaceProps> = ({
     setFormPriceCents(reward.priceCoins);
     setFormIcon(reward.icon);
     setFormTier(reward.tier);
-    setFormStock(reward.stockQuantity !== undefined ? String(reward.stockQuantity) : "");
     setIsModalOpen(true);
   };
 
   const handleSaveReward = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formTitle.trim()) return;
-
-    const stock = formStock.trim() ? parseInt(formStock, 10) : undefined;
 
     if (editingReward) {
       updateReward(editingReward.rewardId, {
@@ -124,7 +118,7 @@ export const TeacherMarketplace: React.FC<TeacherMarketplaceProps> = ({
         priceCoins: Number(formPriceCents),
         icon: formIcon,
         tier: formTier,
-        stockQuantity: isNaN(stock as number) ? undefined : stock,
+        stockQuantity: undefined,
       });
       showToast(`Updated reward "${formTitle}"!`);
     } else {
@@ -136,7 +130,7 @@ export const TeacherMarketplace: React.FC<TeacherMarketplaceProps> = ({
         priceCoins: Number(formPriceCents),
         icon: formIcon,
         tier: formTier,
-        stockQuantity: isNaN(stock as number) ? undefined : stock,
+        stockQuantity: undefined,
         isAvailable: false, // Default inactive
       });
       showToast(`Added "${formTitle}" (Inactive by default - click Activate when ready)`);
@@ -193,39 +187,39 @@ export const TeacherMarketplace: React.FC<TeacherMarketplaceProps> = ({
 
   return (
     <div className="space-y-6 text-left font-lexend">
-      {/* 1. PEDAGOGICAL EXPLAINER BANNER (Calming Teal #0D9488) */}
-      <div className="p-5 sm:p-6 rounded-pot bg-tealSurface border-2 border-brandPrimary/30 shadow-islandCard flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-left">
-        <div className="flex items-start gap-3.5">
-          <div className="w-10 h-10 rounded-2xl bg-brandPrimary text-white flex items-center justify-center shrink-0 shadow-xs">
-            <Lightbulb className="w-5 h-5 text-white" />
+      {/* 1. MARKETPLACE HEADER */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-2xl bg-tealSurface flex items-center justify-center text-brandPrimary">
+            <ShoppingBag className="w-5 h-5" />
           </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xs uppercase font-extrabold tracking-wider text-brandPrimary">
-                Pedagogical Guidance &bull; Delayed Gratification
-              </span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-surface text-brandPrimary font-bold border border-brandPrimary/20">
-                Key Stage 2 PSHE
-              </span>
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-bold text-primaryText tracking-tight">
+              Classroom Rewards Marketplace
+            </h2>
+            <div className="relative group cursor-help">
+              <button
+                type="button"
+                aria-label="Marketplace guidance"
+                className="w-5 h-5 rounded-full bg-canvas hover:bg-borderMuted border border-borderMuted text-primaryText/60 hover:text-primaryText text-xs font-bold flex items-center justify-center transition-colors"
+              >
+                ?
+              </button>
+              <div className="absolute left-0 top-full mt-2 hidden group-hover:block z-30 w-72 p-3 bg-primaryText text-white text-xs rounded-xl shadow-xl pointer-events-none">
+                Incentivise positive choices with quick privileges and long-term savings goals.
+              </div>
             </div>
-            <h3 className="text-lg font-bold text-primaryText">
-              Teaching Financial Goal-Setting &amp; Delayed Gratification
-            </h3>
-            <p className="text-xs sm:text-sm text-primaryText/75 max-w-3xl leading-relaxed font-medium">
-              Intentionally configure a balanced mix of <strong>Quick Wins (50p–£1.50)</strong> for short-term motivation and <strong>Big Goals (£3.00–£8.00+)</strong>. When pupils encounter unaffordable items, PocketPot seamlessly guides them to <strong>Set Up a Dedicated Savings Pot</strong>, learning that patience and weekly budget discipline unlock greater rewards.
-            </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 self-start md:self-center shrink-0">
-          <button
-            type="button"
-            onClick={handleOpenAddModal}
-            className="px-4 py-2.5 rounded-xl bg-brandPrimary hover:bg-teal-700 text-white font-bold text-xs flex items-center gap-2 shadow-sm transition-all"
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span>Add Reward</span>
-          </button>
-        </div>
+
+        <button
+          type="button"
+          onClick={handleOpenAddModal}
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-brandPrimary hover:bg-teal-700 text-white font-bold text-sm shadow-sm transition-all focus-visible:outline focus-visible:outline-3 focus-visible:outline-focusIndicator active:scale-98"
+        >
+          <PlusCircle className="w-4 h-4" />
+          <span>+ Add Reward</span>
+        </button>
       </div>
 
       {/* Navigation Sub-Tabs */}
@@ -347,13 +341,6 @@ export const TeacherMarketplace: React.FC<TeacherMarketplaceProps> = ({
                         <CheckCircle2 className="w-3.5 h-3.5 text-primaryText/60" />
                         <span>{reward.purchasesCount || 0} redeemed</span>
                       </span>
-
-                      {/* Stock Cap Pill (if set) */}
-                      {reward.stockQuantity && (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-canvas text-primaryText/75 border border-borderMuted shadow-2xs">
-                          <span>Cap: {reward.stockQuantity} spots</span>
-                        </span>
-                      )}
 
                       {/* Active Status Pill */}
                       <span
@@ -671,21 +658,6 @@ export const TeacherMarketplace: React.FC<TeacherMarketplaceProps> = ({
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
                   placeholder="Explain when and how the pupil can enjoy this privilege..."
-                  className="w-full px-3.5 py-2 rounded-xl bg-canvas border border-borderMuted text-primaryText text-xs font-medium focus:outline-brandPrimary"
-                />
-              </div>
-
-              {/* Optional Stock Limit */}
-              <div>
-                <label className="block text-xs font-bold text-primaryText uppercase tracking-wider mb-1">
-                  Availability Limit (Optional)
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  value={formStock}
-                  onChange={(e) => setFormStock(e.target.value)}
-                  placeholder="e.g. 2 pupils per week (leave blank for unlimited)"
                   className="w-full px-3.5 py-2 rounded-xl bg-canvas border border-borderMuted text-primaryText text-xs font-medium focus:outline-brandPrimary"
                 />
               </div>

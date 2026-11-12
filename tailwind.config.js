@@ -16,6 +16,8 @@ module.exports = {
         brandSecondary: "var(--color-brand-secondary, #D97706)",   // Brand Secondary (Warm Amber)
         positiveState: "var(--color-positive-state, #15803D)",     // Positive State (Sage Green)
         warningState: "var(--color-warning-state, #C2410C)",       // Warning State (Soft Terracotta)
+        terracotta: "var(--color-warning-state, #C2410C)",         // Brand Guidelines Soft Terracotta
+        softTerracotta: "var(--color-warning-state, #C2410C)",     // Brand Guidelines Soft Terracotta
         focusIndicator: "var(--color-focus-indicator, #4338CA)",   // Focus Indicator (Electric Indigo)
 
         // Supporting Semantic Tints

@@ -248,7 +248,7 @@ export const PrintPupilCardsModal: React.FC<PrintPupilCardsModalProps> = ({
 
                   {/* Helper footer under card for teachers */}
                   <div className="mt-2 text-center text-[10px] text-slate-500 font-medium">
-                    {className} • Pupil UUID: {pupil.pupilId.slice(0, 8)}...
+                    {className} • Card #{pupil.deskBadgeNumber}
                   </div>
                 </div>
               );

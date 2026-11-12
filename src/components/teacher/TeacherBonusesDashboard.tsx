@@ -38,6 +38,8 @@ import {
   Award,
   Maximize2,
   Minimize2,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 const ICON_OPTIONS = ["🤝", "🎯", "⭐", "💡", "🧹", "🌱", "👂", "💬", "💖", "🎨", "📚", "🏆", "🚀", "👏", "🌟", "🌈"];
@@ -88,6 +90,7 @@ export function TeacherBonusesDashboard({
   const [selectedClassId, setSelectedClassId] = useState<string>(activeClassId || "");
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [isWhiteboardMode, setIsWhiteboardMode] = useState<boolean>(false);
+  const [isLogOpen, setIsLogOpen] = useState<boolean>(false);
 
   // Fullscreen Interactive Whiteboard Mode Launch/Exit Handlers
   const enterWhiteboardMode = () => {
@@ -673,52 +676,73 @@ export function TeacherBonusesDashboard({
         </div>
       </section>
 
-      {/* 3. RECENT AWARDS HISTORY LOG */}
+      {/* 3. RECENT AWARDS HISTORY LOG (COLLAPSIBLE ACCORDION) */}
       {recentAwards.length > 0 && (
-        <section className="bg-surface rounded-pot p-4 sm:p-6 md:p-8 border border-borderMuted shadow-islandCard space-y-4 text-left">
-          <div className="flex items-center justify-between border-b border-borderMuted/60 pb-3">
-            <div className="flex items-center gap-2">
-              <Award className="w-4 h-4 text-brandSecondary" />
-              <h3 className="text-sm font-bold uppercase tracking-wider text-primaryText">
-                Recent Classroom Recognition Activity
-              </h3>
+        <section className="bg-surface rounded-pot border border-borderMuted shadow-islandCard overflow-hidden text-left transition-all">
+          <button
+            type="button"
+            onClick={() => setIsLogOpen(!isLogOpen)}
+            className="w-full p-4 sm:p-5 flex items-center justify-between hover:bg-canvas/50 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandPrimary"
+            aria-expanded={isLogOpen}
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-tealSurface text-brandPrimary border border-brandPrimary/30">
+                <Award className="w-4 h-4 text-brandSecondary" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-primaryText">
+                    Recent Classroom Recognition Activity
+                  </h3>
+                  <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-tealSurface text-brandPrimary font-bold border border-brandPrimary/30">
+                    {recentAwards.length} recent
+                  </span>
+                </div>
+                <p className="text-[11px] text-primaryText/60 font-medium mt-0.5">
+                  {isLogOpen ? "Click to collapse awards log" : "Click to review recent pupil bonus credits"}
+                </p>
+              </div>
             </div>
-            <span className="text-xs text-primaryText/60 font-medium">
-              Automatically credited to cards
-            </span>
-          </div>
 
-          <div className="divide-y divide-borderMuted/60">
-            {recentAwards.slice(0, 5).map((award) => {
-              const timeStr = new Date(award.awardedAt).toLocaleTimeString("en-GB", {
-                hour: "2-digit",
-                minute: "2-digit",
-              });
+            <div className="flex items-center gap-2 text-xs font-bold text-brandPrimary">
+              <span>{isLogOpen ? "Hide Recent Log" : "View Recent Log"}</span>
+              {isLogOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </div>
+          </button>
 
-              return (
-                <div key={award.awardId} className="py-2.5 flex items-center justify-between gap-4 text-xs">
-                  <div className="flex items-center gap-3">
-                    <span className="w-2 h-2 rounded-full bg-positiveState inline-block" />
-                    <div>
-                      <strong className="text-primaryText font-bold">
-                        {award.behaviourTitle} ({award.definition})
-                      </strong>
-                      <span className="text-primaryText/60 ml-2">
-                        awarded to {award.pupilIds.length} pupil{award.pupilIds.length > 1 ? "s" : ""}
+          {isLogOpen && (
+            <div className="px-4 sm:px-6 md:px-8 pb-5 pt-2 border-t border-borderMuted/60 divide-y divide-borderMuted/60 animate-in fade-in duration-150">
+              {recentAwards.slice(0, 10).map((award) => {
+                const timeStr = new Date(award.awardedAt).toLocaleTimeString("en-GB", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
+
+                return (
+                  <div key={award.awardId} className="py-2.5 flex items-center justify-between gap-4 text-xs">
+                    <div className="flex items-center gap-3">
+                      <span className="w-2 h-2 rounded-full bg-positiveState inline-block" />
+                      <div>
+                        <strong className="text-primaryText font-bold">
+                          {award.behaviourTitle} ({award.definition})
+                        </strong>
+                        <span className="text-primaryText/60 ml-2">
+                          awarded to {award.pupilIds.length} pupil{award.pupilIds.length > 1 ? "s" : ""}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 font-mono">
+                      <span className="font-bold text-positiveState">
+                        +{formatCurrency(award.amountCents * award.pupilIds.length)}
                       </span>
+                      <span className="text-primaryText/45">{timeStr}</span>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-3 font-mono">
-                    <span className="font-bold text-positiveState">
-                      +{formatCurrency(award.amountCents * award.pupilIds.length)}
-                    </span>
-                    <span className="text-primaryText/45">{timeStr}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </section>
       )}
 

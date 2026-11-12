@@ -34,7 +34,6 @@ import {
   Clock,
   Coins,
   CheckCircle2,
-  Calendar,
   Sparkles,
   Award,
   AlertCircle,
@@ -64,7 +63,7 @@ export const TeacherJobsBoard: React.FC<TeacherJobsBoardProps> = ({
   const [pupils, setPupils] = useState<PupilDocument[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>(activeClassId || "class-year4-teal");
   const [filterTab, setFilterTab] = useState<"all" | "open" | "filled" | "completed">("all");
-  const [jobsBoardSubTab, setJobsBoardSubTab] = useState<"both" | "roster" | "vacancies">("both");
+  const [jobsBoardSubTab, setJobsBoardSubTab] = useState<"roster" | "vacancies">("roster");
   const [rosterFilter, setRosterFilter] = useState<"all" | "green" | "amber">("all");
   const [rosterSearch, setRosterSearch] = useState("");
   const [successToast, setSuccessToast] = useState<string | null>(null);
@@ -284,51 +283,30 @@ export const TeacherJobsBoard: React.FC<TeacherJobsBoardProps> = ({
         </div>
       )}
 
-      {/* 1. JOBS BOARD BANNER & CONTROLS */}
-      <section className="bg-surface rounded-pot p-4 sm:p-6 md:p-8 border border-borderMuted shadow-islandCard flex flex-col md:flex-row md:items-center justify-between gap-5 text-left">
-        <div className="space-y-1.5 text-left">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-2xl bg-tealSurface flex items-center justify-center text-brandPrimary">
-              <Briefcase className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-primaryText tracking-tight">
-                Classroom Jobs Board
-              </h2>
-              <span className="text-xs font-bold uppercase tracking-wider text-primaryText/60">
-                Pupil Agency &bull; Financial Responsibility
-              </span>
-            </div>
+      {/* 1. JOBS BOARD HEADER & CONTROLS */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-2xl bg-tealSurface flex items-center justify-center text-brandPrimary">
+            <Briefcase className="w-5 h-5" />
           </div>
-          <p className="text-body text-primaryText/75 font-medium max-w-2xl">
-            Create classroom roles, review written pupil CV applications, and award weekly wages paid automatically on class payout days.
-          </p>
+          <h2 className="text-2xl font-bold text-primaryText tracking-tight">
+            Classroom Jobs
+          </h2>
         </div>
 
         <button
           type="button"
           onClick={() => setIsCreateModalOpen(true)}
-          className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-brandPrimary hover:bg-teal-700 text-white font-bold text-sm shadow-sm transition-all focus-visible:outline focus-visible:outline-3 focus-visible:outline-focusIndicator active:scale-98"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-brandPrimary hover:bg-teal-700 text-white font-bold text-sm shadow-sm transition-all focus-visible:outline focus-visible:outline-3 focus-visible:outline-focusIndicator active:scale-98"
         >
           <Plus className="w-4 h-4 stroke-[3]" />
-          <span>Post New Job</span>
+          <span>+ Post Job</span>
         </button>
-      </section>
+      </div>
 
       {/* 2. SUB-VIEW SELECTOR: Roster vs Vacancies */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-borderMuted/60 pb-3">
         <div className="flex items-center bg-surface p-1 rounded-full border border-borderMuted shadow-xs">
-          <button
-            type="button"
-            onClick={() => setJobsBoardSubTab("both")}
-            className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
-              jobsBoardSubTab === "both"
-                ? "bg-brandPrimary text-white shadow-xs"
-                : "text-primaryText/70 hover:text-primaryText"
-            }`}
-          >
-            <span>Complete Overview</span>
-          </button>
           <button
             type="button"
             onClick={() => setJobsBoardSubTab("roster")}
@@ -339,7 +317,7 @@ export const TeacherJobsBoard: React.FC<TeacherJobsBoardProps> = ({
             }`}
           >
             <Users className="w-4 h-4" />
-            <span>Class Employment Roster</span>
+            <span>Class Roster</span>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-tealSurface text-brandPrimary border border-brandPrimary/30">
               {greenCount} 🟢 &bull; {amberCount} 🟠
             </span>
@@ -378,7 +356,7 @@ export const TeacherJobsBoard: React.FC<TeacherJobsBoardProps> = ({
       </div>
 
       {/* 3. CLASS EMPLOYMENT ROSTER (Requirement: Green for held/current job, Amber for never held) */}
-      {(jobsBoardSubTab === "roster" || jobsBoardSubTab === "both") && (
+      {jobsBoardSubTab === "roster" && (
         <section className="bg-surface rounded-pot p-4 sm:p-6 md:p-8 border border-borderMuted shadow-islandCard space-y-5 text-left">
           {/* Header & Description */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-borderMuted/60 pb-4">
@@ -498,8 +476,8 @@ export const TeacherJobsBoard: React.FC<TeacherJobsBoardProps> = ({
                             </span>
                           )}
                         </div>
-                        <span className="text-[11px] font-mono text-primaryText/50 block">
-                          UUID: {pupil.pupilId.slice(0, 8)}...
+                        <span className="text-xs text-primaryText/60 flex items-center gap-1 font-medium">
+                          Card #{pupil.cardLastFour || pupil.deskBadgeNumber}
                         </span>
                       </div>
                     </div>
@@ -597,7 +575,7 @@ export const TeacherJobsBoard: React.FC<TeacherJobsBoardProps> = ({
       )}
 
       {/* 4. STATS & STATUS FILTER TABS FOR JOB VACANCIES */}
-      {(jobsBoardSubTab === "vacancies" || jobsBoardSubTab === "both") && (
+      {jobsBoardSubTab === "vacancies" && (
         <>
           <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
             <div>
@@ -728,20 +706,6 @@ export const TeacherJobsBoard: React.FC<TeacherJobsBoardProps> = ({
                         <Clock className="w-3.5 h-3.5 text-brandSecondary" />
                         <span>{job.termWeeks}-week term</span>
                       </span>
-
-                      {/* Schedule Pill */}
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-canvas text-primaryText/75 border border-borderMuted shadow-2xs">
-                        <Calendar className="w-3.5 h-3.5 text-primaryText/60" />
-                        <span>Paid with basic income</span>
-                      </span>
-
-                      {/* Applicants Pill for Teacher */}
-                      {job.status === "open" && (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80 shadow-2xs">
-                          <Users className="w-3.5 h-3.5 text-indigo-600" />
-                          <span>{pendingApps.length} waiting • {jobApps.length} total</span>
-                        </span>
-                      )}
                     </div>
 
                     {/* 2. Role Summary */}
@@ -763,10 +727,9 @@ export const TeacherJobsBoard: React.FC<TeacherJobsBoardProps> = ({
                         {job.requiredQualities.map((q, idx) => (
                           <span
                             key={idx}
-                            className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/80 shadow-2xs flex items-center gap-1"
+                            className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-canvas text-primaryText/70 border border-borderMuted shadow-2xs"
                           >
-                            <Check className="w-3 h-3 text-emerald-600 stroke-[3]" />
-                            <span>{q}</span>
+                            {q}
                           </span>
                         ))}
                       </div>

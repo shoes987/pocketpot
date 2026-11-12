@@ -157,10 +157,10 @@ export function createAnonymousPupilProfile(
   const cardLastFour = Math.floor(1000 + Math.random() * 9000).toString();
   const pinNumber = Math.floor(1000 + Math.random() * 9000).toString();
 
-  const anonymize = options?.anonymize ?? true;
-  const localDisplayName = !anonymize && options?.localDisplayName
-    ? options.localDisplayName.trim()
-    : undefined;
+  const rawDisplayName = options?.localDisplayName?.trim();
+  const hasLocalName = Boolean(rawDisplayName && rawDisplayName.length > 0);
+  const localDisplayName = hasLocalName ? rawDisplayName : undefined;
+  const anonymize = options?.anonymize !== undefined ? options.anonymize : !hasLocalName;
 
   const mainBalanceCents =
     options?.initialBalanceCents !== undefined

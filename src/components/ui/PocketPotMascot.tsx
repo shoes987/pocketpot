@@ -48,7 +48,7 @@ export const PocketPotMascot: React.FC<PocketPotMascotProps> = ({
 
   return (
     <svg
-      viewBox="0 0 258 350"
+      viewBox="0 0 258 342"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={`${sizeClass} ${className} ${animate ? "animate-bounce-subtle" : ""} select-none`}
@@ -59,7 +59,7 @@ export const PocketPotMascot: React.FC<PocketPotMascotProps> = ({
       {/* 1. FEET / LEGS (Layered behind base) */}
       {/* Left Foot */}
       <path
-        d="M 86 295 C 84 316 88 335 104 335 C 118 335 122 316 120 295"
+        d="M 86 292 C 84 313 88 333 104 333 C 118 333 122 313 120 292"
         fill={bodyColor}
         stroke={strokeColor}
         strokeWidth="7"
@@ -68,7 +68,7 @@ export const PocketPotMascot: React.FC<PocketPotMascotProps> = ({
       />
       {/* Right Foot */}
       <path
-        d="M 137 295 C 137 316 142 335 156 335 C 170 335 174 316 172 295"
+        d="M 137 292 C 137 313 142 333 156 333 C 170 333 174 313 172 292"
         fill={bodyColor}
         stroke={strokeColor}
         strokeWidth="7"
@@ -81,9 +81,9 @@ export const PocketPotMascot: React.FC<PocketPotMascotProps> = ({
         d="M 125 96
            C 85 96 46 116 35 158
            C 28 185 32 225 38 255
-           C 42 278 50 298 75 298
-           L 175 298
-           C 195 298 206 280 212 255
+           C 42 278 50 295 75 295
+           L 175 295
+           C 195 295 206 278 212 255
            C 219 220 223 185 216 155
            C 208 116 168 96 125 96 Z"
         fill={bodyColor}
@@ -96,11 +96,11 @@ export const PocketPotMascot: React.FC<PocketPotMascotProps> = ({
       {/* 3. ARMS (Side resting arms with clean separation seams) */}
       {/* Left Arm */}
       <path
-        d="M 37 222
-           C 27 230 15 248 14 266
-           C 13 280 20 291 32 290
-           C 42 289 44 278 43 260
-           C 42 248 39 235 37 222"
+        d="M 37 220
+           C 27 228 15 246 14 264
+           C 13 278 20 289 32 288
+           C 42 287 44 276 43 258
+           C 42 246 39 233 37 220"
         fill={bodyColor}
         stroke={strokeColor}
         strokeWidth="7"
@@ -109,11 +109,11 @@ export const PocketPotMascot: React.FC<PocketPotMascotProps> = ({
       />
       {/* Right Arm */}
       <path
-        d="M 213 222
-           C 223 230 238 248 240 266
-           C 241 278 233 286 222 285
-           C 212 284 210 274 210 256
-           C 210 245 211 235 213 222"
+        d="M 213 220
+           C 223 228 238 246 240 264
+           C 241 276 233 284 222 283
+           C 212 282 210 272 210 254
+           C 210 243 211 233 213 220"
         fill={bodyColor}
         stroke={strokeColor}
         strokeWidth="7"
