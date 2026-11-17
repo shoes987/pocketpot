@@ -47,7 +47,7 @@ export const DEFAULT_MARKETPLACE_REWARDS: Omit<
   {
     title: "Move to the front of the line for a week",
     description: "Lead your class line proudly to assemblies, lunch hall, and break times for one whole week.",
-    priceCoins: 150, // £1.50
+    pricePence: 150, // £1.50
     icon: "🚀",
     tier: "short_term",
     stockQuantity: 2,
@@ -56,7 +56,7 @@ export const DEFAULT_MARKETPLACE_REWARDS: Omit<
   {
     title: "Choose your own desk",
     description: "Pick any desk and seating spot in the classroom to work from for an entire week.",
-    priceCoins: 300, // £3.00
+    pricePence: 300, // £3.00
     icon: "🪑",
     tier: "long_term",
     stockQuantity: 4,
@@ -65,7 +65,7 @@ export const DEFAULT_MARKETPLACE_REWARDS: Omit<
   {
     title: "Class DJ: Pick Friday Tidy Music (15 mins)",
     description: "Select the upbeat song playlist for our Friday afternoon classroom tidy-up session.",
-    priceCoins: 100, // £1.00
+    pricePence: 100, // £1.00
     icon: "🎵",
     tier: "short_term",
     stockQuantity: 1,
@@ -74,7 +74,7 @@ export const DEFAULT_MARKETPLACE_REWARDS: Omit<
   {
     title: "Bring a Soft Toy / Reading Mascot for Friday",
     description: "Bring your favorite cuddly friend to sit peacefully on your desk during Friday afternoon reading.",
-    priceCoins: 75, // 75p
+    pricePence: 75, // 75p
     icon: "🧸",
     tier: "short_term",
     isAvailable: false, // Inactive by default
@@ -82,7 +82,7 @@ export const DEFAULT_MARKETPLACE_REWARDS: Omit<
   {
     title: "VIP Squash & Biscuits with Headteacher",
     description: "Enjoy a special afternoon snack break with school leadership to share pupil council ideas.",
-    priceCoins: 500, // £5.00
+    pricePence: 500, // £5.00
     icon: "☕",
     tier: "long_term",
     stockQuantity: 3,
@@ -91,7 +91,7 @@ export const DEFAULT_MARKETPLACE_REWARDS: Omit<
   {
     title: "Homework Pass for One Night",
     description: "Enjoy a restful evening off from one weekday reading or times-table practice assignment.",
-    priceCoins: 400, // £4.00
+    pricePence: 400, // £4.00
     icon: "🎟️",
     tier: "long_term",
     isAvailable: false, // Inactive by default
@@ -99,7 +99,7 @@ export const DEFAULT_MARKETPLACE_REWARDS: Omit<
   {
     title: "First Pick of Playground Sports Gear",
     description: "Get first choice of the football, jump ropes, or swingball bats during morning and lunch break.",
-    priceCoins: 50, // 50p
+    pricePence: 50, // 50p
     icon: "⚽",
     tier: "short_term",
     isAvailable: false, // Inactive by default
@@ -117,7 +117,13 @@ export function getSavedRewards(classId?: string): MarketplaceRewardDocument[] {
 
   if (stored) {
     try {
-      rewards = JSON.parse(stored);
+      const parsed = JSON.parse(stored);
+      rewards = Array.isArray(parsed)
+        ? parsed.map((item) => ({
+            ...item,
+            pricePence: (item as any).pricePence ?? (item as any).priceCoins ?? 0,
+          }))
+        : [];
     } catch {
       rewards = [];
     }
@@ -231,7 +237,13 @@ export function getSavedPurchases(
 
   if (stored) {
     try {
-      purchases = JSON.parse(stored);
+      const parsed = JSON.parse(stored);
+      purchases = Array.isArray(parsed)
+        ? parsed.map((item) => ({
+            ...item,
+            pricePence: (item as any).pricePence ?? (item as any).priceCoins ?? 0,
+          }))
+        : [];
     } catch {
       purchases = [];
     }
@@ -304,7 +316,7 @@ export function purchaseReward(
   }
 
   // Cash balance check (Non-punitive microcopy)
-  const costCents = reward.priceCoins;
+  const costCents = reward.pricePence;
   if ((pupil.mainBalanceCents || 0) < costCents) {
     const neededCents = costCents - (pupil.mainBalanceCents || 0);
     return {
@@ -339,7 +351,7 @@ export function purchaseReward(
     rewardId: reward.rewardId,
     rewardTitle: reward.title,
     rewardIcon: reward.icon,
-    priceCoins: costCents,
+    pricePence: costCents,
     classId: pupil.classId,
     pupilId: pupil.pupilId,
     pupilCodename: pupil.educationalCodename || "Learner",
@@ -382,7 +394,7 @@ export function refundPurchase(
   }
 
   const now = new Date().toISOString();
-  const refundAmount = purchase.priceCoins;
+  const refundAmount = purchase.pricePence;
 
   // 1. Re-credit cash value to pupil's card balance
   pupil.mainBalanceCents = (pupil.mainBalanceCents || 0) + refundAmount;
@@ -456,7 +468,7 @@ export function createPotForReward(
     pupilId: pupilId,
     classId: normalizeClassId(classId),
     title: potTitle,
-    targetAmountCents: reward.priceCoins,
+    targetAmountCents: reward.pricePence,
     currentAmountCents: 0,
     theme: reward.tier === "short_term" ? "calmingTeal" : "warmAmber",
     status: "active",

@@ -55,11 +55,31 @@ export const FORBIDDEN_CONSUMER_DOMAINS = [
   "protonmail.com",
 ];
 
+// Server-side in-memory tenant & invite storage for Node.js server runtime
+const serverTenants: Record<string, TenantDocument> = {
+  [DEFAULT_TENANT_ID]: { ...DEFAULT_TENANT },
+};
+let serverInvites: TeacherInviteDocument[] = [];
+
 /**
  * Retrieve a school tenant configuration.
  */
 export function getTenant(tenantId: string = DEFAULT_TENANT_ID): TenantDocument {
-  if (typeof window === "undefined") return DEFAULT_TENANT;
+  if (typeof window === "undefined") {
+    if (serverTenants[tenantId]) {
+      return serverTenants[tenantId];
+    }
+    if (tenantId === DEFAULT_TENANT_ID) {
+      return serverTenants[DEFAULT_TENANT_ID];
+    }
+    const newTenant: TenantDocument = {
+      ...DEFAULT_TENANT,
+      tenantId,
+      schoolName: `School Workspace (${tenantId})`,
+    };
+    serverTenants[tenantId] = newTenant;
+    return newTenant;
+  }
   const stored = localStorage.getItem(STORAGE_KEY_TENANTS);
   if (stored) {
     try {
@@ -77,7 +97,10 @@ export function getTenant(tenantId: string = DEFAULT_TENANT_ID): TenantDocument 
  * Persist tenant configuration.
  */
 export function saveTenant(tenant: TenantDocument): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined") {
+    serverTenants[tenant.tenantId] = { ...tenant };
+    return;
+  }
   const stored = localStorage.getItem(STORAGE_KEY_TENANTS);
   let tenants: Record<string, TenantDocument> = {};
   if (stored) {
@@ -167,7 +190,9 @@ export function validateTeacherEmailDomain(
  * Retrieve all teacher invites for a tenant.
  */
 export function getTenantInvites(tenantId: string = DEFAULT_TENANT_ID): TeacherInviteDocument[] {
-  if (typeof window === "undefined") return [];
+  if (typeof window === "undefined") {
+    return serverInvites.filter((inv) => inv.tenantId === tenantId);
+  }
   const stored = localStorage.getItem(STORAGE_KEY_INVITES);
   if (stored) {
     try {
@@ -186,7 +211,10 @@ export function getTenantInvites(tenantId: string = DEFAULT_TENANT_ID): TeacherI
  * Persist tenant invites.
  */
 export function saveTenantInvites(invites: TeacherInviteDocument[]): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined") {
+    serverInvites = [...invites];
+    return;
+  }
   localStorage.setItem(STORAGE_KEY_INVITES, JSON.stringify(invites));
 }
 

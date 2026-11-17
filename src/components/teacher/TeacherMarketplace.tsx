@@ -101,7 +101,7 @@ export const TeacherMarketplace: React.FC<TeacherMarketplaceProps> = ({
     setEditingReward(reward);
     setFormTitle(reward.title);
     setFormDescription(reward.description);
-    setFormPriceCents(reward.priceCoins);
+    setFormPriceCents(reward.pricePence);
     setFormIcon(reward.icon);
     setFormTier(reward.tier);
     setIsModalOpen(true);
@@ -115,7 +115,7 @@ export const TeacherMarketplace: React.FC<TeacherMarketplaceProps> = ({
       updateReward(editingReward.rewardId, {
         title: formTitle.trim(),
         description: formDescription.trim(),
-        priceCoins: Number(formPriceCents),
+        pricePence: Number(formPriceCents),
         icon: formIcon,
         tier: formTier,
         stockQuantity: undefined,
@@ -127,7 +127,7 @@ export const TeacherMarketplace: React.FC<TeacherMarketplaceProps> = ({
         classId: normalizedClassId,
         title: formTitle.trim(),
         description: formDescription.trim(),
-        priceCoins: Number(formPriceCents),
+        pricePence: Number(formPriceCents),
         icon: formIcon,
         tier: formTier,
         stockQuantity: undefined,
@@ -166,7 +166,7 @@ export const TeacherMarketplace: React.FC<TeacherMarketplaceProps> = ({
   };
 
   const handleRefundOrder = (purchase: MarketplacePurchaseDocument) => {
-    const cashStr = formatCurrency(purchase.priceCoins);
+    const cashStr = formatCurrency(purchase.pricePence);
     const reason = prompt(
       `Issue refund of ${cashStr} for ${purchase.pupilCodename}? (Optional reason):`,
       "Privilege rescheduled or pupil request"
@@ -312,7 +312,7 @@ export const TeacherMarketplace: React.FC<TeacherMarketplaceProps> = ({
                         }`}
                       >
                         <Coins className="w-3.5 h-3.5" />
-                        <span>{formatCurrency(reward.priceCoins)}</span>
+                        <span>{formatCurrency(reward.pricePence)}</span>
                       </span>
 
                       {/* Tier Type Pill */}
@@ -463,7 +463,7 @@ export const TeacherMarketplace: React.FC<TeacherMarketplaceProps> = ({
                           </span>
                         </td>
                         <td className="p-3.5 font-bold text-brandPrimary">
-                          {formatCurrency(purchase.priceCoins)}
+                          {formatCurrency(purchase.pricePence)}
                         </td>
                         <td className="p-3.5 text-primaryText/60">
                           {new Date(purchase.purchasedAt).toLocaleDateString("en-GB", {

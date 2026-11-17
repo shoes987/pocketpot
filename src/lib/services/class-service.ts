@@ -178,6 +178,7 @@ export function getSavedClasses(): ClassDocument[] {
       },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      lastPayoutTimestamp: new Date().toISOString(),
     },
     {
       classId: "class-year-4-amber",
@@ -199,6 +200,7 @@ export function getSavedClasses(): ClassDocument[] {
       },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      lastPayoutTimestamp: new Date().toISOString(),
     },
     {
       classId: "class-year-5-oak",
@@ -220,6 +222,7 @@ export function getSavedClasses(): ClassDocument[] {
       },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      lastPayoutTimestamp: new Date().toISOString(),
     },
     {
       classId: "class-year-6-willow",
@@ -241,6 +244,7 @@ export function getSavedClasses(): ClassDocument[] {
       },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      lastPayoutTimestamp: new Date().toISOString(),
     },
   ];
 
@@ -390,9 +394,52 @@ export function getSavedTransactions(): PotLedgerEntry[] {
   return [];
 }
 
+const MAX_TRANSACTIONS = 1000;
+const QUOTA_FALLBACK_TRANSACTIONS = 300;
+
+export function pruneTransactions(txs: PotLedgerEntry[], limit = MAX_TRANSACTIONS): PotLedgerEntry[] {
+  const seen = new Set<string>();
+  const unique: PotLedgerEntry[] = [];
+  for (const tx of txs) {
+    if (!tx || !tx.transactionId) continue;
+    if (!seen.has(tx.transactionId)) {
+      seen.add(tx.transactionId);
+      unique.push(tx);
+    }
+  }
+
+  unique.sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
+
+  return unique.slice(0, limit);
+}
+
 export function saveTransactions(txs: PotLedgerEntry[]): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(txs));
+  const pruned = pruneTransactions(txs, MAX_TRANSACTIONS);
+  try {
+    localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(pruned));
+  } catch (error: any) {
+    if (
+      error?.name === "QuotaExceededError" ||
+      error?.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+      error?.code === 22 ||
+      error?.code === 1014
+    ) {
+      console.warn(
+        `Storage quota exceeded in saveTransactions; falling back to ${QUOTA_FALLBACK_TRANSACTIONS} transactions.`
+      );
+      try {
+        const fallbackPruned = pruneTransactions(pruned, QUOTA_FALLBACK_TRANSACTIONS);
+        localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(fallbackPruned));
+      } catch (innerError) {
+        console.error("Failed to save transactions even with quota fallback window:", innerError);
+      }
+    } else {
+      console.error("Failed to save transactions to localStorage:", error);
+    }
+  }
   notifyBalanceSync();
 }
 
@@ -544,6 +591,7 @@ export function createClassWithQuickAdd(
     initialOpeningBalanceCents,
     weeklyBasicIncomeCents,
     payoutDay,
+    lastPayoutTimestamp: now,
     aggregateMetrics: {
       totalPotsActive: newPots.length,
       totalSavingsCents: newPots.reduce((acc, p) => acc + p.currentAmountCents, 0),

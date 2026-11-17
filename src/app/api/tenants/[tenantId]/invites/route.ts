@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getTenant,
+  getTenantInvites,
   validateTeacherEmailDomain,
   inviteAndProvisionTeacher,
   inviteAndProvisionTeachersBatch,
@@ -13,8 +14,33 @@ export async function POST(
   { params }: { params: Promise<{ tenantId: string }> }
 ) {
   try {
-    const { tenantId } = await params;
-    const body = await req.json();
+    const resolvedParams = await Promise.resolve(params);
+    const tenantId = resolvedParams?.tenantId;
+
+    let body: {
+      bulkText?: unknown;
+      emails?: unknown;
+      invites?: unknown;
+      assignedClassIds?: unknown;
+      invitedBy?: unknown;
+      email?: unknown;
+      displayName?: unknown;
+    };
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid JSON request body." },
+        { status: 400 }
+      );
+    }
+
+    if (!body || typeof body !== "object") {
+      return NextResponse.json(
+        { error: "A valid JSON object payload is required." },
+        { status: 400 }
+      );
+    }
 
     const tenant = getTenant(tenantId || DEFAULT_TENANT_ID);
     if (!tenant) {
@@ -30,9 +56,11 @@ export async function POST(
       if (body.bulkText && typeof body.bulkText === "string") {
         emails = parseBulkEmails(body.bulkText);
       } else if (Array.isArray(body.emails)) {
-        emails = body.emails.map((e: string) => e.trim().toLowerCase());
+        emails = body.emails.map((e: unknown) => (typeof e === "string" ? e.trim().toLowerCase() : "")).filter(Boolean);
       } else if (Array.isArray(body.invites)) {
-        emails = body.invites.map((inv: { email: string }) => inv.email.trim().toLowerCase());
+        emails = body.invites
+          .map((inv: unknown) => (inv && typeof inv === "object" && "email" in inv && typeof (inv as { email: unknown }).email === "string" ? (inv as { email: string }).email.trim().toLowerCase() : ""))
+          .filter(Boolean);
       }
 
       if (emails.length === 0) {
@@ -42,8 +70,10 @@ export async function POST(
         );
       }
 
-      const assignedClassIds = Array.isArray(body.assignedClassIds) ? body.assignedClassIds : [];
-      const invitedBy = body.invitedBy || "staff-admin-head";
+      const assignedClassIds = Array.isArray(body.assignedClassIds)
+        ? body.assignedClassIds.filter((id): id is string => typeof id === "string")
+        : [];
+      const invitedBy = typeof body.invitedBy === "string" ? body.invitedBy : "staff-admin-head";
 
       const entries = emails.map((email) => ({
         email,
@@ -66,7 +96,7 @@ export async function POST(
     // 2. Single Teacher Invite Mode
     const { email, displayName, assignedClassIds, invitedBy } = body;
 
-    if (!email || typeof email !== "string") {
+    if (!email || typeof email !== "string" || !email.includes("@")) {
       return NextResponse.json(
         { error: "A valid teacher email address is required." },
         { status: 400 }
@@ -90,9 +120,11 @@ export async function POST(
     const result = inviteAndProvisionTeacher(
       {
         email,
-        displayName: displayName || `Teacher (${email.split("@")[0]})`,
-        assignedClassIds: Array.isArray(assignedClassIds) ? assignedClassIds : [],
-        invitedBy: invitedBy || "staff-admin-head",
+        displayName: typeof displayName === "string" ? displayName : `Teacher (${email.split("@")[0]})`,
+        assignedClassIds: Array.isArray(assignedClassIds)
+          ? assignedClassIds.filter((id): id is string => typeof id === "string")
+          : [],
+        invitedBy: typeof invitedBy === "string" ? invitedBy : "staff-admin-head",
       },
       tenant.tenantId
     );
@@ -124,10 +156,19 @@ export async function GET(
   { params }: { params: Promise<{ tenantId: string }> }
 ) {
   try {
-    const { tenantId } = await params;
-    const tenant = getTenant(tenantId || DEFAULT_TENANT_ID);
-    return NextResponse.json({ tenant });
+    const resolvedParams = await Promise.resolve(params);
+    const tenantId = resolvedParams?.tenantId || DEFAULT_TENANT_ID;
+    const tenant = getTenant(tenantId);
+    if (!tenant) {
+      return NextResponse.json(
+        { error: `Tenant workspace ${tenantId} not found.` },
+        { status: 404 }
+      );
+    }
+    const invites = getTenantInvites(tenant.tenantId);
+    return NextResponse.json({ success: true, tenant, invites });
   } catch (err: unknown) {
-    return NextResponse.json({ error: "Failed to retrieve tenant info." }, { status: 500 });
+    const message = err instanceof Error ? err.message : "Failed to retrieve tenant info.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

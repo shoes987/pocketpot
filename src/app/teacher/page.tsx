@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 
 export default function TeacherPortalPage() {
+  const [isMounted, setIsMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<"class-setup" | "jobs-board" | "bonuses" | "marketplace" | "faqs">("class-setup");
   const [isSetupWizardOpen, setIsSetupWizardOpen] = useState(false);
 
@@ -78,6 +79,7 @@ export default function TeacherPortalPage() {
   };
 
   useEffect(() => {
+    setIsMounted(true);
     autoReconcileAllClassesWeeklyIncome();
     refreshState();
 

@@ -83,6 +83,7 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
   onPupilsChanged,
   onClassCreated,
 }) => {
+  const [isMounted, setIsMounted] = useState(false);
   const [classes, setClasses] = useState<ClassDocument[]>(propsClasses || []);
   const [pupils, setPupils] = useState<PupilDocument[]>([]);
   const [pots, setPots] = useState<SavingsPotDocument[]>([]);
@@ -151,6 +152,7 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
 
   // Initialize data on mount & run real-world automated income reconciliation
   useEffect(() => {
+    setIsMounted(true);
     // Automated check: credits pupils idempotently if payout day has occurred
     autoReconcileAllClassesWeeklyIncome();
 
@@ -408,8 +410,23 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
 
   return (
     <div className="space-y-8 text-left">
-      {/* ZERO CLASSES EMPTY STATE */}
-      {classes.length === 0 && (
+      {/* ZERO CLASSES EMPTY STATE & MOUNT SKELETON */}
+      {!isMounted ? (
+        <section className="bg-surface rounded-3xl border border-borderMuted p-8 sm:p-12 text-center space-y-5 shadow-islandCard animate-pulse">
+          <div className="w-16 h-16 rounded-2xl bg-tealSurface/60 border border-brandPrimary/20 mx-auto flex items-center justify-center text-3xl">
+            🏫
+          </div>
+          <div className="max-w-md mx-auto space-y-3">
+            <div className="h-6 bg-borderMuted/60 rounded-xl w-48 mx-auto" />
+            <div className="h-4 bg-borderMuted/40 rounded-xl w-80 mx-auto" />
+            <div className="h-4 bg-borderMuted/30 rounded-xl w-64 mx-auto" />
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <div className="h-11 bg-borderMuted/50 rounded-island w-40" />
+            <div className="h-11 bg-borderMuted/30 rounded-island w-44" />
+          </div>
+        </section>
+      ) : classes.length === 0 ? (
         <section className="bg-surface rounded-3xl border border-dashed border-borderMuted p-8 sm:p-12 text-center space-y-5 shadow-islandCard">
           <div className="w-16 h-16 rounded-2xl bg-tealSurface border border-brandPrimary/30 text-brandPrimary flex items-center justify-center mx-auto text-3xl shadow-xs">
             🏫
@@ -441,7 +458,7 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
             )}
           </div>
         </section>
-      )}
+      ) : null}
 
       {/* 4. CLASS SETUP AND LIST: 6-DIGIT JOIN CODE BANNER & CLASS ACTIONS (MARKETPLACE CARD UI) */}
       {activeClass && (

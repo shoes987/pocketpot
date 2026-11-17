@@ -19,18 +19,28 @@ import {
   Mail,
   Calendar,
 } from "lucide-react";
-import { ClassDocument, PupilDocument, SavingsPotDocument, UserDocument, UserRole } from "@/lib/firebase/types";
+import {
+  ClassDocument,
+  PupilDocument,
+  SavingsPotDocument,
+  UserDocument,
+  UserRole,
+  TenantDocument,
+  TeacherInviteDocument,
+} from "@/lib/firebase/types";
 import { formatCurrency } from "@/lib/firebase/zero-pii";
 import {
   getStaffUsers,
   createStaffUser,
   updateStaffUser,
   deleteStaffUser,
+  DEFAULT_STAFF_USERS,
 } from "@/lib/services/auth-service";
 import {
   getTenant,
   getTenantInvites,
   revokeTeacherInvite,
+  DEFAULT_TENANT,
   DEFAULT_TENANT_ID,
 } from "@/lib/services/tenant-service";
 
@@ -55,10 +65,33 @@ export function SchoolOverviewDashboard({
   onOpenWizard,
   onOpenInviteTeacherModal,
 }: SchoolOverviewDashboardProps) {
-  const [staffList, setStaffList] = useState<UserDocument[]>(() => getStaffUsers());
-  const tenant = getTenant();
-  const allInvites = getTenantInvites();
-  const pendingInvites = allInvites.filter((i) => i.status === "pending");
+  const [isMounted, setIsMounted] = useState(false);
+  const [staffList, setStaffList] = useState<UserDocument[]>(DEFAULT_STAFF_USERS);
+  const [tenant, setTenant] = useState<TenantDocument>(DEFAULT_TENANT);
+  const [allInvites, setAllInvites] = useState<TeacherInviteDocument[]>([]);
+
+  useEffect(() => {
+    setIsMounted(true);
+    setStaffList(getStaffUsers());
+    setTenant(getTenant());
+    setAllInvites(getTenantInvites());
+
+    const handleStaffUpdate = () => {
+      setStaffList(getStaffUsers());
+      setTenant(getTenant());
+      setAllInvites(getTenantInvites());
+    };
+
+    window.addEventListener("pocketpot_staff_updated", handleStaffUpdate);
+    window.addEventListener("storage", handleStaffUpdate);
+
+    return () => {
+      window.removeEventListener("pocketpot_staff_updated", handleStaffUpdate);
+      window.removeEventListener("storage", handleStaffUpdate);
+    };
+  }, []);
+
+  const pendingInvites = isMounted ? allInvites.filter((i) => i.status === "pending") : [];
 
   // Add Teacher Modal State
   const [isAddTeacherModalOpen, setIsAddTeacherModalOpen] = useState(false);
@@ -88,6 +121,8 @@ export function SchoolOverviewDashboard({
 
   const reloadStaff = () => {
     setStaffList(getStaffUsers());
+    setTenant(getTenant());
+    setAllInvites(getTenantInvites());
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("pocketpot_staff_updated"));
     }

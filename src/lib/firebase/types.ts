@@ -275,7 +275,7 @@ export interface MarketplaceRewardDocument {
   classId: string;
   title: string;                 // e.g. 'Move to the front of the line for a week', 'Choose your own desk'
   description: string;           // Child-friendly description of privilege
-  priceCoins: number;            // Cost in PocketCoins (1 PocketCoin = 1p / 1 cent)
+  pricePence: number;            // Cost in minor units (pence / 1p)
   icon: string;                  // Emoji representation (e.g. 🚀, 🪑, 🎵)
   tier: RewardTier;              // "short_term" (quick win) vs "long_term" (delayed gratification)
   stockQuantity?: number;        // Optional inventory limit per term/week (null/undefined = unlimited)
@@ -292,7 +292,7 @@ export interface MarketplacePurchaseDocument {
   rewardId: string;
   rewardTitle: string;
   rewardIcon: string;
-  priceCoins: number;
+  pricePence: number;            // Cost in minor units (pence / 1p)
   classId: string;
   pupilId: string;               // Anonymous UUID v4
   pupilCodename: string;         // e.g. "Calm River Otter #101"

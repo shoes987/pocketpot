@@ -92,6 +92,17 @@ export function TeacherBonusesDashboard({
   const [isWhiteboardMode, setIsWhiteboardMode] = useState<boolean>(false);
   const [isLogOpen, setIsLogOpen] = useState<boolean>(false);
 
+  // Persistent Web Audio context to prevent hardware audio context leaks
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (audioCtxRef.current && audioCtxRef.current.state !== "closed") {
+        audioCtxRef.current.close().catch(() => {});
+      }
+    };
+  }, []);
+
   // Fullscreen Interactive Whiteboard Mode Launch/Exit Handlers
   const enterWhiteboardMode = () => {
     setIsWhiteboardMode(true);
@@ -148,6 +159,17 @@ export function TeacherBonusesDashboard({
   } | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const confettiAnimFrameRef = useRef<number | null>(null);
+
+  // Clean up any pending confetti animation frame on unmount
+  useEffect(() => {
+    return () => {
+      if (confettiAnimFrameRef.current !== null) {
+        cancelAnimationFrame(confettiAnimFrameRef.current);
+        confettiAnimFrameRef.current = null;
+      }
+    };
+  }, []);
 
   // Load Data
   const loadData = () => {
@@ -178,9 +200,15 @@ export function TeacherBonusesDashboard({
   const playCelebrationChime = () => {
     if (!soundEnabled) return;
     try {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (!AudioCtx) return;
-      const ctx = new AudioCtx();
+
+      if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
+        audioCtxRef.current = new AudioCtx();
+      }
+      const ctx = audioCtxRef.current;
       if (ctx.state === "suspended") {
         ctx.resume();
       }
@@ -213,6 +241,12 @@ export function TeacherBonusesDashboard({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    if (confettiAnimFrameRef.current !== null) {
+      cancelAnimationFrame(confettiAnimFrameRef.current);
+      confettiAnimFrameRef.current = null;
+    }
+
+    // Set canvas dimensions to display size
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
@@ -243,13 +277,13 @@ export function TeacherBonusesDashboard({
       });
     }
 
-    let animationFrameId: number;
     const startTime = Date.now();
 
     const render = () => {
       const elapsed = Date.now() - startTime;
       if (elapsed > 2500) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        confettiAnimFrameRef.current = null;
         return;
       }
 
@@ -271,10 +305,10 @@ export function TeacherBonusesDashboard({
         ctx.restore();
       });
 
-      animationFrameId = requestAnimationFrame(render);
+      confettiAnimFrameRef.current = requestAnimationFrame(render);
     };
 
-    render();
+    confettiAnimFrameRef.current = requestAnimationFrame(render);
   };
 
   // Open Award Modal for a Behaviour Card (Whiteboard Tap)

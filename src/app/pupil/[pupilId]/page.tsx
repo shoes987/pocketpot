@@ -41,24 +41,9 @@ import {
   ChevronUp,
 } from "lucide-react";
 
-interface PupilDashboardProps {
-  params?: Promise<{ pupilId: string }> | { pupilId: string };
-}
-
-export default function PupilAccountPage(props: PupilDashboardProps) {
-  // Safe resolution for Next.js 15+ / 16 dynamic route Promise unwrapping
-  const unwrappedParams =
-    props?.params &&
-    typeof (React as unknown as { use?: (p: unknown) => { pupilId?: string } }).use === "function"
-      ? (React as unknown as { use: (p: unknown) => { pupilId?: string } }).use(props.params)
-      : null;
-
+export default function PupilAccountPage() {
   const routeParams = useParams();
-
-  const pupilId: string =
-    unwrappedParams?.pupilId ||
-    (typeof routeParams?.pupilId === "string" ? routeParams.pupilId : "") ||
-    "";
+  const pupilId: string = typeof routeParams?.pupilId === "string" ? routeParams.pupilId : "";
 
   const [pupil, setPupil] = useState<PupilDocument | null>(null);
   const [pots, setPots] = useState<SavingsPotDocument[]>([]);

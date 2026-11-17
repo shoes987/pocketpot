@@ -54,6 +54,7 @@ export default function AdminPortalPage() {
   const [isInviteTeacherModalOpen, setIsInviteTeacherModalOpen] = useState(false);
 
   // Authenticated Admin User (Defaults to headteacher Mrs Henderson)
+  const [isMounted, setIsMounted] = useState(false);
   const [currentAdmin, setCurrentAdmin] = useState<UserDocument | null>(null);
 
   const [pupils, setPupils] = useState<PupilDocument[]>([]);
@@ -76,6 +77,7 @@ export default function AdminPortalPage() {
   };
 
   useEffect(() => {
+    setIsMounted(true);
     autoReconcileAllClassesWeeklyIncome();
     refreshState();
 
@@ -113,7 +115,7 @@ export default function AdminPortalPage() {
       {/* 1. TRUE FULL-WIDTH STICKY TOP HEADER IN TEAL WITH PERMANENT SUB-BAR */}
       <AppTopHeader
         role="admin"
-        userName={currentAdmin?.displayName || "Headteacher / Admin"}
+        userName={(isMounted && currentAdmin?.displayName) || "Headteacher / Admin"}
         userSubtitle="Senior Leadership Level"
         mainLinkHref="/admin"
         notificationBell={
@@ -243,7 +245,7 @@ export default function AdminPortalPage() {
             className="bg-canvas border border-borderMuted rounded-xl px-2.5 py-1.5 text-xs font-bold text-primaryText focus:outline-brandPrimary cursor-pointer shadow-2xs"
           >
             <option value="overview">🏛️ All Classes (Whole School)</option>
-            {classes.map((cls) => (
+            {isMounted && classes.map((cls) => (
               <option key={cls.classId} value={cls.classId}>
                 🏫 {cls.className} ({cls.yearGroup || "KS2"})
               </option>

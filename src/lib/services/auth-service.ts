@@ -60,11 +60,14 @@ export const DEFAULT_STAFF_USERS: UserDocument[] = [
   },
 ];
 
+// Server-side in-memory staff storage for Node.js server runtime
+let serverStaffUsers: UserDocument[] = [...DEFAULT_STAFF_USERS];
+
 /**
  * Retrieve all registered staff members for the school.
  */
 export function getStaffUsers(): UserDocument[] {
-  if (typeof window === "undefined") return DEFAULT_STAFF_USERS;
+  if (typeof window === "undefined") return [...serverStaffUsers];
   const stored = localStorage.getItem(STORAGE_KEY_STAFF_USERS);
   if (stored) {
     try {
@@ -84,7 +87,10 @@ export function getStaffUsers(): UserDocument[] {
  * Persist staff users list.
  */
 export function saveStaffUsers(users: UserDocument[]): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined") {
+    serverStaffUsers = [...users];
+    return;
+  }
   localStorage.setItem(STORAGE_KEY_STAFF_USERS, JSON.stringify(users));
 }
 

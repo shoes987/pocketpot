@@ -18,23 +18,9 @@ import { PupilNotificationBell } from "@/components/pupil/PupilNotificationBell"
 import { AppTopHeader } from "@/components/ui/AppTopHeader";
 import { Sparkles, ShieldCheck, ArrowLeft, ShoppingBag } from "lucide-react";
 
-interface MarketplacePageProps {
-  params?: Promise<{ pupilId: string }> | { pupilId: string };
-}
-
-export default function PupilMarketplacePage(props: MarketplacePageProps) {
-  const unwrappedParams =
-    props?.params &&
-    typeof (React as unknown as { use?: (p: unknown) => { pupilId?: string } }).use === "function"
-      ? (React as unknown as { use: (p: unknown) => { pupilId?: string } }).use(props.params)
-      : null;
-
+export default function PupilMarketplacePage() {
   const routeParams = useParams();
-
-  const pupilId: string =
-    unwrappedParams?.pupilId ||
-    (typeof routeParams?.pupilId === "string" ? routeParams.pupilId : "") ||
-    "";
+  const pupilId: string = typeof routeParams?.pupilId === "string" ? routeParams.pupilId : "";
 
   const [pupil, setPupil] = useState<PupilDocument | null>(null);
   const [pots, setPots] = useState<SavingsPotDocument[]>([]);

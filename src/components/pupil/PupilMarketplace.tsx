@@ -263,9 +263,9 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {rewards.map((reward) => {
-              const isAffordable = cardBalance >= reward.priceCoins;
+              const isAffordable = cardBalance >= reward.pricePence;
               const isShortTerm = reward.tier === "short_term";
-              const neededCents = reward.priceCoins - cardBalance;
+              const neededCents = reward.pricePence - cardBalance;
 
               // Check if pupil already has a pot for this goal
               const potTitle = `Goal: ${reward.title}`;
@@ -315,7 +315,7 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
                           }`}
                         >
                           <Coins className="w-3.5 h-3.5" />
-                          <span>{formatCurrency(reward.priceCoins)}</span>
+                          <span>{formatCurrency(reward.pricePence)}</span>
                         </span>
 
                         {/* Goal Type Pill */}
@@ -372,7 +372,7 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
                               <span>Active Savings Pot</span>
                             </span>
                             <span>
-                              {formatCurrency(existingPot.currentAmountCents || 0)} / {formatCurrency(reward.priceCoins)}
+                              {formatCurrency(existingPot.currentAmountCents || 0)} / {formatCurrency(reward.pricePence)}
                             </span>
                           </div>
                           <div className="w-full h-2 rounded-full bg-canvas overflow-hidden border border-borderMuted/40">
@@ -381,7 +381,7 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
                               style={{
                                 width: `${Math.min(
                                   100,
-                                  Math.round(((existingPot.currentAmountCents || 0) / reward.priceCoins) * 100)
+                                  Math.round(((existingPot.currentAmountCents || 0) / reward.pricePence) * 100)
                                 )}%`,
                               }}
                             />
@@ -400,7 +400,7 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
                             className="w-full py-2.5 px-4 rounded-xl bg-brandPrimary hover:bg-teal-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
                           >
                             <Sparkles className="w-4 h-4 text-white" />
-                            <span>Buy Reward ({formatCurrency(reward.priceCoins)})</span>
+                            <span>Buy Reward ({formatCurrency(reward.pricePence)})</span>
                           </button>
                           <span className="text-[10px] text-positiveState font-semibold block text-center">
                             ✓ Ready to unlock from card balance
@@ -470,7 +470,7 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
                       {p.rewardTitle}
                     </span>
                     <span className="text-[11px] text-brandSecondary font-semibold block">
-                      {formatCurrency(p.priceCoins)}
+                      {formatCurrency(p.pricePence)}
                     </span>
                     <div>
                       {isFulfilled ? (
@@ -516,7 +516,7 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
                 Take a Quiet Breath...
               </h3>
               <p className="text-xs sm:text-sm text-primaryText/75 leading-relaxed font-medium">
-                You are about to spend <strong>{formatCurrency(selectedRewardToBuy.priceCoins)}</strong> on <strong>"{selectedRewardToBuy.title}"</strong>.
+                You are about to spend <strong>{formatCurrency(selectedRewardToBuy.pricePence)}</strong> on <strong>"{selectedRewardToBuy.title}"</strong>.
               </p>
             </div>
 
@@ -530,7 +530,7 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
               <div>
                 <span className="text-primaryText/60 block text-[10px]">After Buying</span>
                 <strong className="text-sm text-brandPrimary">
-                  {formatCurrency(cardBalance - selectedRewardToBuy.priceCoins)}
+                  {formatCurrency(cardBalance - selectedRewardToBuy.pricePence)}
                 </strong>
               </div>
             </div>
@@ -555,7 +555,7 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
                 <span>
                   {mindfulCountdown > 0
                     ? `Pausing to think... (${mindfulCountdown}s)`
-                    : `Yes, I'm Ready to Buy (${formatCurrency(selectedRewardToBuy.priceCoins)})`}
+                    : `Yes, I'm Ready to Buy (${formatCurrency(selectedRewardToBuy.pricePence)})`}
                 </span>
               </button>
 
