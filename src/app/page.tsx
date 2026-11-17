@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
 import {
   ShieldCheck,
@@ -13,50 +13,9 @@ import {
   Users,
   CheckCircle2,
   ExternalLink,
-  AlertCircle,
 } from "lucide-react";
-import { collection, addDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 
 export default function RootGatewayPage() {
-  const [isWriting, setIsWriting] = useState(false);
-  const [testAlert, setTestAlert] = useState<{
-    type: "success" | "error";
-    message: string;
-    docId?: string;
-  } | null>(null);
-
-  const handleCreateTestPot = async () => {
-    setIsWriting(true);
-    setTestAlert(null);
-    try {
-      const docRef = await addDoc(collection(db, "test_pots"), {
-        pupilId: "pupil_desk_101",
-        potName: "Zoo Wildlife Trip",
-        balance: 5.5,
-        createdAt: new Date().toISOString(),
-      });
-      const successMessage = `Test pot record saved to Firestore! Doc ID: ${docRef.id}`;
-      setTestAlert({
-        type: "success",
-        message: successMessage,
-        docId: docRef.id,
-      });
-      if (typeof window !== "undefined") {
-        window.alert(successMessage);
-      }
-    } catch (err: unknown) {
-      const errorMsg =
-        err instanceof Error ? err.message : "Failed to write to Firestore.";
-      setTestAlert({ type: "error", message: errorMsg });
-      if (typeof window !== "undefined") {
-        window.alert(`Firestore Test Error: ${errorMsg}`);
-      }
-    } finally {
-      setIsWriting(false);
-    }
-  };
-
   return (
     <main className="min-h-screen bg-canvas text-primaryText p-4 sm:p-6 md:p-10 font-lexend text-left flex flex-col justify-between">
       <div className="max-w-6xl mx-auto w-full space-y-8">
@@ -88,46 +47,6 @@ export default function RootGatewayPage() {
             </div>
           </div>
         </header>
-
-        {/* Temporary Firestore Test Bar */}
-        <div className="p-4 rounded-2xl bg-tealSurface/70 border-2 border-brandPrimary/30 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-left">
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-brandPrimary animate-pulse" />
-              <strong className="text-xs uppercase tracking-wider font-extrabold text-brandPrimary">
-                Firestore Connection Test (Temporary)
-              </strong>
-            </div>
-            <p className="text-xs text-primaryText/80">
-              Test writing a Zero-PII test record to the <code className="font-mono bg-canvas px-1.5 py-0.5 rounded border border-borderMuted font-bold">test_pots</code> collection.
-            </p>
-            {testAlert && (
-              <div
-                className={`mt-2 p-2.5 rounded-xl text-xs font-bold flex items-center gap-2 ${
-                  testAlert.type === "success"
-                    ? "bg-positiveState/15 text-positiveState border border-positiveState/30"
-                    : "bg-red-50 text-red-700 border border-red-200"
-                }`}
-              >
-                {testAlert.type === "success" ? (
-                  <CheckCircle2 className="w-4 h-4 shrink-0" />
-                ) : (
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                )}
-                <span>{testAlert.message}</span>
-              </div>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={handleCreateTestPot}
-            disabled={isWriting}
-            className="px-4 py-2.5 rounded-xl bg-brandPrimary hover:bg-teal-700 text-white font-bold text-xs shadow-xs transition-all flex items-center gap-2 shrink-0 disabled:opacity-50 cursor-pointer"
-          >
-            <Sparkles className="w-4 h-4" />
-            <span>{isWriting ? "Saving to Firestore..." : "Test Firestore addDoc"}</span>
-          </button>
-        </div>
 
         {/* Hero Section */}
         <div className="space-y-3 text-left">
