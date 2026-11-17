@@ -254,10 +254,10 @@ export default function AdultLoginPage() {
             Pupils do not use passwords. To access your PocketPot debit card, use your classroom tablet with your <strong>Class Join Code &amp; 4-digit Desk PIN</strong>.
           </p>
           <Link
-            href="/pupil/pupil-1"
+            href="/pupil"
             className="inline-flex items-center gap-1 font-bold text-positiveState hover:underline text-xs pt-1"
           >
-            <span>Open Pupil Tablet View</span>
+            <span>Open Pupil Tablet Login</span>
             <ArrowRight className="w-3 h-3" />
           </Link>
         </div>

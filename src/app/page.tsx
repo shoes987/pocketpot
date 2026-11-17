@@ -217,10 +217,10 @@ export default function RootGatewayPage() {
             </div>
 
             <Link
-              href="/pupil/pupil-1"
+              href="/pupil"
               className="w-full py-3 px-4 rounded-xl bg-positiveState hover:bg-green-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all"
             >
-              <span>Enter Pupil Portal (Leo &bull; #101)</span>
+              <span>Enter Pupil Portal (Classroom Tablet Login)</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
