@@ -148,18 +148,18 @@ export const CreatePotModal: React.FC<CreatePotModalProps> = ({
           </div>
 
           {/* Action Buttons */}
-          <div className="pt-3 flex items-center justify-end gap-3 text-left">
+          <div className="pt-3 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 text-left">
             <button
               type="button"
               onClick={onClose}
-              className="py-2.5 px-4 rounded-xl border border-borderMuted hover:bg-canvas text-sm font-bold text-primaryText transition-all"
+              className="py-2.5 px-4 rounded-xl border border-borderMuted hover:bg-canvas text-sm font-bold text-primaryText transition-all text-center"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!title.trim()}
-              className="py-2.5 px-5 rounded-xl bg-brandPrimary hover:bg-teal-700 text-white text-sm font-bold shadow-md transition-all disabled:opacity-40"
+              className="py-2.5 px-5 rounded-xl bg-brandPrimary hover:bg-teal-700 text-white text-sm font-bold shadow-md transition-all disabled:opacity-40 text-center"
             >
               Create Pot
             </button>

@@ -366,19 +366,19 @@ export function InviteTeacherModal({
             </div>
 
             {/* Actions */}
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-borderMuted/60">
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 pt-3 border-t border-borderMuted/60">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={isSubmitting}
-                className="py-2.5 px-4 rounded-xl border border-borderMuted text-xs font-bold text-primaryText hover:bg-canvas transition-colors"
+                className="py-2.5 px-4 rounded-xl border border-borderMuted text-xs font-bold text-primaryText hover:bg-canvas transition-colors text-center"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="py-2.5 px-5 rounded-xl bg-brandPrimary hover:bg-teal-700 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
+                className="py-2.5 px-5 rounded-xl bg-brandPrimary hover:bg-teal-700 text-white text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 text-center"
               >
                 {isSubmitting ? (
                   <span>Provisioning...</span>
@@ -461,19 +461,19 @@ export function InviteTeacherModal({
             </div>
 
             {/* Actions */}
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-borderMuted/60">
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 pt-3 border-t border-borderMuted/60">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={isSubmitting}
-                className="py-2.5 px-4 rounded-xl border border-borderMuted text-xs font-bold text-primaryText hover:bg-canvas transition-colors"
+                className="py-2.5 px-4 rounded-xl border border-borderMuted text-xs font-bold text-primaryText hover:bg-canvas transition-colors text-center"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting || parsedBulkEmails.length === 0 || invalidBulkEmails.length > 0}
-                className="py-2.5 px-5 rounded-xl bg-brandPrimary hover:bg-teal-700 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
+                className="py-2.5 px-5 rounded-xl bg-brandPrimary hover:bg-teal-700 text-white text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 text-center"
               >
                 {isSubmitting ? (
                   <span>Batch Provisioning...</span>

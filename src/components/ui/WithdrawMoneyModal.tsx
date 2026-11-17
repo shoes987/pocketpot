@@ -167,21 +167,21 @@ export const WithdrawMoneyModal: React.FC<WithdrawMoneyModalProps> = ({
           )}
 
           {/* Action Footer */}
-          <div className="pt-2 flex items-center justify-end gap-3 text-left">
+          <div className="pt-2 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 text-left">
             <button
               type="button"
               onClick={onClose}
-              className="py-3 px-5 rounded-xl border border-borderMuted hover:bg-canvas text-sm font-bold text-primaryText transition-all"
+              className="py-3 px-5 rounded-xl border border-borderMuted hover:bg-canvas text-sm font-bold text-primaryText transition-all text-center"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!isValidAmount || !hasEnoughFunds}
-              className="py-3 px-6 rounded-xl bg-brandSecondary hover:bg-amber-700 text-white text-sm font-extrabold shadow-md transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+              className="py-3 px-6 rounded-xl bg-brandSecondary hover:bg-amber-700 text-white text-sm font-extrabold shadow-md transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-center"
             >
               <span>Withdraw {isValidAmount ? formatCurrency(parsedPence) : ""} to Card</span>
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-4 h-4 shrink-0" />
             </button>
           </div>
         </form>

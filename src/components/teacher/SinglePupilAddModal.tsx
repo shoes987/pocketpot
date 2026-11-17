@@ -100,7 +100,7 @@ export function SinglePupilAddModal({
             <label className="block text-xs font-bold uppercase text-primaryText/70">
               Identity &amp; Safeguarding Mode
             </label>
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <button
                 type="button"
                 onClick={() => setAnonymize(true)}
@@ -162,19 +162,19 @@ export function SinglePupilAddModal({
           </div>
 
           {/* Action Footer */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-borderMuted/60">
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 pt-3 border-t border-borderMuted/60">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-bold text-primaryText/60 hover:text-primaryText"
+              className="px-4 py-2.5 rounded-xl text-xs font-bold text-primaryText/60 hover:text-primaryText text-center"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-full bg-brandPrimary hover:bg-teal-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all"
+              className="px-5 py-2.5 rounded-full bg-brandPrimary hover:bg-teal-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all text-center"
             >
-              <Check className="w-4 h-4" />
+              <Check className="w-4 h-4 shrink-0" />
               <span>Enroll Student Account</span>
             </button>
           </div>

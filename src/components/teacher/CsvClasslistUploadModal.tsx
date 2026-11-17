@@ -434,29 +434,31 @@ export function CsvClasslistUploadModal({
                   </div>
 
                   {/* 1-Click Bulk Assign Bar */}
-                  <div className="flex flex-col sm:flex-row items-center gap-2 bg-surface p-2.5 rounded-xl border border-amber-300/80">
-                    <span className="text-xs font-bold text-primaryText whitespace-nowrap">
+                  <div className="bg-surface p-3 rounded-xl border border-amber-300/80 space-y-2">
+                    <span className="text-xs font-bold text-primaryText block">
                       Assign all {unassignedRows.length} remaining pupils to:
                     </span>
-                    <select
-                      value={bulkAssignClassId}
-                      onChange={(e) => setBulkAssignClassId(e.target.value)}
-                      className="px-3 py-1.5 text-xs bg-canvas rounded-lg border border-borderMuted text-primaryText font-bold flex-1"
-                    >
-                      <option value="">-- Select Target Classroom --</option>
-                      {availableClasses.map((cls) => (
-                        <option key={cls.classId} value={cls.classId}>
-                          {cls.className} ({cls.yearGroup})
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={handleBulkAssign}
-                      className="px-3.5 py-1.5 rounded-lg bg-brandPrimary hover:bg-teal-700 text-white font-bold text-xs whitespace-nowrap shadow-xs"
-                    >
-                      ⚡ Apply to All Unassigned
-                    </button>
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                      <select
+                        value={bulkAssignClassId}
+                        onChange={(e) => setBulkAssignClassId(e.target.value)}
+                        className="px-3 py-2 text-xs bg-canvas rounded-lg border border-borderMuted text-primaryText font-bold flex-1 min-w-0"
+                      >
+                        <option value="">-- Select Target Classroom --</option>
+                        {availableClasses.map((cls) => (
+                          <option key={cls.classId} value={cls.classId}>
+                            {cls.className} ({cls.yearGroup})
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={handleBulkAssign}
+                        className="px-4 py-2 rounded-lg bg-brandPrimary hover:bg-teal-700 text-white font-bold text-xs whitespace-nowrap shadow-xs shrink-0 flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        <span>⚡</span> Apply to All Unassigned
+                      </button>
+                    </div>
                   </div>
 
                   {/* Per-Row Dropdowns (for individual assignment overrides) */}
@@ -467,13 +469,13 @@ export function CsvClasslistUploadModal({
                     {unassignedRows.map((pupil) => (
                       <div
                         key={pupil.id}
-                        className="flex items-center justify-between p-2 rounded-lg bg-surface border border-borderMuted text-xs"
+                        className="flex items-center justify-between gap-2 p-2 rounded-lg bg-surface border border-borderMuted text-xs"
                       >
-                        <span className="font-bold text-primaryText">{pupil.firstName}</span>
+                        <span className="font-bold text-primaryText truncate">{pupil.firstName}</span>
                         <select
                           value={pupil.assignedClassId || ""}
                           onChange={(e) => handleRowClassChange(pupil.id, e.target.value)}
-                          className="px-2 py-1 text-xs bg-canvas rounded-md border border-borderMuted text-primaryText font-medium"
+                          className="px-2 py-1 text-xs bg-canvas rounded-md border border-borderMuted text-primaryText font-medium shrink-0 max-w-[200px]"
                         >
                           <option value="">-- Choose Class --</option>
                           {availableClasses.map((cls) => (
@@ -584,11 +586,11 @@ export function CsvClasslistUploadModal({
         )}
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-end gap-3 pt-3 border-t border-borderMuted/60">
+        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 pt-3 border-t border-borderMuted/60">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-bold text-primaryText/60 hover:text-primaryText"
+            className="px-4 py-2.5 rounded-xl text-xs font-bold text-primaryText/60 hover:text-primaryText text-center"
           >
             Cancel
           </button>
@@ -597,14 +599,14 @@ export function CsvClasslistUploadModal({
               type="button"
               disabled={isProcessing || unassignedRows.length > 0}
               onClick={handleConfirmEnrollment}
-              className={`px-5 py-2.5 rounded-full font-bold text-xs flex items-center gap-1.5 shadow-md transition-all ${
+              className={`px-5 py-2.5 rounded-full font-bold text-xs flex items-center justify-center gap-1.5 shadow-md transition-all text-center ${
                 unassignedRows.length > 0
                   ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-                  : "bg-positiveState hover:bg-green-700 text-white scale-[1.02]"
+                  : "bg-positiveState hover:bg-green-700 text-white sm:scale-[1.02]"
               }`}
             >
-              <Check className="w-4 h-4" />
-              <span>
+              <Check className="w-4 h-4 shrink-0" />
+              <span className="truncate sm:whitespace-normal">
                 {isProcessing
                   ? "Enrolling..."
                   : unassignedRows.length > 0

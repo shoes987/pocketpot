@@ -168,21 +168,21 @@ export const AddMoneyModal: React.FC<AddMoneyModalProps> = ({
           )}
 
           {/* Action Footer */}
-          <div className="pt-2 flex items-center justify-end gap-3 text-left">
+          <div className="pt-2 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 text-left">
             <button
               type="button"
               onClick={onClose}
-              className="py-3 px-5 rounded-xl border border-borderMuted hover:bg-canvas text-sm font-bold text-primaryText transition-all"
+              className="py-3 px-5 rounded-xl border border-borderMuted hover:bg-canvas text-sm font-bold text-primaryText transition-all text-center"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!isValidAmount || !hasEnoughFunds}
-              className="py-3 px-6 rounded-xl bg-brandPrimary hover:bg-teal-700 text-white text-sm font-extrabold shadow-md transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+              className="py-3 px-6 rounded-xl bg-brandPrimary hover:bg-teal-700 text-white text-sm font-extrabold shadow-md transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-center"
             >
               <span>Add {isValidAmount ? formatCurrency(parsedPence) : ""} to Pot</span>
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="w-4 h-4 shrink-0" />
             </button>
           </div>
         </form>

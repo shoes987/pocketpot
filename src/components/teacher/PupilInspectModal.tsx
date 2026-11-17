@@ -246,14 +246,14 @@ export const PupilInspectModal: React.FC<PupilInspectModalProps> = ({
         </div>
 
         {/* 4. FOOTER CONTROLS */}
-        <div className="bg-surface px-6 py-4 rounded-b-3xl border-t border-borderMuted flex items-center justify-between text-left">
+        <div className="bg-surface px-6 py-4 rounded-b-3xl border-t border-borderMuted flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-3 text-left">
           <span className="text-xs text-primaryText/60 text-left font-medium">
             PocketPot Inspection Mode • Zero-PII Protected
           </span>
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2.5 rounded-xl bg-surface hover:bg-canvas border border-borderMuted text-primaryText font-semibold text-sm transition-all text-left"
+            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-surface hover:bg-canvas border border-borderMuted text-primaryText font-semibold text-sm transition-all text-center sm:text-left"
           >
             Close Observation
           </button>
