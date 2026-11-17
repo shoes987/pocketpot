@@ -18,6 +18,7 @@ import {
   JobStatus,
 } from "../firebase/types";
 import { formatCurrency, assertZeroPII } from "../firebase/zero-pii";
+import { saveJobsBatchToFirestore } from "../firebase/firestore-service";
 
 const STORAGE_KEY_JOBS = "pocketpot_jobs_v1";
 const STORAGE_KEY_APPLICATIONS = "pocketpot_job_applications_v1";
@@ -119,6 +120,11 @@ export function getSavedJobs(classId?: string): JobPostingDocument[] {
 export function saveJobs(jobs: JobPostingDocument[]): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(STORAGE_KEY_JOBS, JSON.stringify(jobs));
+  try {
+    saveJobsBatchToFirestore(jobs);
+  } catch (err) {
+    console.warn("Firestore saveJobs warning:", err);
+  }
 }
 
 /**

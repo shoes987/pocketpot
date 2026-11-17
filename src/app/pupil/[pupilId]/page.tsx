@@ -25,6 +25,7 @@ import { PupilBottomNav } from "@/components/ui/PupilBottomNav";
 import { PupilNotificationBell } from "@/components/pupil/PupilNotificationBell";
 import { AppTopHeader } from "@/components/ui/AppTopHeader";
 import { getActiveJobForPupil } from "@/lib/services/jobs-service";
+import { subscribeToPupil, subscribeToPots } from "@/lib/firebase/firestore-service";
 import {
   ShieldCheck,
   Sparkles,
@@ -55,10 +56,13 @@ export default function PupilAccountPage() {
     // Run real-world automated reconciliation check
     autoReconcileAllClassesWeeklyIncome();
 
+    const activeId = pupilId.trim() || "pupil-1";
+    let targetRealId = activeId;
+
     const loadData = () => {
-      const activeId = pupilId.trim() || "pupil-1";
       const foundPupil = getPupilById(activeId);
       if (foundPupil) {
+        targetRealId = foundPupil.pupilId;
         setPupil(foundPupil);
         const pupilPots = getPotsForPupil(foundPupil.pupilId);
         // Load up to 100 transactions so 30-day history is available
@@ -79,11 +83,26 @@ export default function PupilAccountPage() {
 
     loadData();
 
+    // Real-time Firestore onSnapshot listeners
+    const unsubPupil = subscribeToPupil(targetRealId, (livePupil) => {
+      if (livePupil) {
+        setPupil((prev) => (prev ? { ...prev, ...livePupil, localDisplayName: prev.localDisplayName } : livePupil));
+      }
+    });
+
+    const unsubPots = subscribeToPots((livePots) => {
+      if (livePots.length > 0) {
+        setPots(livePots);
+      }
+    }, targetRealId);
+
     const handleSync = () => loadData();
     window.addEventListener("storage", handleSync);
     window.addEventListener(BALANCE_SYNC_EVENT, handleSync);
 
     return () => {
+      unsubPupil();
+      unsubPots();
       window.removeEventListener("storage", handleSync);
       window.removeEventListener(BALANCE_SYNC_EVENT, handleSync);
     };

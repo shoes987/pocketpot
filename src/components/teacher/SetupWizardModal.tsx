@@ -37,6 +37,11 @@ import {
   sanitizeClasslistCsv,
   CsvSafeguardingAuditResult,
 } from "@/lib/services/csv-sanitizer";
+import {
+  saveClassToFirestore,
+  savePupilsBatchToFirestore,
+  savePotsBatchToFirestore,
+} from "@/lib/firebase/firestore-service";
 
 interface SetupWizardModalProps {
   isOpen: boolean;
@@ -294,6 +299,13 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
       };
 
       const result = setupClassroomWithWizard(config);
+      saveClassToFirestore(result.newClass);
+      if (result.pupils?.length) {
+        savePupilsBatchToFirestore(result.pupils);
+      }
+      if (result.pots?.length) {
+        savePotsBatchToFirestore(result.pots);
+      }
       setCreatedClass(result.newClass);
       setCreatedPupils(result.pupils);
       setStep(6); // Go to Launchpad
@@ -335,6 +347,14 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
         starterJobs: [PRESET_JOBS[0], PRESET_JOBS[1], PRESET_JOBS[2]],
         starterBehaviours: [PRESET_BEHAVIOURS[0], PRESET_BEHAVIOURS[1], PRESET_BEHAVIOURS[2], PRESET_BEHAVIOURS[3]],
       });
+
+      saveClassToFirestore(result.newClass);
+      if (result.pupils?.length) {
+        savePupilsBatchToFirestore(result.pupils);
+      }
+      if (result.pots?.length) {
+        savePotsBatchToFirestore(result.pots);
+      }
 
       setCreatedClass(result.newClass);
       setCreatedPupils(result.pupils);

@@ -22,6 +22,11 @@ import {
   saveTransactions,
 } from "./class-service";
 import { addNotification } from "./jobs-service";
+import {
+  updatePupilBalanceInFirestore,
+  recordBonusAwardInFirestore,
+  recordTransactionInFirestore,
+} from "../firebase/firestore-service";
 
 const STORAGE_KEY_BEHAVIOURS = "pocketpot_positive_behaviours_v1";
 const STORAGE_KEY_BONUS_AWARDS = "pocketpot_bonus_awards_v1";
@@ -364,6 +369,20 @@ export function awardBonusToPupils(params: {
   assertZeroPII(awardRecord as unknown as Record<string, unknown>);
   const existingAwards = getSavedBonusAwards();
   saveBonusAwards([awardRecord, ...existingAwards]);
+
+  // Real-time Firestore sync for Whiteboard Mode bonuses
+  try {
+    params.pupilIds.forEach((pid) => {
+      const p = updatedPupils.find((item) => item.pupilId === pid);
+      if (p) {
+        updatePupilBalanceInFirestore(pid, p.mainBalanceCents, p.totalSavedCents);
+      }
+    });
+    recordBonusAwardInFirestore(awardRecord);
+    newTransactions.forEach((tx) => recordTransactionInFirestore(tx));
+  } catch (err) {
+    console.warn("Firestore bonus award sync warning:", err);
+  }
 
   return {
     success: true,

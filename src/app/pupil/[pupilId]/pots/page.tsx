@@ -27,6 +27,7 @@ import { PupilNotificationBell } from "@/components/pupil/PupilNotificationBell"
 import { AppTopHeader } from "@/components/ui/AppTopHeader";
 import { PotGraphic } from "@/components/ui/PotGraphic";
 import { CoinBuddyMascot } from "@/components/ui/CoinBuddyMascot";
+import { subscribeToPupil, subscribeToPots } from "@/lib/firebase/firestore-service";
 import {
   Plus,
   Sparkles,
@@ -47,10 +48,13 @@ export default function PupilPotsPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   useEffect(() => {
+    const activeId = pupilId.trim() || "pupil-1";
+    let targetRealId = activeId;
+
     const loadPupilData = () => {
-      const activeId = pupilId.trim() || "pupil-1";
       const foundPupil = getPupilById(activeId);
       if (foundPupil) {
+        targetRealId = foundPupil.pupilId;
         setPupil(foundPupil);
         const pupilPots = getPotsForPupil(foundPupil.pupilId);
         setPots(pupilPots);
@@ -67,11 +71,26 @@ export default function PupilPotsPage() {
 
     loadPupilData();
 
+    // Real-time Firestore onSnapshot listeners
+    const unsubPupil = subscribeToPupil(targetRealId, (livePupil) => {
+      if (livePupil) {
+        setPupil((prev) => (prev ? { ...prev, ...livePupil, localDisplayName: prev.localDisplayName } : livePupil));
+      }
+    });
+
+    const unsubPots = subscribeToPots((livePots) => {
+      if (livePots.length > 0) {
+        setPots(livePots);
+      }
+    }, targetRealId);
+
     const handleSync = () => loadPupilData();
     window.addEventListener("storage", handleSync);
     window.addEventListener(BALANCE_SYNC_EVENT, handleSync);
 
     return () => {
+      unsubPupil();
+      unsubPots();
       window.removeEventListener("storage", handleSync);
       window.removeEventListener(BALANCE_SYNC_EVENT, handleSync);
     };

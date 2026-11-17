@@ -16,6 +16,7 @@
 
 import { TenantDocument, TeacherInviteDocument, UserDocument } from "../firebase/types";
 import { getStaffUsers, saveStaffUsers } from "./auth-service";
+import { saveTenantToFirestore } from "../firebase/firestore-service";
 
 const STORAGE_KEY_TENANTS = "pocketpot_tenants_v1";
 const STORAGE_KEY_INVITES = "pocketpot_tenant_invites_v1";
@@ -112,6 +113,13 @@ export function saveTenant(tenant: TenantDocument): void {
   }
   tenants[tenant.tenantId] = tenant;
   localStorage.setItem(STORAGE_KEY_TENANTS, JSON.stringify(tenants));
+
+  // Sync to Cloud Firestore
+  try {
+    saveTenantToFirestore(tenant);
+  } catch (err) {
+    console.warn("Firestore saveTenant warning:", err);
+  }
 }
 
 /**

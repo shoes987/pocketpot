@@ -22,6 +22,12 @@ import {
   saveTransactions,
 } from "./class-service";
 import { formatCurrency } from "../firebase/zero-pii";
+import {
+  saveRewardsBatchToFirestore,
+  savePurchaseToFirestore,
+  updatePupilBalanceInFirestore,
+  recordTransactionInFirestore,
+} from "../firebase/firestore-service";
 
 const STORAGE_KEY_REWARDS = "pocketpot_marketplace_rewards_v2";
 const STORAGE_KEY_PURCHASES = "pocketpot_marketplace_purchases_v2";
@@ -159,6 +165,11 @@ export function saveRewards(rewards: MarketplaceRewardDocument[]): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(STORAGE_KEY_REWARDS, JSON.stringify(rewards));
   window.dispatchEvent(new CustomEvent("pocketpot_marketplace_updated"));
+  try {
+    saveRewardsBatchToFirestore(rewards);
+  } catch (err) {
+    console.warn("Firestore saveRewards warning:", err);
+  }
 }
 
 /**
@@ -363,6 +374,15 @@ export function purchaseReward(
   // 4. Increment reward purchase count
   reward.purchasesCount = (reward.purchasesCount || 0) + 1;
   saveRewards([...rewards]);
+
+  // Real-time Firestore sync
+  try {
+    updatePupilBalanceInFirestore(pupil.pupilId, pupil.mainBalanceCents);
+    savePurchaseToFirestore(purchase);
+    recordTransactionInFirestore(tx);
+  } catch (err) {
+    console.warn("Firestore purchaseReward warning:", err);
+  }
 
   return { success: true, purchase };
 }

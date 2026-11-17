@@ -82,6 +82,7 @@ export interface ClassDocument {
   initialOpeningBalanceCents?: number; // Opening deposit given upon account creation (e.g. 500 = £5.00)
   weeklyBasicIncomeCents?: number;     // Minimum basic income weekly payout (e.g. 200 = £2.00)
   payoutDay?: "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday"; // Weekly payout day
+  paydayOfWeek?: "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday"; // Configurable payday for scheduled morning payout function
   lastPayoutTimestamp?: string;       // ISO timestamp when weekly basic income was last distributed
   aggregateMetrics: {
     totalPotsActive: number;

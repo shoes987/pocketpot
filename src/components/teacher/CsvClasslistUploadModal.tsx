@@ -25,6 +25,7 @@ import {
   enrollMultiClassPupils,
   getSavedClasses,
 } from "@/lib/services/class-service";
+import { savePupilsBatchToFirestore } from "@/lib/firebase/firestore-service";
 import { ClassDocument, PupilDocument } from "@/lib/firebase/types";
 
 interface CsvClasslistUploadModalProps {
@@ -174,7 +175,7 @@ export function CsvClasslistUploadModal({
     }
   }
 
-  const handleConfirmEnrollment = () => {
+  const handleConfirmEnrollment = async () => {
     if (!auditResult || pupilRows.length === 0) return;
 
     if (unassignedRows.length > 0) {
@@ -194,6 +195,7 @@ export function CsvClasslistUploadModal({
         }));
 
         const result = enrollMultiClassPupils(enrollments, anonymize);
+        await savePupilsBatchToFirestore(result.allPupils);
         onPupilsEnrolled(result.allPupils);
       } else {
         // Single Class Enrollment
@@ -206,6 +208,7 @@ export function CsvClasslistUploadModal({
           anonymize,
           activeClass?.initialOpeningBalanceCents
         );
+        await savePupilsBatchToFirestore(enrolled);
         onPupilsEnrolled(enrolled);
       }
 
@@ -434,15 +437,15 @@ export function CsvClasslistUploadModal({
                   </div>
 
                   {/* 1-Click Bulk Assign Bar */}
-                  <div className="bg-surface p-3 rounded-xl border border-amber-300/80 space-y-2 max-w-full overflow-hidden">
+                  <div className="bg-surface p-3 sm:p-4 rounded-xl border border-amber-300/80 space-y-2.5 max-w-full overflow-hidden">
                     <span className="text-xs font-bold text-primaryText block">
                       Assign all {unassignedRows.length} remaining pupils to:
                     </span>
-                    <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                       <select
                         value={bulkAssignClassId}
                         onChange={(e) => setBulkAssignClassId(e.target.value)}
-                        className="px-3 py-2 text-xs bg-canvas rounded-lg border border-borderMuted text-primaryText font-bold flex-1 min-w-0"
+                        className="w-full sm:flex-1 min-w-0 px-3 py-2 text-xs bg-canvas rounded-lg border border-borderMuted text-primaryText font-bold focus:outline-none focus:ring-2 focus:ring-brandPrimary/30 truncate"
                       >
                         <option value="">-- Select Target Classroom --</option>
                         {availableClasses.map((cls) => (
@@ -454,9 +457,10 @@ export function CsvClasslistUploadModal({
                       <button
                         type="button"
                         onClick={handleBulkAssign}
-                        className="px-4 py-2 rounded-lg bg-brandPrimary hover:bg-teal-700 text-white font-bold text-xs whitespace-nowrap shadow-xs shrink-0 flex items-center justify-center gap-1.5 transition-colors w-full md:w-auto"
+                        className="px-4 py-2 rounded-lg bg-brandPrimary hover:bg-teal-700 text-white font-bold text-xs shadow-xs shrink-0 flex items-center justify-center gap-1.5 transition-colors w-full sm:w-auto"
                       >
-                        <span>⚡</span> Apply to All Unassigned
+                        <span>⚡</span>
+                        <span className="whitespace-nowrap">Apply to All Unassigned</span>
                       </button>
                     </div>
                   </div>
@@ -475,7 +479,7 @@ export function CsvClasslistUploadModal({
                         <select
                           value={pupil.assignedClassId || ""}
                           onChange={(e) => handleRowClassChange(pupil.id, e.target.value)}
-                          className="px-2 py-1 text-xs bg-canvas rounded-md border border-borderMuted text-primaryText font-medium shrink-0 max-w-[200px]"
+                          className="px-2 py-1 text-xs bg-canvas rounded-md border border-borderMuted text-primaryText font-medium shrink-0 max-w-[150px] sm:max-w-[200px] truncate"
                         >
                           <option value="">-- Choose Class --</option>
                           {availableClasses.map((cls) => (

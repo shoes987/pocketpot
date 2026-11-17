@@ -29,6 +29,17 @@ import {
 import { saveBehaviours } from "./bonus-service";
 import { getStaffUsers, saveStaffUsers, createStaffUser, getCurrentTeacherUser } from "./auth-service";
 import { recordClassTeacherInvitation } from "./tenant-service";
+import {
+  saveClassToFirestore,
+  deleteClassFromFirestore,
+  savePupilsBatchToFirestore,
+  updatePupilBalanceInFirestore,
+  deletePupilFromFirestore,
+  savePotsBatchToFirestore,
+  updatePotBalanceInFirestore,
+  deletePotFromFirestore,
+  recordTransactionInFirestore,
+} from "../firebase/firestore-service";
 
 const STORAGE_KEY_CLASSES = "pocketpot_classes_v1";
 const STORAGE_KEY_PUPILS = "pocketpot_pupils_v1";
@@ -63,6 +74,7 @@ export interface CreateClassPayload {
   teacherId?: string;
   leadTeacherId?: string;
   assignedTeacherIds?: string[];
+  tenantId?: string;
 }
 
 export interface QuickAddResult {
@@ -300,6 +312,15 @@ export function saveClasses(classes: ClassDocument[]): void {
   const unique = deduplicateClasses(classes);
   localStorage.setItem(STORAGE_KEY_CLASSES, JSON.stringify(unique));
   notifyBalanceSync();
+
+  // Real-time Firestore sync
+  try {
+    unique.forEach((cls) => {
+      saveClassToFirestore(cls);
+    });
+  } catch (err) {
+    console.warn("Firestore saveClasses warning:", err);
+  }
 }
 
 export function getSavedPupils(): PupilDocument[] {
@@ -352,6 +373,13 @@ export function savePupils(pupils: PupilDocument[]): void {
   const unique = deduplicatePupils(pupils);
   localStorage.setItem(STORAGE_KEY_PUPILS, JSON.stringify(unique));
   notifyBalanceSync();
+
+  // Real-time Firestore sync (Strict Zero-PII)
+  try {
+    savePupilsBatchToFirestore(unique);
+  } catch (err) {
+    console.warn("Firestore savePupils warning:", err);
+  }
 }
 
 export function getSavedPots(): SavingsPotDocument[] {
@@ -379,6 +407,13 @@ export function savePots(pots: SavingsPotDocument[]): void {
   const unique = deduplicatePots(pots);
   localStorage.setItem(STORAGE_KEY_POTS, JSON.stringify(unique));
   notifyBalanceSync();
+
+  // Real-time Firestore sync
+  try {
+    savePotsBatchToFirestore(unique);
+  } catch (err) {
+    console.warn("Firestore savePots warning:", err);
+  }
 }
 
 export function getSavedTransactions(): PotLedgerEntry[] {
@@ -582,15 +617,18 @@ export function createClassWithQuickAdd(
     classId,
     className: trimmedClassName,
     schoolId: "st-marys-primary",
+    tenantId: payload.tenantId || "sch_local_pilot",
     teacherId: leadTeacherId,
     leadTeacherId,
     assignedTeacherIds,
     classJoinCode,
+    joinCode: classJoinCode,
     yearGroup: payload.yearGroup,
     pupilCount,
     initialOpeningBalanceCents,
     weeklyBasicIncomeCents,
     payoutDay,
+    paydayOfWeek: payoutDay,
     lastPayoutTimestamp: now,
     aggregateMetrics: {
       totalPotsActive: newPots.length,
@@ -773,6 +811,15 @@ export function depositToPotFromAccount(
   const txs = getSavedTransactions();
   saveTransactions([tx, ...txs]);
 
+  // Direct real-time Firestore sync
+  try {
+    updatePupilBalanceInFirestore(realPupilId, pupil.mainBalanceCents, pupil.totalSavedCents);
+    updatePotBalanceInFirestore(potId, targetPot.currentAmountCents, targetPot.status);
+    recordTransactionInFirestore(tx);
+  } catch (err) {
+    console.warn("Firestore deposit sync warning:", err);
+  }
+
   return { pot: targetPot, updatedPupil: pupil, tx };
 }
 
@@ -839,6 +886,15 @@ export function withdrawFromPotToAccount(
 
   const txs = getSavedTransactions();
   saveTransactions([tx, ...txs]);
+
+  // Direct real-time Firestore sync
+  try {
+    updatePupilBalanceInFirestore(realPupilId, pupil.mainBalanceCents, pupil.totalSavedCents);
+    updatePotBalanceInFirestore(potId, targetPot.currentAmountCents, targetPot.status);
+    recordTransactionInFirestore(tx);
+  } catch (err) {
+    console.warn("Firestore withdraw sync warning:", err);
+  }
 
   return { pot: targetPot, updatedPupil: pupil, tx };
 }
@@ -1005,6 +1061,7 @@ export function deleteSavingsPot(
   // Remove pot from saved list
   const filteredPots = pots.filter((p) => !(p.potId === potId && p.pupilId === realPupilId));
   savePots(filteredPots);
+  deletePotFromFirestore(potId);
 
   const remainingPupilPots = filteredPots.filter((p) => p.pupilId === realPupilId);
   pupil.activePotsCount = remainingPupilPots.length;
@@ -1050,6 +1107,7 @@ export function deletePupil(pupilId: string): { success: boolean; deletedPupilId
   // Remove pupil
   const updatedPupils = pupils.filter((p) => p.pupilId !== pupilId);
   savePupils(updatedPupils);
+  deletePupilFromFirestore(pupilId);
 
   // Remove pupil's pots
   const pots = getSavedPots();
@@ -1312,6 +1370,7 @@ export function deleteClass(classId: string): { success: boolean; deletedClassId
   // Remove class
   const updatedClasses = classes.filter((c) => c.classId !== classId);
   saveClasses(updatedClasses);
+  deleteClassFromFirestore(classId);
 
   // Find all pupils in this class
   const pupils = getSavedPupils();
@@ -1579,6 +1638,7 @@ export function updateClassSettings(
     initialOpeningBalanceCents?: number;
     weeklyBasicIncomeCents?: number;
     payoutDay?: "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday";
+    paydayOfWeek?: "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday";
   }
 ): ClassDocument {
   const classes = getSavedClasses();
@@ -1592,8 +1652,10 @@ export function updateClassSettings(
   if (settings.weeklyBasicIncomeCents !== undefined) {
     cls.weeklyBasicIncomeCents = Math.max(0, settings.weeklyBasicIncomeCents);
   }
-  if (settings.payoutDay !== undefined) {
-    cls.payoutDay = settings.payoutDay;
+  if (settings.payoutDay !== undefined || settings.paydayOfWeek !== undefined) {
+    const chosen = settings.paydayOfWeek || settings.payoutDay || "Friday";
+    cls.payoutDay = chosen;
+    cls.paydayOfWeek = chosen;
   }
   cls.updatedAt = new Date().toISOString();
   classes[classIdx] = cls;
@@ -1642,6 +1704,7 @@ export interface ClassroomWizardConfig {
   starterPots: StarterPotOption[];
   starterJobs: StarterJobOption[];
   starterBehaviours: StarterBehaviourOption[];
+  tenantId?: string;
 }
 
 /**
@@ -1679,6 +1742,7 @@ export function setupClassroomWithWizard(config: ClassroomWizardConfig): {
     initialOpeningBalanceCents: config.initialOpeningBalanceCents,
     weeklyBasicIncomeCents: config.weeklyBasicIncomeCents,
     payoutDay: config.payoutDay,
+    tenantId: config.tenantId,
   });
 
   const { newClass, pupils } = result;

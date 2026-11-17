@@ -50,6 +50,7 @@ const ALLOWED_NON_PII_KEYS = new Set([
   "initialopeningbalancecents",
   "weeklybasicincomecents",
   "payoutday",
+  "paydayofweek",
   "lastpayouttimestamp",
   "type",
   "jobid",

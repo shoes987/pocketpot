@@ -26,6 +26,11 @@ import {
   getStaffUsers,
   isUserAdmin,
 } from "@/lib/services/auth-service";
+import {
+  subscribeToClasses,
+  subscribeToPupils,
+  subscribeToPots,
+} from "@/lib/firebase/firestore-service";
 import { PupilDocument, ClassDocument, SavingsPotDocument, UserDocument } from "@/lib/firebase/types";
 import {
   School,
@@ -81,11 +86,33 @@ export default function AdminPortalPage() {
     autoReconcileAllClassesWeeklyIncome();
     refreshState();
 
+    // Real-time Firestore onSnapshot listeners
+    const unsubClasses = subscribeToClasses((liveClasses) => {
+      if (liveClasses.length > 0) {
+        setClasses(liveClasses);
+      }
+    });
+
+    const unsubPupils = subscribeToPupils((livePupils) => {
+      if (livePupils.length > 0) {
+        setPupils(livePupils);
+      }
+    });
+
+    const unsubPots = subscribeToPots((livePots) => {
+      if (livePots.length > 0) {
+        setPots(livePots);
+      }
+    });
+
     const handleSync = () => refreshState();
     window.addEventListener("storage", handleSync);
     window.addEventListener(BALANCE_SYNC_EVENT, handleSync);
 
     return () => {
+      unsubClasses();
+      unsubPupils();
+      unsubPots();
       window.removeEventListener("storage", handleSync);
       window.removeEventListener(BALANCE_SYNC_EVENT, handleSync);
     };
