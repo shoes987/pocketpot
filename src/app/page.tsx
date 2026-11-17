@@ -41,6 +41,13 @@ export default function RootGatewayPage() {
           </div>
 
           <div className="flex items-center gap-2 self-start sm:self-auto">
+            <Link
+              href="/login"
+              className="px-3.5 py-1.5 rounded-xl bg-brandPrimary hover:bg-teal-700 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>Staff Login</span>
+            </Link>
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-tealSurface text-brandPrimary text-xs font-bold border border-brandPrimary/20">
               <ShieldCheck className="w-4 h-4" />
               <span>100% Zero-PII Safeguarded</span>
@@ -106,10 +113,10 @@ export default function RootGatewayPage() {
             </div>
 
             <Link
-              href="/admin"
+              href="/login"
               className="w-full py-3 px-4 rounded-xl bg-focusIndicator hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all"
             >
-              <span>Enter School Admin Portal</span>
+              <span>Sign In as School Admin</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
@@ -160,10 +167,10 @@ export default function RootGatewayPage() {
             </div>
 
             <Link
-              href="/teacher"
+              href="/login"
               className="w-full py-3 px-4 rounded-xl bg-brandPrimary hover:bg-teal-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all"
             >
-              <span>Enter Teacher Portal</span>
+              <span>Sign In as Teacher</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
