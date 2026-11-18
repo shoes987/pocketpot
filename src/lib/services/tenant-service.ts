@@ -21,13 +21,13 @@ import { saveTenantToFirestore } from "../firebase/firestore-service";
 const STORAGE_KEY_TENANTS = "pocketpot_tenants_v1";
 const STORAGE_KEY_INVITES = "pocketpot_tenant_invites_v1";
 
-export const DEFAULT_TENANT_ID = "sch_urn100123";
+export const DEFAULT_TENANT_ID = "sch_local_pilot";
 
 export const DEFAULT_TENANT: TenantDocument = {
   tenantId: DEFAULT_TENANT_ID,
-  schoolName: "St Mary's Primary",
+  schoolName: "Pilot Primary School",
   schoolUrn: "100123",
-  allowedDomains: ["st-marys.sch.uk", "stmarys-primary.sch.uk"],
+  allowedDomains: ["gbshp.org", "@gbshp.org"],
   status: "Production Live",
   activeTeacherCount: 3,
   pendingInviteCount: 0,

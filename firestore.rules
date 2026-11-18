@@ -57,7 +57,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && 
-             request.auth.token.role == 'admin';
+             request.auth.token.role in ['admin', 'school_admin'];
     }
 
     function isAdminOfTenant(tenantId) {
@@ -203,18 +203,21 @@ service cloud.firestore {
       allow read: if isAuthenticated() && 
                      request.auth.token.tenantId == tenantId;
 
-      // Create: Admin only for this tenant
-      allow create: if isAdminOfTenant(tenantId) &&
-                       request.resource.data.tenantId == tenantId &&
-                       isValidTenant(request.resource.data);
+      // Create: Disallow client tenant creation (backend admin scripts only)
+      allow create: if false;
 
-      // Update: Admin only for this tenant, maintaining immutable tenantId
+      // Update: School admin of tenant updating non-licensing fields only
+      // Licensing fields (allowedDomains, status, tenantId) are strictly locked
       allow update: if isAdminOfTenant(tenantId) &&
                        request.resource.data.tenantId == resource.data.tenantId &&
+                       request.resource.data.allowedDomains == resource.data.allowedDomains &&
+                       request.resource.data.status == resource.data.status &&
+                       request.resource.data.schoolName is string &&
+                       request.resource.data.schoolName.size() > 0 &&
                        isValidTenant(request.resource.data);
 
-      // Delete: Admin only for this tenant
-      allow delete: if isAdminOfTenant(tenantId);
+      // Delete: Disallow client tenant deletion
+      allow delete: if false;
 
       // -----------------------------------------------------------------------
       // TEACHER INVITES: /tenants/{tenantId}/invites/{inviteId}

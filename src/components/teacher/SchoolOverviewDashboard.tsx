@@ -18,6 +18,7 @@ import {
   ChevronDown,
   Mail,
   Calendar,
+  Lock,
 } from "lucide-react";
 import {
   ClassDocument,
@@ -45,7 +46,6 @@ import {
 } from "@/lib/services/tenant-service";
 import {
   subscribeToTenant,
-  saveTenantToFirestore,
 } from "@/lib/firebase/firestore-service";
 
 interface SchoolOverviewDashboardProps {
@@ -437,7 +437,7 @@ export function SchoolOverviewDashboard({
             <div className="w-9 h-9 rounded-xl bg-tealSurface flex items-center justify-center text-brandPrimary shrink-0 mt-0.5">
               <ShieldCheck className="w-5 h-5" />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-bold text-primaryText">
                   Multi-Tenant School Boundary: {tenant.schoolName}
@@ -445,14 +445,23 @@ export function SchoolOverviewDashboard({
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-tealSurface text-brandPrimary font-bold border border-brandPrimary/30">
                   URN: {tenant.schoolUrn}
                 </span>
-              </div>
-              <p className="text-xs text-primaryText/70 font-medium">
-                Domain safeguard active:{" "}
-                <span className="font-bold text-brandPrimary">
-                  {tenant.allowedDomains.map((d) => `@${d}`).join(", ")}
+                {/* Read-Only Licensed Domain Informational Badge */}
+                <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 font-bold border border-emerald-300 shadow-2xs">
+                  <Lock className="w-3 h-3 text-emerald-600" />
+                  <span>Licensed Domain: {Array.from(new Set(tenant.allowedDomains.map((d) => d.startsWith("@") ? d : `@${d}`))).join(", ")}</span>
                 </span>
-                . Personal emails (@gmail.com, etc.) are strictly blocked.
+              </div>
+              <p className="text-xs text-primaryText/70 font-medium leading-relaxed">
+                Staff Account Domain Safeguard: Only educators with authorized institutional emails (
+                <span className="font-bold text-brandPrimary">
+                  {Array.from(new Set(tenant.allowedDomains.map((d) => d.startsWith("@") ? d : `@${d}`))).join(", ")}
+                </span>
+                ) can be invited to this workspace. Consumer emails (@gmail.com, etc.) are strictly blocked.
               </p>
+              <div className="flex items-center gap-1.5 text-[11px] text-primaryText/50 font-medium">
+                <Lock className="w-3 h-3 text-primaryText/40" />
+                <span>Domain licensing is cryptographically locked and managed exclusively by Super-Admin / CEO provisioning.</span>
+              </div>
             </div>
           </div>
 
@@ -1051,7 +1060,7 @@ export function SchoolOverviewDashboard({
                   className="w-full px-3.5 py-2.5 rounded-xl bg-canvas border border-borderMuted text-xs font-medium text-primaryText focus:outline-hidden focus:border-brandPrimary focus:ring-1 focus:ring-brandPrimary transition-all"
                 />
                 <span className="text-[11px] text-primaryText/60 block">
-                  Allowed domains: {tenant.allowedDomains.map((d) => `@${d}`).join(", ")}
+                  Allowed domains: {Array.from(new Set(tenant.allowedDomains.map((d) => d.startsWith("@") ? d : `@${d}`))).join(", ")}
                 </span>
               </div>
 

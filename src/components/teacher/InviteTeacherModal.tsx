@@ -224,13 +224,13 @@ export function InviteTeacherModal({
           {/* Whitelisted Domain Badges */}
           <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-borderMuted/40 text-xs">
             <span className="text-[11px] font-bold text-primaryText/60 uppercase">Whitelisted Domains:</span>
-            {tenant.allowedDomains.map((dom) => (
+            {Array.from(new Set(tenant.allowedDomains.map((d) => d.startsWith("@") ? d : `@${d}`))).map((dom) => (
               <span
                 key={dom}
                 className="px-2.5 py-0.5 rounded-full bg-tealSurface text-brandPrimary text-[11px] font-bold border border-brandPrimary/30 flex items-center gap-1 font-mono"
               >
                 <Lock className="w-3 h-3" />
-                @{dom}
+                {dom}
               </span>
             ))}
           </div>
