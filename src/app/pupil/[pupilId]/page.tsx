@@ -12,7 +12,7 @@ import {
   getNextScheduledPayoutTime,
   BALANCE_SYNC_EVENT,
 } from "@/lib/services/class-service";
-import { PupilDocument, PotLedgerEntry, SavingsPotDocument } from "@/lib/firebase/types";
+import { PupilDocument, PotLedgerEntry, SavingsPotDocument, ClassDocument } from "@/lib/firebase/types";
 import {
   formatCurrency,
   createAnonymousPupilProfile,
@@ -25,7 +25,7 @@ import { PupilBottomNav } from "@/components/ui/PupilBottomNav";
 import { PupilNotificationBell } from "@/components/pupil/PupilNotificationBell";
 import { AppTopHeader } from "@/components/ui/AppTopHeader";
 import { getActiveJobForPupil } from "@/lib/services/jobs-service";
-import { subscribeToPupil, subscribeToPots } from "@/lib/firebase/firestore-service";
+import { subscribeToPupil, subscribeToPots, subscribeToClasses } from "@/lib/firebase/firestore-service";
 import {
   ShieldCheck,
   Sparkles,
@@ -48,6 +48,7 @@ export default function PupilAccountPage() {
 
   const [pupil, setPupil] = useState<PupilDocument | null>(null);
   const [pots, setPots] = useState<SavingsPotDocument[]>([]);
+  const [classes, setClasses] = useState<ClassDocument[]>([]);
   const [transactions, setTransactions] = useState<PotLedgerEntry[]>([]);
   const [showAll30Days, setShowAll30Days] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -60,6 +61,7 @@ export default function PupilAccountPage() {
     let targetRealId = activeId;
 
     const loadData = () => {
+      setClasses(getSavedClasses());
       const foundPupil = getPupilById(activeId);
       if (foundPupil) {
         targetRealId = foundPupil.pupilId;
@@ -96,6 +98,12 @@ export default function PupilAccountPage() {
       }
     }, targetRealId);
 
+    const unsubClasses = subscribeToClasses((liveClasses) => {
+      if (liveClasses.length > 0) {
+        setClasses(liveClasses);
+      }
+    });
+
     const handleSync = () => loadData();
     window.addEventListener("storage", handleSync);
     window.addEventListener(BALANCE_SYNC_EVENT, handleSync);
@@ -103,6 +111,7 @@ export default function PupilAccountPage() {
     return () => {
       unsubPupil();
       unsubPots();
+      unsubClasses();
       window.removeEventListener("storage", handleSync);
       window.removeEventListener(BALANCE_SYNC_EVENT, handleSync);
     };
@@ -127,8 +136,7 @@ export default function PupilAccountPage() {
   const displayName = pupil.localDisplayName || pupil.educationalCodename;
   const safePupilId = pupil.pupilId || pupilId || "anonymous";
 
-  const classes = getSavedClasses();
-  const pupilClass = classes.find((c) => c.classId === pupil?.classId);
+  const pupilClass = (classes.length > 0 ? classes : getSavedClasses()).find((c) => c.classId === pupil?.classId);
   const weeklyIncomeCents = pupilClass?.weeklyBasicIncomeCents ?? 200;
   const payoutDay = pupilClass?.payoutDay ?? "Monday";
   const activeJob = getActiveJobForPupil(safePupilId);

@@ -16,6 +16,7 @@ import {
   normalizeClassId,
 } from "@/lib/services/marketplace-service";
 import { getPupilById, getPotsForPupil, getSavedPupils, BALANCE_SYNC_EVENT } from "@/lib/services/class-service";
+import { subscribeToRewards, subscribeToPupil } from "@/lib/firebase/firestore-service";
 import { formatCurrency } from "@/lib/firebase/zero-pii";
 import { PocketPotMascot } from "@/components/ui/PocketPotMascot";
 import {
@@ -81,6 +82,27 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
   useEffect(() => {
     loadData();
 
+    let p = getPupilById(pupilId);
+    if (!p) {
+      const allPupils = getSavedPupils();
+      p = allPupils.find((pup) => pup.pupilId === pupilId) || allPupils[0] || null;
+    }
+    const targetRealId = p?.pupilId || pupilId;
+    const targetClassId = p?.classId ? normalizeClassId(p.classId) : "class-year-4-teal";
+
+    // Real-time Firestore listeners
+    const unsubRewards = subscribeToRewards((liveRewards) => {
+      if (liveRewards.length > 0) {
+        setRewards(liveRewards.filter((r) => r.isAvailable));
+      }
+    }, targetClassId);
+
+    const unsubPupil = subscribeToPupil(targetRealId, (livePupil) => {
+      if (livePupil) {
+        setPupil((prev) => (prev ? { ...prev, ...livePupil, localDisplayName: prev.localDisplayName } : livePupil));
+      }
+    });
+
     // Real-time link between teacher setup and pupil account
     const handleSync = () => loadData();
     window.addEventListener("pocketpot_marketplace_updated", handleSync);
@@ -88,6 +110,8 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
     window.addEventListener(BALANCE_SYNC_EVENT, handleSync);
 
     return () => {
+      unsubRewards();
+      unsubPupil();
       window.removeEventListener("pocketpot_marketplace_updated", handleSync);
       window.removeEventListener("storage", handleSync);
       window.removeEventListener(BALANCE_SYNC_EVENT, handleSync);

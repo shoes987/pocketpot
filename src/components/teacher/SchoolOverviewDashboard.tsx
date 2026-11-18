@@ -43,6 +43,10 @@ import {
   DEFAULT_TENANT,
   DEFAULT_TENANT_ID,
 } from "@/lib/services/tenant-service";
+import {
+  subscribeToTenant,
+  saveTenantToFirestore,
+} from "@/lib/firebase/firestore-service";
 
 interface SchoolOverviewDashboardProps {
   classes: ClassDocument[];
@@ -76,6 +80,12 @@ export function SchoolOverviewDashboard({
     setTenant(getTenant());
     setAllInvites(getTenantInvites());
 
+    const unsubTenant = subscribeToTenant(DEFAULT_TENANT_ID, (liveTenant) => {
+      if (liveTenant) {
+        setTenant(liveTenant);
+      }
+    });
+
     const handleStaffUpdate = () => {
       setStaffList(getStaffUsers());
       setTenant(getTenant());
@@ -86,6 +96,7 @@ export function SchoolOverviewDashboard({
     window.addEventListener("storage", handleStaffUpdate);
 
     return () => {
+      unsubTenant();
       window.removeEventListener("pocketpot_staff_updated", handleStaffUpdate);
       window.removeEventListener("storage", handleStaffUpdate);
     };

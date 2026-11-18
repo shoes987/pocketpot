@@ -27,6 +27,7 @@ import {
 } from "@/lib/services/class-service";
 import { getCurrentTeacherUser, isUserAdmin } from "@/lib/services/auth-service";
 import { formatCurrency } from "@/lib/firebase/zero-pii";
+import { subscribeToJobs } from "@/lib/firebase/firestore-service";
 import {
   Briefcase,
   Plus,
@@ -123,7 +124,17 @@ export const TeacherJobsBoard: React.FC<TeacherJobsBoardProps> = ({
 
   useEffect(() => {
     loadData();
-  }, [propsClasses, activeClassId]);
+
+    const unsubJobs = subscribeToJobs((liveJobs) => {
+      if (liveJobs.length > 0) {
+        setJobs(liveJobs);
+      }
+    }, selectedClassId || activeClassId);
+
+    return () => {
+      unsubJobs();
+    };
+  }, [propsClasses, activeClassId, selectedClassId]);
 
   const showToast = (msg: string) => {
     setSuccessToast(msg);

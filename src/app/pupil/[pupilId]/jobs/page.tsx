@@ -24,6 +24,10 @@ import {
   PupilNotificationDocument,
 } from "@/lib/firebase/types";
 import {
+  subscribeToJobs,
+  subscribeToPupil,
+} from "@/lib/firebase/firestore-service";
+import {
   formatCurrency,
   createAnonymousPupilProfile,
 } from "@/lib/firebase/zero-pii";
@@ -96,6 +100,27 @@ export default function PupilJobsPage() {
 
   useEffect(() => {
     loadAll();
+
+    const activeId = pupilId.trim() || crypto.randomUUID();
+    const foundPupil = pupilId.trim() ? getPupilById(pupilId.trim()) : null;
+    const targetRealId = foundPupil?.pupilId || activeId;
+
+    const unsubJobs = subscribeToJobs((liveJobs) => {
+      if (liveJobs.length > 0) {
+        setJobs(liveJobs);
+      }
+    });
+
+    const unsubPupil = subscribeToPupil(targetRealId, (livePupil) => {
+      if (livePupil) {
+        setPupil((prev) => (prev ? { ...prev, ...livePupil, localDisplayName: prev.localDisplayName } : livePupil));
+      }
+    });
+
+    return () => {
+      unsubJobs();
+      unsubPupil();
+    };
   }, [pupilId]);
 
   const activeJob = pupil ? getActiveJobForPupil(pupil.pupilId) : null;

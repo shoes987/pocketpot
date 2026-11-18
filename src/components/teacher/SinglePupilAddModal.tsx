@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { UserPlus, ShieldCheck, Check, AlertCircle } from "lucide-react";
 import { enrollSinglePupil } from "@/lib/services/class-service";
+import { savePupilToFirestore } from "@/lib/firebase/firestore-service";
 import { ClassDocument, PupilDocument } from "@/lib/firebase/types";
 
 interface SinglePupilAddModalProps {
@@ -51,6 +52,7 @@ export function SinglePupilAddModal({
         anonymize,
         initialBalanceCents: balanceCents,
       });
+      savePupilToFirestore(pupil);
       onPupilAdded(pupil);
       onClose();
     } catch (err: unknown) {

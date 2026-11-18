@@ -17,6 +17,7 @@ import {
   normalizeClassId,
 } from "@/lib/services/marketplace-service";
 import { formatCurrency } from "@/lib/firebase/zero-pii";
+import { subscribeToRewards } from "@/lib/firebase/firestore-service";
 import {
   ShoppingBag,
   Sparkles,
@@ -76,12 +77,20 @@ export const TeacherMarketplace: React.FC<TeacherMarketplaceProps> = ({
   useEffect(() => {
     loadData();
 
+    // Listen to real-time Firestore rewards
+    const unsubRewards = subscribeToRewards((liveRewards) => {
+      if (liveRewards.length > 0) {
+        setRewards(liveRewards);
+      }
+    }, normalizedClassId);
+
     // Listen to real-time marketplace events and storage changes
     const handleSync = () => loadData();
     window.addEventListener("pocketpot_marketplace_updated", handleSync);
     window.addEventListener("storage", handleSync);
 
     return () => {
+      unsubRewards();
       window.removeEventListener("pocketpot_marketplace_updated", handleSync);
       window.removeEventListener("storage", handleSync);
     };

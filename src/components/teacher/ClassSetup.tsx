@@ -23,6 +23,11 @@ import {
 import { getCurrentTeacherUser } from "@/lib/services/auth-service";
 import { formatCurrency } from "@/lib/firebase/zero-pii";
 import {
+  subscribeToClasses,
+  subscribeToPupils,
+  subscribeToPots,
+} from "@/lib/firebase/firestore-service";
+import {
   getActiveJobForPupil,
   getCompletedJobsForPupil,
 } from "@/lib/services/jobs-service";
@@ -188,6 +193,37 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
 
     refreshData();
 
+    // Real-time Firestore listeners
+    const unsubClasses = subscribeToClasses((liveClasses) => {
+      if (liveClasses.length > 0) {
+        const currentTeacher = getCurrentTeacherUser();
+        const filtered = isAdmin
+          ? liveClasses
+          : liveClasses.filter((c) => {
+              if (currentTeacher?.role === "admin") return true;
+              return (
+                c.teacherId === currentTeacher?.userId ||
+                c.leadTeacherId === currentTeacher?.userId ||
+                c.assignedTeacherIds?.includes(currentTeacher?.userId || "") ||
+                currentTeacher?.assignedClassIds?.includes(c.classId)
+              );
+            });
+        setClasses(filtered.length > 0 ? filtered : liveClasses);
+      }
+    });
+
+    const unsubPupils = subscribeToPupils((livePupils) => {
+      if (livePupils.length > 0) {
+        setPupils(livePupils);
+      }
+    });
+
+    const unsubPots = subscribeToPots((livePots) => {
+      if (livePots.length > 0) {
+        setPots(livePots);
+      }
+    });
+
     const handleSync = () => {
       refreshData();
     };
@@ -196,6 +232,9 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
     window.addEventListener(BALANCE_SYNC_EVENT, handleSync);
 
     return () => {
+      unsubClasses();
+      unsubPupils();
+      unsubPots();
       window.removeEventListener("storage", handleSync);
       window.removeEventListener(BALANCE_SYNC_EVENT, handleSync);
     };
