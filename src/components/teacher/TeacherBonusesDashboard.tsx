@@ -176,7 +176,7 @@ export function TeacherBonusesDashboard({
   const loadData = () => {
     const currentTeacher = getCurrentTeacherUser();
     const loadedClasses =
-      propsClasses && propsClasses.length > 0
+      propsClasses !== undefined
         ? propsClasses
         : isUserAdmin()
         ? getSavedClasses()

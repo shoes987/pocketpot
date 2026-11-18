@@ -146,14 +146,15 @@ export function getSavedClasses(): ClassDocument[] {
               ? c.leadTeacherId
               : c.teacherId && c.teacherId !== "teacher-oak-lead"
               ? c.teacherId
-              : "staff-teacher-davis";
+              : "b5qdSySAWSOvnhYCdf8OLTDZFFo1";
           const validAssigned =
             c.assignedTeacherIds && c.assignedTeacherIds.length > 0 && !c.assignedTeacherIds.every((id) => id === "teacher-oak-lead")
               ? c.assignedTeacherIds.filter((id) => id !== "teacher-oak-lead")
               : [validLead];
           return {
             ...c,
-            schoolId: c.schoolId || "st-marys-primary",
+            tenantId: c.tenantId || "sch_local_pilot",
+            schoolId: c.schoolId || "sch_local_pilot",
             teacherId: validLead,
             leadTeacherId: validLead,
             assignedTeacherIds: validAssigned.length > 0 ? validAssigned : [validLead],
@@ -176,8 +177,11 @@ export function getSavedClasses(): ClassDocument[] {
  * - Admin: Sees all classes.
  * - Teacher: Strictly sees only assigned class(es).
  */
-export function getSavedClassesForUser(user?: { role: string; userId: string; assignedClassIds?: string[] }): ClassDocument[] {
-  const all = getSavedClasses();
+export function getSavedClassesForUser(
+  user?: { role: string; userId: string; assignedClassIds?: string[] },
+  classList?: ClassDocument[]
+): ClassDocument[] {
+  const all = classList !== undefined ? classList : getSavedClasses();
   if (!user || user.role === "admin") return all;
 
   return all.filter((cls) => {

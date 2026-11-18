@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { getStaffUsers, setCurrentStaffUser } from "@/lib/services/auth-service";
+import { getStaffUsers, setCurrentStaffUser, setCurrentTeacherUser, saveStaffUsers } from "@/lib/services/auth-service";
 import { PocketPotLogo } from "@/components/ui/PocketPotLogo";
 import {
   ShieldCheck,
@@ -50,18 +50,43 @@ export default function AdultLoginPage() {
       // 2. Inspect custom token claims to determine educator role
       const tokenResult = await user.getIdTokenResult();
       const roleClaim = tokenResult.claims.role;
+      const classIds = Array.isArray(tokenResult.claims.classIds)
+        ? (tokenResult.claims.classIds as string[])
+        : [];
+      const tenantId = (tokenResult.claims.tenantId as string) || "sch_local_pilot";
 
-      // Sync local staff user profile if a matching email exists in the school directory
+      // Sync local staff user profile with authenticated Firebase User
       try {
         const staff = getStaffUsers();
-        const matchedStaff = staff.find(
-          (u) => typeof u.email === "string" && u.email.toLowerCase() === (user.email || cleanEmail).toLowerCase()
+        const existingIdx = staff.findIndex(
+          (u) =>
+            u.userId === user.uid ||
+            (typeof u.email === "string" && u.email.toLowerCase() === (user.email || cleanEmail).toLowerCase())
         );
-        if (matchedStaff) {
-          setCurrentStaffUser(matchedStaff.userId);
+
+        const activeProfile = {
+          userId: user.uid,
+          email: user.email || cleanEmail,
+          displayName: user.displayName || (user.email || cleanEmail).split("@")[0],
+          role: (roleClaim === "school_admin" ? "admin" : "teacher") as "admin" | "teacher",
+          tenantId,
+          assignedClassIds: roleClaim === "school_admin" ? ["*"] : classIds,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        if (existingIdx !== -1) {
+          staff[existingIdx] = { ...staff[existingIdx], ...activeProfile, userId: user.uid };
+        } else {
+          staff.push(activeProfile);
         }
-      } catch {
-        // Fallback gracefully
+        saveStaffUsers(staff);
+        setCurrentStaffUser(user.uid);
+        if (roleClaim !== "school_admin") {
+          setCurrentTeacherUser(user.uid);
+        }
+      } catch (syncErr) {
+        console.warn("Session sync warning:", syncErr);
       }
 
       // Route based on custom token claim

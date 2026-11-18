@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 import { ClassSetup } from "@/components/teacher/ClassSetup";
 import { TeacherJobsBoard } from "@/components/teacher/TeacherJobsBoard";
 import { TeacherBonusesDashboard } from "@/components/teacher/TeacherBonusesDashboard";
@@ -77,9 +79,11 @@ export default function TeacherPortalPage() {
     setPots(loadedPots);
 
     // Lock context to this teacher's assigned classes only
-    const allowed = getSavedClassesForUser(teacher);
+    const allowed = getSavedClassesForUser(teacher, loadedClasses);
     if (allowed.length > 0) {
       setActiveClassId((prev) => (allowed.some((c) => c.classId === prev) ? prev : allowed[0].classId));
+    } else {
+      setActiveClassId("");
     }
   };
 
@@ -87,6 +91,40 @@ export default function TeacherPortalPage() {
     setIsMounted(true);
     autoReconcileAllClassesWeeklyIncome();
     refreshState();
+
+    // Firebase Auth session listener for active teacher
+    let unsubAuth = () => {};
+    if (auth) {
+      unsubAuth = onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          try {
+            const tokenResult = await user.getIdTokenResult();
+            const classIds = Array.isArray(tokenResult.claims.classIds)
+              ? (tokenResult.claims.classIds as string[])
+              : [];
+            const tenantId = (tokenResult.claims.tenantId as string) || "sch_local_pilot";
+
+            const authTeacher: UserDocument = {
+              userId: user.uid,
+              email: user.email || "",
+              displayName: user.displayName || (user.email ? user.email.split("@")[0] : "Classroom Teacher"),
+              role: "teacher",
+              tenantId,
+              assignedClassIds: classIds,
+              createdAt: user.metadata.creationTime || new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            };
+
+            setCurrentTeacher(authTeacher);
+            if (typeof window !== "undefined") {
+              localStorage.setItem("pocketpot_current_teacher_id_v1", user.uid);
+            }
+          } catch (authErr) {
+            console.warn("Auth sync warning:", authErr);
+          }
+        }
+      });
+    }
 
     // Real-time Firestore onSnapshot listeners
     const unsubClasses = subscribeToClasses((liveClasses) => {
@@ -106,6 +144,7 @@ export default function TeacherPortalPage() {
     window.addEventListener(BALANCE_SYNC_EVENT, handleSync);
 
     return () => {
+      unsubAuth();
       unsubClasses();
       unsubPupils();
       unsubPots();
@@ -118,9 +157,11 @@ export default function TeacherPortalPage() {
     const user = setCurrentTeacherUser(teacherId);
     setCurrentTeacher(user);
     setIsTeacherSwitcherOpen(false);
-    const allowed = getSavedClassesForUser(user);
+    const allowed = getSavedClassesForUser(user, classes);
     if (allowed.length > 0) {
       setActiveClassId(allowed[0].classId);
+    } else {
+      setActiveClassId("");
     }
   };
 
@@ -136,8 +177,13 @@ export default function TeacherPortalPage() {
   };
 
   // Strictly filter classes to those assigned to this educator
-  const allowedClasses = currentTeacher ? getSavedClassesForUser(currentTeacher) : [];
-  const activeClass = allowedClasses.find((c) => c.classId === activeClassId) || allowedClasses[0] || null;
+  const allowedClasses = currentTeacher
+    ? getSavedClassesForUser(currentTeacher, classes.length > 0 ? classes : undefined)
+    : [];
+  const activeClass =
+    allowedClasses.length > 0
+      ? allowedClasses.find((c) => c.classId === activeClassId) || allowedClasses[0]
+      : null;
 
   // Filter metrics strictly to active classroom
   const rawClassPupils = activeClass ? pupils.filter((p) => p.classId === activeClass.classId) : [];
@@ -280,17 +326,25 @@ export default function TeacherPortalPage() {
         </nav>
 
         {/* Right side context: Active Class & Join Code */}
-        <div className="flex items-center gap-2 sm:gap-3 text-xs font-semibold shrink-0">
-          <span className="text-primaryText/60 hidden md:inline">Active Class:</span>
-          <span className="px-2.5 py-1 rounded-lg bg-tealSurface text-brandPrimary border border-brandPrimary/20 font-bold">
-            {activeClass?.className || "Classroom"}
-          </span>
-          {activeClass?.classJoinCode && (
-            <span className="px-2.5 py-1 rounded-lg bg-canvas text-primaryText/70 border border-borderMuted font-mono text-[11px]">
-              Code: <strong className="text-brandPrimary">{activeClass.classJoinCode}</strong>
+        {activeClass ? (
+          <div className="flex items-center gap-2 sm:gap-3 text-xs font-semibold shrink-0">
+            <span className="text-primaryText/60 hidden md:inline">Active Class:</span>
+            <span className="px-2.5 py-1 rounded-lg bg-tealSurface text-brandPrimary border border-brandPrimary/20 font-bold">
+              {activeClass.className}
             </span>
-          )}
-        </div>
+            {activeClass.classJoinCode && (
+              <span className="px-2.5 py-1 rounded-lg bg-canvas text-primaryText/70 border border-borderMuted font-mono text-[11px]">
+                Code: <strong className="text-brandPrimary">{activeClass.classJoinCode}</strong>
+              </span>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-xs font-semibold shrink-0">
+            <span className="px-2.5 py-1 rounded-lg bg-amber-50 text-warningState border border-amber-200 font-bold">
+              No Class Assigned
+            </span>
+          </div>
+        )}
       </AppTopHeader>
 
       <main className="flex-1 w-full max-w-7xl p-4 md:p-6 lg:p-8 space-y-6 mx-auto font-lexend text-left">

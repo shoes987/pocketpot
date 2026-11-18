@@ -15,46 +15,24 @@ const STORAGE_KEY_CURRENT_STAFF_ID = "pocketpot_current_staff_id_v1";
 
 export const DEFAULT_STAFF_USERS: UserDocument[] = [
   {
-    userId: "staff-admin-head",
-    email: "head@stmarys-primary.sch.uk",
-    displayName: "Mrs Henderson (Headteacher / Admin)",
+    userId: "F4desFyEszSuSHvZpnZv5cSD1Hf1",
+    email: "shaun.pocketpot@gmail.com",
+    displayName: "School Administrator",
     role: "admin",
-    tenantId: "sch_urn100123",
-    schoolId: "st-marys-primary",
+    tenantId: "sch_local_pilot",
+    schoolId: "sch_local_pilot",
     assignedClassIds: ["*"], // Global visibility across all classes
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
   {
-    userId: "staff-teacher-davis",
-    email: "davis@stmarys-primary.sch.uk",
-    displayName: "Mr Davis (Year 4 Lead)",
+    userId: "b5qdSySAWSOvnhYCdf8OLTDZFFo1",
+    email: "shaun.hughes@gbshp.org",
+    displayName: "Mr Hughes",
     role: "teacher",
-    tenantId: "sch_urn100123",
-    schoolId: "st-marys-primary",
-    assignedClassIds: ["class-year-4-teal", "class-year-4-amber"], // Multi-class assignment
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    userId: "staff-teacher-wilson",
-    email: "wilson@stmarys-primary.sch.uk",
-    displayName: "Ms Wilson (Year 5 Teacher)",
-    role: "teacher",
-    tenantId: "sch_urn100123",
-    schoolId: "st-marys-primary",
-    assignedClassIds: ["class-year-5-oak"], // Single class assignment
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    userId: "staff-teacher-taylor",
-    email: "taylor@stmarys-primary.sch.uk",
-    displayName: "Mr Taylor (Year 6 Teacher)",
-    role: "teacher",
-    tenantId: "sch_urn100123",
-    schoolId: "st-marys-primary",
-    assignedClassIds: ["class-year-6-willow"],
+    tenantId: "sch_local_pilot",
+    schoolId: "sch_local_pilot",
+    assignedClassIds: [], // Strictly 0 classes assigned until allocated by admin
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },

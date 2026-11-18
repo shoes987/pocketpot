@@ -102,7 +102,7 @@ export const TeacherJobsBoard: React.FC<TeacherJobsBoardProps> = ({
     const loadedApps = getSavedApplications();
     const currentTeacher = getCurrentTeacherUser();
     const loadedClasses =
-      propsClasses && propsClasses.length > 0
+      propsClasses !== undefined
         ? propsClasses
         : isUserAdmin()
         ? getSavedClasses()

@@ -46,6 +46,7 @@ import {
 } from "@/lib/services/tenant-service";
 import {
   subscribeToTenant,
+  subscribeToStaff,
 } from "@/lib/firebase/firestore-service";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -88,6 +89,12 @@ export function SchoolOverviewDashboard({
       }
     });
 
+    const unsubStaff = subscribeToStaff(DEFAULT_TENANT_ID, (liveStaff) => {
+      if (liveStaff.length > 0) {
+        setStaffList(liveStaff);
+      }
+    });
+
     const handleStaffUpdate = () => {
       setStaffList(getStaffUsers());
       setTenant(getTenant());
@@ -99,6 +106,7 @@ export function SchoolOverviewDashboard({
 
     return () => {
       unsubTenant();
+      unsubStaff();
       window.removeEventListener("pocketpot_staff_updated", handleStaffUpdate);
       window.removeEventListener("storage", handleStaffUpdate);
     };

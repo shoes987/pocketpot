@@ -27,6 +27,7 @@ import {
   PotLedgerEntry,
   PositiveBehaviourDocument,
   TenantDocument,
+  UserDocument,
   PotStatus,
 } from "@/lib/firebase/types";
 import { assertZeroPII } from "@/lib/firebase/zero-pii";
@@ -111,6 +112,42 @@ export function subscribeToTenant(
       console.warn("subscribeToTenant error:", err);
     }
   );
+}
+
+export function subscribeToStaff(
+  tenantId: string = "sch_local_pilot",
+  callback: (staff: UserDocument[]) => void
+): Unsubscribe {
+  if (!db) return () => {};
+  try {
+    const staffColRef = collection(db, "tenants", tenantId, "staff");
+    return onSnapshot(
+      staffColRef,
+      (snap) => {
+        const staffList: UserDocument[] = [];
+        snap.forEach((docSnap) => {
+          const d = docSnap.data();
+          staffList.push({
+            userId: docSnap.id,
+            email: d.email || "",
+            displayName: d.displayName || "Staff Member",
+            role: d.role || "teacher",
+            tenantId: d.tenantId || tenantId,
+            assignedClassIds: d.assignedClassIds || [],
+            createdAt: d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : (d.createdAt || new Date().toISOString()),
+            updatedAt: d.updatedAt?.toDate ? d.updatedAt.toDate().toISOString() : (d.updatedAt || new Date().toISOString()),
+          });
+        });
+        callback(staffList);
+      },
+      (err) => {
+        console.warn("subscribeToStaff error:", err);
+      }
+    );
+  } catch (err) {
+    console.warn("subscribeToStaff catch:", err);
+    return () => {};
+  }
 }
 
 /**

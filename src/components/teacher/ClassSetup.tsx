@@ -105,6 +105,22 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
   // Reset PIN Modal state (Requirement 3)
   const [resettingPupil, setResettingPupil] = useState<PupilDocument | null>(null);
 
+  // Sync when propsClasses updates from parent teacher page
+  useEffect(() => {
+    if (propsClasses !== undefined) {
+      setClasses(propsClasses);
+      if (propsClasses.length === 0) {
+        setSelectedClassId("");
+      } else if (!propsClasses.some((c) => c.classId === selectedClassId)) {
+        setSelectedClassId(
+          activeClassId && propsClasses.some((c) => c.classId === activeClassId)
+            ? activeClassId
+            : propsClasses[0].classId
+        );
+      }
+    }
+  }, [propsClasses, activeClassId, selectedClassId]);
+
   // Form states - Start blank without pre-populated class or student names
   const [classNameInput, setClassNameInput] = useState<string>("");
   const [yearGroup, setYearGroup] = useState<
@@ -165,7 +181,7 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
       // Requirement 1: In teacher view, strictly scope to classes assigned to this educator. In admin view, show all classes.
       const currentTeacher = getCurrentTeacherUser();
       const loadedClasses =
-        propsClasses && propsClasses.length > 0
+        propsClasses !== undefined
           ? propsClasses
           : isAdmin
           ? getSavedClasses()
@@ -188,6 +204,8 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
           }
           return loadedClasses[0].classId;
         });
+      } else {
+        setSelectedClassId("");
       }
     };
 
@@ -195,20 +213,26 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
 
     // Real-time Firestore listeners
     const unsubClasses = subscribeToClasses((liveClasses) => {
-      if (liveClasses.length > 0) {
-        const currentTeacher = getCurrentTeacherUser();
-        const filtered = isAdmin
-          ? liveClasses
-          : liveClasses.filter((c) => {
-              if (currentTeacher?.role === "admin") return true;
-              return (
-                c.teacherId === currentTeacher?.userId ||
-                c.leadTeacherId === currentTeacher?.userId ||
-                c.assignedTeacherIds?.includes(currentTeacher?.userId || "") ||
-                currentTeacher?.assignedClassIds?.includes(c.classId)
-              );
-            });
-        setClasses(filtered.length > 0 ? filtered : liveClasses);
+      // If parent passed propsClasses, parent component manages class filtering
+      if (propsClasses !== undefined) return;
+
+      const currentTeacher = getCurrentTeacherUser();
+      const filtered = isAdmin
+        ? liveClasses
+        : liveClasses.filter((c) => {
+            if (currentTeacher?.role === "admin") return true;
+            return (
+              c.teacherId === currentTeacher?.userId ||
+              c.leadTeacherId === currentTeacher?.userId ||
+              c.assignedTeacherIds?.includes(currentTeacher?.userId || "") ||
+              currentTeacher?.assignedClassIds?.includes(c.classId)
+            );
+          });
+      setClasses(filtered);
+      if (filtered.length === 0) {
+        setSelectedClassId("");
+      } else if (!filtered.some((c) => c.classId === selectedClassId)) {
+        setSelectedClassId(filtered[0].classId);
       }
     });
 
@@ -467,9 +491,13 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
             🏫
           </div>
           <div className="max-w-md mx-auto space-y-2">
-            <h3 className="text-xl font-extrabold text-primaryText">No Classes Created Yet</h3>
+            <h3 className="text-xl font-extrabold text-primaryText">
+              {isAdmin ? "No Classes Created Yet" : "No Classes Assigned Yet"}
+            </h3>
             <p className="text-sm text-primaryText/75 leading-relaxed">
-              Get started by creating your first KS2 class roster with zero-PII privacy options, starter savings pots, and student PIN cards.
+              {isAdmin
+                ? "Get started by creating your first KS2 class roster with zero-PII privacy options, starter savings pots, and student PIN cards."
+                : "Your teacher account is ready, but no KS2 classrooms have been assigned to you yet. You can launch a class with the 60-Second Setup Wizard or ask your school administrator."}
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
