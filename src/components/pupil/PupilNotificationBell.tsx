@@ -39,55 +39,6 @@ export const PupilNotificationBell: React.FC<PupilNotificationBellProps> = ({
 
   const loadNotifications = () => {
     const list = getSavedNotifications(pupilId);
-
-    const seededKey = `pocketpot_notifs_seeded_${pupilId || "default"}`;
-    const alreadySeeded = typeof window !== "undefined" && localStorage.getItem(seededKey);
-
-    // If notifications haven't been seeded yet for this pupil, seed them ONCE and persist to storage
-    if (list.length === 0 && !alreadySeeded) {
-      const starterNotifs: PupilNotificationDocument[] = [
-        {
-          notificationId: `notif-${pupilId || "starter"}-hired`,
-          pupilId: pupilId || "pupil-1",
-          classId: "class-year-4",
-          title: "You Got the Job! 🎉",
-          message:
-            "Congratulations! You've been hired as the Classroom Librarian! Your weekly wage of £1.50 will be automatically added to your debit card every Monday alongside your basic income.",
-          type: "job_hired",
-          read: false,
-          createdAt: new Date(Date.now() - 1000 * 60 * 35).toISOString(),
-          jobTitle: "Classroom Librarian",
-        },
-        {
-          notificationId: `notif-${pupilId || "starter"}-encouraged`,
-          pupilId: pupilId || "pupil-1",
-          classId: "class-year-4",
-          title: "Thank You for Applying! 🌟",
-          message:
-            "Thank you for putting yourself forward for Eco Recycling Monitor! A classmate was chosen for this term's rotation, but your teacher was so impressed by your positive qualities. New roles open regularly!",
-          type: "job_encouragement_rejection",
-          read: false,
-          createdAt: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
-          jobTitle: "Eco Recycling Monitor",
-        },
-      ];
-
-      if (typeof window !== "undefined") {
-        localStorage.setItem(seededKey, "true");
-      }
-      const existing = getSavedNotifications();
-      saveNotifications([
-        ...starterNotifs,
-        ...existing.filter(
-          (e) =>
-            e.notificationId !== starterNotifs[0].notificationId &&
-            e.notificationId !== starterNotifs[1].notificationId
-        ),
-      ]);
-      setNotifications(starterNotifs);
-      return;
-    }
-
     setNotifications(list);
   };
 

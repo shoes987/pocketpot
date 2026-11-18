@@ -168,101 +168,7 @@ export function getSavedClasses(): ClassDocument[] {
     }
   }
 
-  // Seed default demonstration classes across Key Stage 2
-  const seedClasses: ClassDocument[] = [
-    {
-      classId: "class-year-4-teal",
-      className: "Year 4 Teal",
-      schoolId: "st-marys-primary",
-      teacherId: "staff-teacher-davis",
-      leadTeacherId: "staff-teacher-davis",
-      assignedTeacherIds: ["staff-teacher-davis"],
-      classJoinCode: "749281",
-      yearGroup: "Year 4",
-      pupilCount: 4,
-      initialOpeningBalanceCents: 500,
-      weeklyBasicIncomeCents: 200,
-      payoutDay: "Friday",
-      aggregateMetrics: {
-        totalPotsActive: 8,
-        totalSavingsCents: 10600,
-        pausedPotsCount: 1,
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      lastPayoutTimestamp: new Date().toISOString(),
-    },
-    {
-      classId: "class-year-4-amber",
-      className: "Year 4 Amber",
-      schoolId: "st-marys-primary",
-      teacherId: "staff-teacher-davis",
-      leadTeacherId: "staff-teacher-davis",
-      assignedTeacherIds: ["staff-teacher-davis"],
-      classJoinCode: "831902",
-      yearGroup: "Year 4",
-      pupilCount: 4,
-      initialOpeningBalanceCents: 500,
-      weeklyBasicIncomeCents: 200,
-      payoutDay: "Friday",
-      aggregateMetrics: {
-        totalPotsActive: 8,
-        totalSavingsCents: 8500,
-        pausedPotsCount: 0,
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      lastPayoutTimestamp: new Date().toISOString(),
-    },
-    {
-      classId: "class-year-5-oak",
-      className: "Year 5 Oak",
-      schoolId: "st-marys-primary",
-      teacherId: "staff-teacher-wilson",
-      leadTeacherId: "staff-teacher-wilson",
-      assignedTeacherIds: ["staff-teacher-wilson"],
-      classJoinCode: "920415",
-      yearGroup: "Year 5",
-      pupilCount: 4,
-      initialOpeningBalanceCents: 500,
-      weeklyBasicIncomeCents: 250,
-      payoutDay: "Friday",
-      aggregateMetrics: {
-        totalPotsActive: 8,
-        totalSavingsCents: 12000,
-        pausedPotsCount: 0,
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      lastPayoutTimestamp: new Date().toISOString(),
-    },
-    {
-      classId: "class-year-6-willow",
-      className: "Year 6 Willow",
-      schoolId: "st-marys-primary",
-      teacherId: "staff-teacher-taylor",
-      leadTeacherId: "staff-teacher-taylor",
-      assignedTeacherIds: ["staff-teacher-taylor"],
-      classJoinCode: "614839",
-      yearGroup: "Year 6",
-      pupilCount: 4,
-      initialOpeningBalanceCents: 500,
-      weeklyBasicIncomeCents: 300,
-      payoutDay: "Friday",
-      aggregateMetrics: {
-        totalPotsActive: 8,
-        totalSavingsCents: 15400,
-        pausedPotsCount: 0,
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      lastPayoutTimestamp: new Date().toISOString(),
-    },
-  ];
-
-  saveClasses(seedClasses);
-  seedInitialPupils(seedClasses[0].classId);
-  return seedClasses;
+  return [];
 }
 
 /**
@@ -345,26 +251,6 @@ export function getSavedPupils(): PupilDocument[] {
     }
   }
 
-  // Ensure initial demo pupils and classes exist
-  getSavedClasses();
-  const seeded = localStorage.getItem(STORAGE_KEY_PUPILS);
-  if (seeded) {
-    try {
-      const parsed: PupilDocument[] = JSON.parse(seeded);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const unique = deduplicatePupils(parsed);
-        if (unique.length !== parsed.length) {
-          localStorage.setItem(STORAGE_KEY_PUPILS, JSON.stringify(unique));
-        }
-        return unique.map((p) => ({
-          ...p,
-          pinNumber: p.pinNumber || p.cardLastFour || "1234",
-        }));
-      }
-    } catch {
-      // Fallback
-    }
-  }
   return [];
 }
 
@@ -476,49 +362,6 @@ export function saveTransactions(txs: PotLedgerEntry[]): void {
     }
   }
   notifyBalanceSync();
-}
-
-/**
- * Seeds initial demo pupils, pots, and transactions
- */
-function seedInitialPupils(classId: string): void {
-  const existingPupils = getSavedPupils();
-  if (existingPupils.length > 0) return;
-
-  const mockPupils: PupilDocument[] = [];
-  const mockPots: SavingsPotDocument[] = [];
-  const mockTxs: PotLedgerEntry[] = [];
-  const now = new Date().toISOString();
-
-  for (let i = 1; i <= 4; i++) {
-    const pupil = createAnonymousPupilProfile(classId, i, {
-      anonymize: true,
-      initialBalanceCents: 500, // £5.00 default Account Opening Balance
-    });
-    mockPupils.push(pupil);
-    const pots = createStarterPots(pupil.pupilId, classId);
-    mockPots.push(...pots);
-
-    // Initial Account Opening Balance ledger transaction
-    const openingTx: PotLedgerEntry = {
-      transactionId: crypto.randomUUID(),
-      pupilId: pupil.pupilId,
-      classId,
-      title: "Account Opening Balance",
-      deltaCents: 500,
-      type: "reward",
-      category: "income",
-      nonPunitiveNote: "Welcome deposit credited to your card balance",
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(),
-    };
-
-    const txs = createStarterTransactions(pupil.pupilId, classId);
-    mockTxs.push(openingTx, ...txs);
-  }
-
-  savePupils(mockPupils);
-  savePots(mockPots);
-  saveTransactions(mockTxs);
 }
 
 /**
@@ -712,15 +555,7 @@ export function getPotsForPupil(pupilId: string): SavingsPotDocument[] {
   const pupil = getPupilById(pupilId);
   const realId = pupil ? pupil.pupilId : pupilId;
   const pots = getSavedPots();
-  let pupilPots = pots.filter((p) => p.pupilId === realId);
-
-  // If pupil exists but has no pots seeded yet, generate starter pots
-  if (pupilPots.length === 0 && pupil) {
-    pupilPots = createStarterPots(realId, pupil.classId);
-    savePots([...pots, ...pupilPots]);
-  }
-
-  return pupilPots;
+  return pots.filter((p) => p.pupilId === realId);
 }
 
 /**
@@ -736,13 +571,6 @@ export function getPupilTransactions(
   const pupilTxs = allTxs
     .filter((tx) => tx.pupilId === realId)
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-  if (pupilTxs.length === 0 && pupil) {
-    // Generate initial starter transactions on the fly if none exist
-    const starterTxs = createStarterTransactions(realId, pupil.classId);
-    saveTransactions([...starterTxs, ...allTxs]);
-    return starterTxs.slice(0, limit);
-  }
 
   return pupilTxs.slice(0, limit);
 }

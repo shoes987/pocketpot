@@ -21,7 +21,7 @@ import {
   getSavedClassesForUser,
 } from "@/lib/services/class-service";
 import { getCurrentTeacherUser, isUserAdmin } from "@/lib/services/auth-service";
-import { subscribeToPupils } from "@/lib/firebase/firestore-service";
+import { subscribeToPupils, subscribeToBehaviours } from "@/lib/firebase/firestore-service";
 import { formatCurrency } from "@/lib/firebase/zero-pii";
 import {
   Sparkles,
@@ -198,8 +198,12 @@ export function TeacherBonusesDashboard({
 
     // Real-time Firestore pupil listener for Whiteboard Mode
     const unsubPupils = subscribeToPupils((livePupils) => {
-      if (livePupils.length > 0) {
-        setPupils(livePupils);
+      setPupils(livePupils);
+    });
+
+    const unsubBehaviours = subscribeToBehaviours((liveBehaviours) => {
+      if (liveBehaviours.length > 0) {
+        setBehaviours(liveBehaviours);
       }
     });
 
@@ -208,6 +212,7 @@ export function TeacherBonusesDashboard({
 
     return () => {
       unsubPupils();
+      unsubBehaviours();
       window.removeEventListener("storage", handleSync);
     };
   }, [propsClasses, activeClassId]);

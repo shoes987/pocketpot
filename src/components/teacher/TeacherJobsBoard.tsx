@@ -126,9 +126,7 @@ export const TeacherJobsBoard: React.FC<TeacherJobsBoardProps> = ({
     loadData();
 
     const unsubJobs = subscribeToJobs((liveJobs) => {
-      if (liveJobs.length > 0) {
-        setJobs(liveJobs);
-      }
+      setJobs(liveJobs);
     }, selectedClassId || activeClassId);
 
     return () => {

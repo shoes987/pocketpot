@@ -25,6 +25,7 @@ import {
   MarketplacePurchaseDocument,
   BonusAwardDocument,
   PotLedgerEntry,
+  PositiveBehaviourDocument,
   TenantDocument,
   PotStatus,
 } from "@/lib/firebase/types";
@@ -543,4 +544,74 @@ export async function recordTransactionInFirestore(tx: PotLedgerEntry): Promise<
   } catch (err) {
     console.warn("recordTransactionInFirestore warning:", err);
   }
+}
+
+export async function saveBehaviourToFirestore(
+  behaviour: PositiveBehaviourDocument
+): Promise<void> {
+  if (!db || !behaviour.behaviourId) return;
+  try {
+    await setDoc(doc(db, "behaviours", behaviour.behaviourId), {
+      ...behaviour,
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+  } catch (err) {
+    console.warn("saveBehaviourToFirestore warning:", err);
+  }
+}
+
+export async function saveBehavioursBatchToFirestore(
+  behaviours: PositiveBehaviourDocument[]
+): Promise<void> {
+  if (!db || behaviours.length === 0) return;
+  try {
+    const batch = writeBatch(db);
+    for (const b of behaviours) {
+      if (!b.behaviourId) continue;
+      const ref = doc(db, "behaviours", b.behaviourId);
+      batch.set(ref, {
+        ...b,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+    }
+    await batch.commit();
+  } catch (err) {
+    console.warn("saveBehavioursBatchToFirestore warning:", err);
+    await Promise.allSettled(behaviours.map((b) => saveBehaviourToFirestore(b)));
+  }
+}
+
+export async function deleteBehaviourFromFirestore(behaviourId: string): Promise<void> {
+  if (!db || !behaviourId) return;
+  try {
+    await deleteDoc(doc(db, "behaviours", behaviourId));
+  } catch (err) {
+    console.warn("deleteBehaviourFromFirestore warning:", err);
+  }
+}
+
+export function subscribeToBehaviours(
+  callback: (behaviours: PositiveBehaviourDocument[]) => void,
+  classId?: string
+): Unsubscribe {
+  if (!db) return () => {};
+  const col = collection(db, "behaviours");
+  const q = classId ? query(col, where("classId", "==", classId)) : col;
+
+  return onSnapshot(
+    q,
+    (snap) => {
+      const list: PositiveBehaviourDocument[] = [];
+      snap.forEach((d) => {
+        list.push({
+          ...(d.data() as PositiveBehaviourDocument),
+          behaviourId: d.id,
+        });
+      });
+      callback(list);
+    },
+    (err) => {
+      console.warn("subscribeToBehaviours error:", err);
+    }
+  );
 }

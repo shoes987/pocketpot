@@ -64,11 +64,11 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
     let p = getPupilById(pupilId);
     if (!p) {
       const allPupils = getSavedPupils();
-      p = allPupils.find((pup) => pup.pupilId === pupilId) || allPupils[0] || null;
+      p = allPupils.find((pup) => pup.pupilId === pupilId) || null;
     }
     setPupil(p || null);
 
-    const targetClassId = p?.classId ? normalizeClassId(p.classId) : "class-year-4-teal";
+    const targetClassId = p?.classId ? normalizeClassId(p.classId) : "";
     const allRewards = getSavedRewards(targetClassId);
     // Strict requirement: Only display items activated by the teacher
     const activeRewards = allRewards.filter((r) => r.isAvailable);
@@ -85,17 +85,15 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
     let p = getPupilById(pupilId);
     if (!p) {
       const allPupils = getSavedPupils();
-      p = allPupils.find((pup) => pup.pupilId === pupilId) || allPupils[0] || null;
+      p = allPupils.find((pup) => pup.pupilId === pupilId) || null;
     }
     const targetRealId = p?.pupilId || pupilId;
-    const targetClassId = p?.classId ? normalizeClassId(p.classId) : "class-year-4-teal";
+    const targetClassId = p?.classId ? normalizeClassId(p.classId) : "";
 
     // Real-time Firestore listeners
     const unsubRewards = subscribeToRewards((liveRewards) => {
-      if (liveRewards.length > 0) {
-        setRewards(liveRewards.filter((r) => r.isAvailable));
-      }
-    }, targetClassId);
+      setRewards(liveRewards.filter((r) => r.isAvailable));
+    }, targetClassId || undefined);
 
     const unsubPupil = subscribeToPupil(targetRealId, (livePupil) => {
       if (livePupil) {

@@ -146,9 +146,7 @@ export function getSavedBehaviours(classId?: string): PositiveBehaviourDocument[
     }
   }
 
-  // Seed defaults if empty
-  saveBehaviours(DEFAULT_POSITIVE_BEHAVIOURS);
-  return DEFAULT_POSITIVE_BEHAVIOURS;
+  return [];
 }
 
 /**

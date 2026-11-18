@@ -70,7 +70,7 @@ export function SchoolOverviewDashboard({
   onOpenInviteTeacherModal,
 }: SchoolOverviewDashboardProps) {
   const [isMounted, setIsMounted] = useState(false);
-  const [staffList, setStaffList] = useState<UserDocument[]>(DEFAULT_STAFF_USERS);
+  const [staffList, setStaffList] = useState<UserDocument[]>([]);
   const [tenant, setTenant] = useState<TenantDocument>(DEFAULT_TENANT);
   const [allInvites, setAllInvites] = useState<TeacherInviteDocument[]>([]);
 

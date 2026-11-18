@@ -67,20 +67,11 @@ export default function PupilAccountPage() {
         targetRealId = foundPupil.pupilId;
         setPupil(foundPupil);
         const pupilPots = getPotsForPupil(foundPupil.pupilId);
-        // Load up to 100 transactions so 30-day history is available
         const recentTxs = getPupilTransactions(foundPupil.pupilId, 100);
         setPots(pupilPots);
         setTransactions(recentTxs);
-      } else {
-        const fallback = createAnonymousPupilProfile("class-year-4-teal", 1, {
-          anonymize: true,
-        });
-        fallback.pupilId = activeId;
-        setPupil(fallback);
-        setPots(createStarterPots(activeId, "class-year-4-teal"));
-        setTransactions(createStarterTransactions(activeId, "class-year-4-teal"));
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     loadData();
@@ -90,18 +81,15 @@ export default function PupilAccountPage() {
       if (livePupil) {
         setPupil((prev) => (prev ? { ...prev, ...livePupil, localDisplayName: prev.localDisplayName } : livePupil));
       }
+      setLoading(false);
     });
 
     const unsubPots = subscribeToPots((livePots) => {
-      if (livePots.length > 0) {
-        setPots(livePots);
-      }
+      setPots(livePots);
     }, targetRealId);
 
     const unsubClasses = subscribeToClasses((liveClasses) => {
-      if (liveClasses.length > 0) {
-        setClasses(liveClasses);
-      }
+      setClasses(liveClasses);
     });
 
     const handleSync = () => loadData();
@@ -117,7 +105,7 @@ export default function PupilAccountPage() {
     };
   }, [pupilId]);
 
-  if (loading || !pupil) {
+  if (loading) {
     return (
       <main className="min-h-screen bg-canvas text-primaryText p-8 flex items-center justify-center font-lexend text-left">
         <div className="bg-surface rounded-pot p-8 border border-borderMuted shadow-islandCard space-y-3 text-left">
@@ -128,6 +116,30 @@ export default function PupilAccountPage() {
           <p className="text-body text-primaryText/70 text-left">
             Loading your fintech account safely.
           </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (!pupil) {
+    return (
+      <main className="min-h-screen bg-canvas text-primaryText p-8 flex items-center justify-center font-lexend text-center">
+        <div className="bg-surface rounded-pot p-8 border border-borderMuted shadow-islandCard space-y-4 max-w-md mx-auto">
+          <div className="w-12 h-12 rounded-2xl bg-amberSurface text-brandSecondary mx-auto flex items-center justify-center text-2xl font-bold">
+            🌱
+          </div>
+          <h2 className="text-xl font-bold text-primaryText">
+            Let&apos;s puzzle this out together!
+          </h2>
+          <p className="text-body text-primaryText/70 text-sm">
+            We couldn&apos;t find an active desk card for this link. Check your desk card code and PIN, or ask your teacher to check the class roster.
+          </p>
+          <Link
+            href="/pupil"
+            className="inline-flex items-center justify-center px-5 py-2.5 rounded-full bg-brandPrimary text-white font-bold text-xs"
+          >
+            Go to Pupil Login
+          </Link>
         </div>
       </main>
     );

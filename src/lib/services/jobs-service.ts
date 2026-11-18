@@ -55,66 +55,18 @@ export function getSavedJobs(classId?: string): JobPostingDocument[] {
   if (stored) {
     try {
       const parsed: JobPostingDocument[] = JSON.parse(stored);
-      if (classId) {
-        return parsed.filter((j) => j.classId === classId);
+      if (Array.isArray(parsed)) {
+        if (classId) {
+          return parsed.filter((j) => j.classId === classId);
+        }
+        return parsed;
       }
-      return parsed;
     } catch {
       // Fallback
     }
   }
 
-  // Seed standard KS2 classroom jobs
-  const seedClassId = classId || "class-year4-teal";
-  const now = new Date().toISOString();
-
-  const seedJobs: JobPostingDocument[] = [
-    {
-      jobId: "job-librarian-1",
-      classId: seedClassId,
-      teacherId: "teacher-oak-lead",
-      title: "Classroom Librarian",
-      description: "Keep our reading corner tidy, help classmates discover inspiring books, and organize book returns at the end of each day.",
-      wageCents: 150, // £1.50 per week
-      termWeeks: 4,   // 4-week term
-      requiredQualities: ["Organised", "Caring", "Reliable"],
-      cvPrompt: "Why would you be wonderful as our Classroom Librarian? Mention any favorite books or times you helped organize things!",
-      status: "open",
-      createdAt: now,
-      updatedAt: now,
-    },
-    {
-      jobId: "job-plant-monitor-2",
-      classId: seedClassId,
-      teacherId: "teacher-oak-lead",
-      title: "Plant & Garden Monitor",
-      description: "Check soil moisture on our classroom windowsill garden, water plants on scheduled mornings, and keep the nature station clean.",
-      wageCents: 120, // £1.20 per week
-      termWeeks: 3,   // 3-week term
-      requiredQualities: ["Punctual", "Helpful", "Caring"],
-      cvPrompt: "Tell us why you would take great care of our plants and how you keep track of regular chores!",
-      status: "open",
-      createdAt: now,
-      updatedAt: now,
-    },
-    {
-      jobId: "job-tech-helper-3",
-      classId: seedClassId,
-      teacherId: "teacher-oak-lead",
-      title: "Tech & Tablet Assistant",
-      description: "Ensure learning tablets are plugged into the charging trolley neatly at the end of lessons and assist classmates with basic logins.",
-      wageCents: 200, // £2.00 per week
-      termWeeks: 4,   // 4-week term
-      requiredQualities: ["Reliable", "Team Player", "Patient"],
-      cvPrompt: "Explain how you treat school devices with care and how you help others when they are stuck on tech!",
-      status: "open",
-      createdAt: now,
-      updatedAt: now,
-    },
-  ];
-
-  saveJobs(seedJobs);
-  return seedJobs;
+  return [];
 }
 
 export function saveJobs(jobs: JobPostingDocument[]): void {

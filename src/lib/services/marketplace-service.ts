@@ -135,22 +135,6 @@ export function getSavedRewards(classId?: string): MarketplaceRewardDocument[] {
     }
   }
 
-  // Seed default rewards if empty
-  if (rewards.length === 0) {
-    const targetClass = normalizeClassId(classId);
-    const now = new Date().toISOString();
-    rewards = DEFAULT_MARKETPLACE_REWARDS.map((item, idx) => ({
-      ...item,
-      rewardId: `rew-${targetClass}-${idx + 1}`,
-      classId: targetClass,
-      purchasesCount: 0,
-      isAvailable: false, // Inactive by default
-      createdAt: now,
-      updatedAt: now,
-    }));
-    saveRewards(rewards);
-  }
-
   if (classId) {
     const target = normalizeClassId(classId);
     return rewards.filter((r) => normalizeClassId(r.classId) === target);

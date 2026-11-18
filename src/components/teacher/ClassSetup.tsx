@@ -213,15 +213,11 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
     });
 
     const unsubPupils = subscribeToPupils((livePupils) => {
-      if (livePupils.length > 0) {
-        setPupils(livePupils);
-      }
+      setPupils(livePupils);
     });
 
     const unsubPots = subscribeToPots((livePots) => {
-      if (livePots.length > 0) {
-        setPots(livePots);
-      }
+      setPots(livePots);
     });
 
     const handleSync = () => {

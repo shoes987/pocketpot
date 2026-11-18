@@ -183,7 +183,7 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
   // Step 2: Roster & CSV Ingestion
   const [studentCount, setStudentCount] = useState<number>(24);
   const [anonymizeNames, setAnonymizeNames] = useState<boolean>(true);
-  const [pastedNames, setPastedNames] = useState<string>("Leo, Maya, Sam, Sophie, Jordan, Chloe, Liam, Emma");
+  const [pastedNames, setPastedNames] = useState<string>("");
   const [csvAuditResult, setCsvAuditResult] = useState<CsvSafeguardingAuditResult | null>(null);
   const [csvFileName, setCsvFileName] = useState<string | null>(null);
 

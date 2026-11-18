@@ -90,21 +90,15 @@ export default function TeacherPortalPage() {
 
     // Real-time Firestore onSnapshot listeners
     const unsubClasses = subscribeToClasses((liveClasses) => {
-      if (liveClasses.length > 0) {
-        setClasses(liveClasses);
-      }
+      setClasses(liveClasses);
     });
 
     const unsubPupils = subscribeToPupils((livePupils) => {
-      if (livePupils.length > 0) {
-        setPupils(livePupils);
-      }
+      setPupils(livePupils);
     });
 
     const unsubPots = subscribeToPots((livePots) => {
-      if (livePots.length > 0) {
-        setPots(livePots);
-      }
+      setPots(livePots);
     });
 
     const handleSync = () => refreshState();

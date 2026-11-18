@@ -437,15 +437,15 @@ export function CsvClasslistUploadModal({
                   </div>
 
                   {/* 1-Click Bulk Assign Bar */}
-                  <div className="bg-surface p-3 sm:p-4 rounded-xl border border-amber-300/80 space-y-2.5 max-w-full overflow-hidden">
+                  <div className="bg-surface p-3 sm:p-4 rounded-xl border border-amber-300/80 space-y-2.5 max-w-full">
                     <span className="text-xs font-bold text-primaryText block">
                       Assign all {unassignedRows.length} remaining pupils to:
                     </span>
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2.5">
                       <select
                         value={bulkAssignClassId}
                         onChange={(e) => setBulkAssignClassId(e.target.value)}
-                        className="w-full sm:flex-1 min-w-0 px-3 py-2 text-xs bg-canvas rounded-lg border border-borderMuted text-primaryText font-bold focus:outline-none focus:ring-2 focus:ring-brandPrimary/30 truncate"
+                        className="w-full md:flex-1 min-w-0 px-3 py-2 text-xs bg-canvas rounded-lg border border-borderMuted text-primaryText font-bold focus:outline-none focus:ring-2 focus:ring-brandPrimary/30 truncate"
                       >
                         <option value="">-- Select Target Classroom --</option>
                         {availableClasses.map((cls) => (
@@ -457,7 +457,7 @@ export function CsvClasslistUploadModal({
                       <button
                         type="button"
                         onClick={handleBulkAssign}
-                        className="px-4 py-2 rounded-lg bg-brandPrimary hover:bg-teal-700 text-white font-bold text-xs shadow-xs shrink-0 flex items-center justify-center gap-1.5 transition-colors w-full sm:w-auto"
+                        className="px-4 py-2 rounded-lg bg-brandPrimary hover:bg-teal-700 text-white font-bold text-xs shadow-xs shrink-0 flex items-center justify-center gap-1.5 transition-colors w-full md:w-auto"
                       >
                         <span>⚡</span>
                         <span className="whitespace-nowrap">Apply to All Unassigned</span>

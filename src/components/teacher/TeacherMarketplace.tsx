@@ -79,9 +79,7 @@ export const TeacherMarketplace: React.FC<TeacherMarketplaceProps> = ({
 
     // Listen to real-time Firestore rewards
     const unsubRewards = subscribeToRewards((liveRewards) => {
-      if (liveRewards.length > 0) {
-        setRewards(liveRewards);
-      }
+      setRewards(liveRewards);
     }, normalizedClassId);
 
     // Listen to real-time marketplace events and storage changes
