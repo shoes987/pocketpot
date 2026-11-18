@@ -6,7 +6,7 @@
 import { PupilDocument, SavingsPotDocument, PotLedgerEntry } from "./types";
 
 const ANIMALS = [
-  "Otter", "Badger", "Falcon", "Hedgehog", "Robin", "Panda", "Fox", "Dolphin",
+  "River Otter", "Otter", "Badger", "Falcon", "Hedgehog", "Robin", "Panda", "Fox", "Dolphin",
   "Squirrel", "Owl", "Fawn", "Swift", "Puffin", "Beaver", "Kingfisher", "Starling"
 ];
 
@@ -123,7 +123,8 @@ const FORBIDDEN_EXACT_PII_KEYS = new Set([
   "username", "legalname", "parentname", "guardianname",
   "email", "emailaddress", "useremail", "mail",
   "phone", "phonenumber", "telephone", "mobile", "mobilenumber",
-  "dob", "birthdate", "dateofbirth", "birthday",
+  "dob", "birthdate", "dateofbirth", "birthday", "date_of_birth",
+  "upn", "uniquepupilnumber", "unique_pupil_number", "candidate_number", "admissionnumber",
   "address", "homeaddress", "streetaddress", "postcode", "zipcode", "postalcode",
   "ssn", "nationalinsurance", "ninumber",
   "photo", "face", "facephoto", "selfie",

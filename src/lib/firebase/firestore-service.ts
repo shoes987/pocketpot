@@ -42,6 +42,19 @@ export function sanitizePupilForFirestore(
   pupil: PupilDocument,
   tenantId: string = "sch_local_pilot"
 ): Record<string, unknown> {
+  // Reject if incoming payload explicitly contains illegal PII fields (DOBs, UPNs, surnames)
+  const forbiddenPii = [
+    "dob", "dateofbirth", "birthdate", "date_of_birth",
+    "upn", "uniquepupilnumber", "unique_pupil_number", "candidate_number",
+    "realname", "lastname", "surname", "parentname", "email"
+  ];
+  for (const key of Object.keys(pupil as unknown as Record<string, unknown>)) {
+    const norm = key.toLowerCase().replace(/[^a-z]/g, "");
+    if (forbiddenPii.includes(norm)) {
+      throw new Error(`Zero-PII Safeguard: Field "${key}" is strictly forbidden on pupil records under KS2 safeguarding rules.`);
+    }
+  }
+
   const sanitized: Record<string, unknown> = {
     pupilId: pupil.pupilId,
     classId: pupil.classId,

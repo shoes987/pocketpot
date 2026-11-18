@@ -174,7 +174,11 @@ export function validateTeacherEmailDomain(
 
   const isMatch = tenant.allowedDomains.some((allowed) => {
     const clean = allowed.replace(/^@/, "").toLowerCase();
-    return domain === clean || domain.endsWith("." + clean);
+    return (
+      domain === clean ||
+      domain.endsWith("." + clean) ||
+      domain.startsWith(clean + ".")
+    );
   });
 
   if (!isMatch) {

@@ -145,6 +145,9 @@ service cloud.firestore {
              !('phone' in data) &&
              !('dob' in data) &&
              !('birthDate' in data) &&
+             !('dateOfBirth' in data) &&
+             !('upn' in data) &&
+             !('uniquePupilNumber' in data) &&
              !('address' in data);
     }
 

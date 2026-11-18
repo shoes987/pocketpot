@@ -99,9 +99,39 @@ export async function inviteTeacher(
     return { success: false, error: "Invalid email format." };
   }
 
+  const FORBIDDEN_CONSUMER_DOMAINS = [
+    "gmail.com",
+    "googlemail.com",
+    "yahoo.com",
+    "yahoo.co.uk",
+    "hotmail.com",
+    "hotmail.co.uk",
+    "outlook.com",
+    "live.com",
+    "msn.com",
+    "icloud.com",
+    "me.com",
+    "mac.com",
+    "aol.com",
+    "proton.me",
+    "protonmail.com",
+  ];
+
+  if (FORBIDDEN_CONSUMER_DOMAINS.includes(emailDomain)) {
+    const primaryDomain = (allowedDomains[0] || "school.sch.uk").replace(/^@/, "");
+    return {
+      success: false,
+      error: `Personal email addresses (@${emailDomain}) cannot be used for classroom teacher accounts. Please use your school's registered email address (e.g. @${primaryDomain}) to join this workspace.`,
+    };
+  }
+
   const isDomainAllowed = allowedDomains.some((d) => {
     const clean = d.replace(/^@/, "").toLowerCase();
-    return emailDomain === clean || emailDomain.endsWith("." + clean);
+    return (
+      emailDomain === clean ||
+      emailDomain.endsWith("." + clean) ||
+      emailDomain.startsWith(clean + ".")
+    );
   });
 
   if (!isDomainAllowed) {
