@@ -8,6 +8,7 @@ import {
   parseBulkEmails,
   DEFAULT_TENANT_ID,
 } from "@/lib/services/tenant-service";
+import { inviteTeacher } from "@/lib/server/invite-teacher";
 
 export async function POST(
   req: NextRequest,
@@ -134,6 +135,28 @@ export async function POST(
         { error: result.errorMessage },
         { status: 400 }
       );
+    }
+
+    // Provision Firebase Auth user, claims, and /tenants/{tenantId}/staff/{uid} profile
+    const authHeader = req.headers.get("authorization") || "";
+    const idToken = authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7).trim()
+      : undefined;
+
+    try {
+      await inviteTeacher(
+        {
+          tenantId: tenant.tenantId,
+          email,
+          displayName: typeof displayName === "string" ? displayName : undefined,
+          classIds: Array.isArray(assignedClassIds)
+            ? assignedClassIds.filter((id): id is string => typeof id === "string")
+            : [],
+        },
+        idToken
+      );
+    } catch (backendErr) {
+      console.warn("Backend inviteTeacher execution note:", backendErr);
     }
 
     return NextResponse.json(

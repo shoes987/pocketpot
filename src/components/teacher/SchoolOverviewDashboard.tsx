@@ -47,6 +47,8 @@ import {
 import {
   subscribeToTenant,
 } from "@/lib/firebase/firestore-service";
+import { sendPasswordResetEmail } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 
 interface SchoolOverviewDashboardProps {
   classes: ClassDocument[];
@@ -109,6 +111,7 @@ export function SchoolOverviewDashboard({
   const [newTeacherName, setNewTeacherName] = useState("");
   const [newTeacherEmail, setNewTeacherEmail] = useState("");
   const [addTeacherError, setAddTeacherError] = useState<string | null>(null);
+  const [isSubmittingTeacher, setIsSubmittingTeacher] = useState(false);
 
   // Dropdown Popover States (Tracks which staff member's menu is active)
   const [activeRoleMenuStaffId, setActiveRoleMenuStaffId] = useState<string | null>(null);
@@ -158,8 +161,22 @@ export function SchoolOverviewDashboard({
     return () => document.removeEventListener("click", handleDocumentClick);
   }, []);
 
+  // Handler: Resend Password Setup Email
+  const handleResendSetupEmail = async (email: string, name?: string) => {
+    try {
+      if (!auth) {
+        throw new Error("Authentication service is unavailable.");
+      }
+      await sendPasswordResetEmail(auth, email);
+      showToast(`✉️ Password setup email sent to ${email}! Setup links expire after 1 hour.`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to send password setup email.";
+      showToast(`⚠️ ${msg}`);
+    }
+  };
+
   // Handler: Add Teacher
-  const handleAddTeacherSubmit = (e: React.FormEvent) => {
+  const handleAddTeacherSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedName = newTeacherName.trim();
     const trimmedEmail = newTeacherEmail.trim().toLowerCase();
@@ -173,8 +190,51 @@ export function SchoolOverviewDashboard({
       return;
     }
 
+    setIsSubmittingTeacher(true);
+    setAddTeacherError(null);
+
     try {
-      // Rule 1: Added with role: 'unassigned' and assignedClassIds: [] ('unassigned')
+      // 1. Retrieve current ID token if authenticated
+      let token: string | undefined;
+      try {
+        if (auth?.currentUser) {
+          token = await auth.currentUser.getIdToken();
+        }
+      } catch (tokenErr) {
+        console.warn("Failed to retrieve user ID token:", tokenErr);
+      }
+
+      // 2. Call backend callable function (POST /api/invite-teacher)
+      const res = await fetch("/api/invite-teacher", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          tenantId: tenant.tenantId,
+          email: trimmedEmail,
+          displayName: trimmedName,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to onboard educator.");
+      }
+
+      // 3. Immediately trigger Firebase sendPasswordResetEmail so teacher gets setup email
+      let emailNotice = "";
+      try {
+        if (auth) {
+          await sendPasswordResetEmail(auth, trimmedEmail);
+          emailNotice = " Password setup email dispatched (links expire after 1 hour).";
+        }
+      } catch (emailErr) {
+        console.warn("sendPasswordResetEmail note:", emailErr);
+      }
+
+      // 4. Update local staff directory state
       createStaffUser({
         displayName: trimmedName,
         email: trimmedEmail,
@@ -187,9 +247,11 @@ export function SchoolOverviewDashboard({
       setNewTeacherEmail("");
       setAddTeacherError(null);
       setIsAddTeacherModalOpen(false);
-      showToast(`🎉 Added ${trimmedName} (Role & Classes set to Unassigned)`);
+      showToast(`🎉 Added ${trimmedName}!${emailNotice}`);
     } catch (err: unknown) {
       setAddTeacherError(err instanceof Error ? err.message : "Failed to add teacher.");
+    } finally {
+      setIsSubmittingTeacher(false);
     }
   };
 
@@ -813,7 +875,17 @@ export function SchoolOverviewDashboard({
 
                   {/* Card Footer */}
                   {!isAdminRole && (
-                    <div className="pt-3 border-t border-borderMuted/60 flex items-center justify-end text-xs">
+                    <div className="pt-3 border-t border-borderMuted/60 flex items-center justify-between text-xs gap-2">
+                      <button
+                        type="button"
+                        onClick={() => member.email && handleResendSetupEmail(member.email, member.displayName)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-tealSurface hover:bg-tealSurface/80 text-brandPrimary border border-brandPrimary/30 font-bold text-xs shadow-2xs transition-all"
+                        title={`Send password setup email to ${member.email}`}
+                      >
+                        <Mail className="w-3.5 h-3.5" />
+                        <span>Resend Setup Email</span>
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => handleDeleteStaff(member.userId, member.displayName || "this educator")}

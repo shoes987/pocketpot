@@ -30,6 +30,13 @@ service cloud.firestore {
     //   - createdAt: string/timestamp (optional)
     //   - updatedAt: string/timestamp (optional)
     //
+    // Subcollection: tenants/{tenantId}/staff/{uid}
+    //   - uid: string (immutable, required) - Staff user UID
+    //   - role: string (required) - 'school_admin' | 'teacher'
+    //   - email: string (optional)
+    //   - displayName: string (optional)
+    //   - createdAt / updatedAt: string/timestamp (optional)
+    //
     // Collection: users/{userId}
     //   - userId: string (immutable, required)
     //   - role: string (required) - 'teacher' | 'pupil'
@@ -251,6 +258,15 @@ service cloud.firestore {
 
         // Delete: Admin of tenant only
         allow delete: if isAdminOfTenant(tenantId);
+      }
+
+      // -----------------------------------------------------------------------
+      // STAFF DIRECTORY: /tenants/{tenantId}/staff/{uid}
+      // Managed strictly via Firebase Admin SDK backend callable functions
+      // -----------------------------------------------------------------------
+      match /staff/{uid} {
+        allow read: if isAuthenticated() && request.auth.token.tenantId == tenantId;
+        allow write: if false;
       }
     }
 

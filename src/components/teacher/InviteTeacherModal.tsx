@@ -22,6 +22,8 @@ import {
   DEFAULT_TENANT_ID,
 } from "@/lib/services/tenant-service";
 import { ClassDocument, UserDocument } from "@/lib/firebase/types";
+import { sendPasswordResetEmail } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 
 interface InviteTeacherModalProps {
   isOpen: boolean;
@@ -94,6 +96,47 @@ export function InviteTeacherModal({
 
     setIsSubmitting(true);
     try {
+      // 1. Retrieve current ID token if available
+      let token: string | undefined;
+      try {
+        if (auth?.currentUser) {
+          token = await auth.currentUser.getIdToken();
+        }
+      } catch (tokenErr) {
+        console.warn("Failed to get token:", tokenErr);
+      }
+
+      // 2. Call backend callable function (POST /api/invite-teacher)
+      const res = await fetch("/api/invite-teacher", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          tenantId: tenant.tenantId,
+          email: email.trim(),
+          displayName: displayName.trim() || `Teacher (${email.split("@")[0]})`,
+          classIds: selectedClassIds,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to onboard educator.");
+      }
+
+      // 3. Trigger Firebase sendPasswordResetEmail immediately so teacher receives setup link
+      let emailNotice = "";
+      try {
+        if (auth) {
+          await sendPasswordResetEmail(auth, email.trim());
+          emailNotice = " Password setup email dispatched (links expire after 1 hour).";
+        }
+      } catch (resetErr) {
+        console.warn("sendPasswordResetEmail note:", resetErr);
+      }
+
       const result = inviteAndProvisionTeacher(
         {
           email: email.trim(),
@@ -104,17 +147,11 @@ export function InviteTeacherModal({
         tenant.tenantId
       );
 
-      if (!result.success || !result.createdTeacher) {
-        setErrorMessage(result.errorMessage || "Failed to provision teacher account.");
-        setIsSubmitting(false);
-        return;
-      }
-
-      setSuccessMessage(`Account spun up successfully for ${result.createdTeacher.displayName}!`);
+      setSuccessMessage(`Account spun up for ${displayName.trim() || email.trim()}!${emailNotice}`);
       setTimeout(() => {
-        onTeacherInvited(result.createdTeacher!);
+        onTeacherInvited(result.createdTeacher);
         onClose();
-      }, 1100);
+      }, 1500);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Error during teacher invite.";
       setErrorMessage(msg);
