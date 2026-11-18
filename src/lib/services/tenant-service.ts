@@ -27,7 +27,7 @@ export const DEFAULT_TENANT: TenantDocument = {
   tenantId: DEFAULT_TENANT_ID,
   schoolName: "Pilot Primary School",
   schoolUrn: "100123",
-  allowedDomains: ["gbshp.org", "@gbshp.org"],
+  allowedDomains: ["@gbshp"],
   status: "Production Live",
   activeTeacherCount: 3,
   pendingInviteCount: 0,
@@ -160,7 +160,7 @@ export function validateTeacherEmailDomain(
   }
 
   const isConsumerDomain = FORBIDDEN_CONSUMER_DOMAINS.includes(domain);
-  const primaryAllowedDomain = tenant.allowedDomains[0] || "school.sch.uk";
+  const primaryAllowedDomain = (tenant.allowedDomains[0] || "school.sch.uk").replace(/^@/, "");
 
   if (isConsumerDomain) {
     return {
@@ -172,9 +172,10 @@ export function validateTeacherEmailDomain(
     };
   }
 
-  const isMatch = tenant.allowedDomains.some(
-    (allowed) => domain === allowed.toLowerCase() || domain.endsWith("." + allowed.toLowerCase())
-  );
+  const isMatch = tenant.allowedDomains.some((allowed) => {
+    const clean = allowed.replace(/^@/, "").toLowerCase();
+    return domain === clean || domain.endsWith("." + clean);
+  });
 
   if (!isMatch) {
     return {

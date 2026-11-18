@@ -130,7 +130,8 @@ service cloud.firestore {
              tenant.allowedDomains is list &&
              isValidEmail(email) &&
              email.split('@').size() == 2 &&
-             tenant.allowedDomains.hasAny([email.split('@')[1]]);
+             (tenant.allowedDomains.hasAny([email.split('@')[1]]) ||
+              tenant.allowedDomains.hasAny(['@' + email.split('@')[1]]));
     }
 
     // Zero-PII payload sanitizer (Strict GDPR / COPPA / KS2 Safeguarding)

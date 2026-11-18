@@ -15,7 +15,7 @@ import * as fs from "fs";
  * Defaults:
  *   tenantId: "sch_local_pilot"
  *   schoolName: "Pilot Primary School"
- *   allowedDomains: ["@gbshp.org", "gbshp.org"]
+ *   allowedDomains: ["@gbshp"]
  *   status: "Production Live"
  */
 
@@ -23,14 +23,14 @@ import * as fs from "fs";
 const args = process.argv.slice(2);
 const targetTenantId = args[0] || "sch_local_pilot";
 const targetSchoolName = args[1] || "Pilot Primary School";
-const rawDomainsInput = args[2] || "@gbshp.org";
+const rawDomainsInput = args[2] || "@gbshp";
 const targetStatus = args[3] || "Production Live";
 
-// Normalize allowedDomains: strip leading '@' and lowercase for strict standard domain matching
-const rawDomains = rawDomainsInput.split(",").map((d) => d.trim().toLowerCase()).filter(Boolean);
-const allowedDomains = Array.from(
-  new Set(rawDomains.map((d) => d.replace(/^@/, "")))
-).filter(Boolean);
+// Normalize allowedDomains exactly as passed (e.g. ["@gbshp"])
+const allowedDomains = rawDomainsInput
+  .split(",")
+  .map((d) => d.trim().toLowerCase())
+  .filter(Boolean);
 
 async function main() {
   console.log("=================================================");
