@@ -48,6 +48,7 @@ import {
   subscribeToTenant,
   subscribeToStaff,
 } from "@/lib/firebase/firestore-service";
+import { purgeLegacyMockStorage } from "@/lib/services/class-service";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
@@ -79,6 +80,7 @@ export function SchoolOverviewDashboard({
 
   useEffect(() => {
     setIsMounted(true);
+    purgeLegacyMockStorage();
     setStaffList(getStaffUsers());
     setTenant(getTenant());
     setAllInvites(getTenantInvites());
@@ -90,9 +92,7 @@ export function SchoolOverviewDashboard({
     });
 
     const unsubStaff = subscribeToStaff(DEFAULT_TENANT_ID, (liveStaff) => {
-      if (liveStaff.length > 0) {
-        setStaffList(liveStaff);
-      }
+      setStaffList(liveStaff);
     });
 
     const handleStaffUpdate = () => {
@@ -1134,7 +1134,7 @@ export function SchoolOverviewDashboard({
                 </label>
                 <input
                   type="email"
-                  placeholder="e.g. davies@stmarys-primary.sch.uk"
+                  placeholder="e.g. hughes@gbshp.org"
                   value={newTeacherEmail}
                   onChange={(e) => setNewTeacherEmail(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-canvas border border-borderMuted text-xs font-medium text-primaryText focus:outline-hidden focus:border-brandPrimary focus:ring-1 focus:ring-brandPrimary transition-all"

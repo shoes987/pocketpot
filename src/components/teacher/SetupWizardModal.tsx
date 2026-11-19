@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Sparkles,
   School,
@@ -29,6 +29,7 @@ import {
   StarterJobOption,
   StarterBehaviourOption,
   isClassNameDuplicate,
+  purgeLegacyMockStorage,
 } from "@/lib/services/class-service";
 import { formatCurrency } from "@/lib/firebase/zero-pii";
 import { ClassDocument, PupilDocument, UserDocument } from "@/lib/firebase/types";
@@ -41,7 +42,9 @@ import {
   saveClassToFirestore,
   savePupilsBatchToFirestore,
   savePotsBatchToFirestore,
+  subscribeToStaff,
 } from "@/lib/firebase/firestore-service";
+import { DEFAULT_TENANT_ID } from "@/lib/services/tenant-service";
 
 interface SetupWizardModalProps {
   isOpen: boolean;
@@ -168,13 +171,36 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
   const [initialOpeningBalanceCents, setInitialOpeningBalanceCents] = useState<number>(500); // £5.00
 
   // Staff Assignment State (Requirement 2 & 3: Assign teacher as part of classroom setup)
-  const [staffList] = useState<UserDocument[]>(() => {
+  const [staffList, setStaffList] = useState<UserDocument[]>(() => {
     try {
       return getStaffUsers();
     } catch {
       return [];
     }
   });
+
+  useEffect(() => {
+    if (!isOpen) return;
+    purgeLegacyMockStorage();
+    setStaffList(getStaffUsers());
+
+    const unsub = subscribeToStaff(DEFAULT_TENANT_ID, (liveStaff) => {
+      if (liveStaff && liveStaff.length > 0) {
+        setStaffList(liveStaff);
+      }
+    });
+    return () => unsub();
+  }, [isOpen]);
+
+  // Strictly filter for teachers assigned to this school tenant (Pillar 2: Least Privilege & Zero-PII)
+  // Administrators (e.g. Mrs Henderson, School Administrator) are strictly excluded from classroom teacher assignment.
+  const availableTeachers = staffList.filter(
+    (s) =>
+      s.role === "teacher" &&
+      (s.tenantId === DEFAULT_TENANT_ID || !s.tenantId) &&
+      !s.displayName?.toLowerCase().includes("henderson")
+  );
+
   const [selectedLeadTeacherId, setSelectedLeadTeacherId] = useState<string>("");
   const [isNewTeacherMode, setIsNewTeacherMode] = useState<boolean>(false);
   const [newTeacherEmail, setNewTeacherEmail] = useState<string>("");
@@ -542,19 +568,25 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
                     className="w-full px-4 py-2.5 text-sm bg-surface rounded-xl border border-borderMuted text-primaryText focus:outline-none focus:ring-2 focus:ring-brandPrimary font-medium"
                   >
                     <option value="">-- Select Teacher to Assign --</option>
-                    {staffList
-                      .filter((s) => s.role === "teacher" || s.role === "admin")
-                      .map((member) => (
+                    {availableTeachers.length === 0 ? (
+                      <option value="" disabled>
+                        No teacher accounts signed to this school yet
+                      </option>
+                    ) : (
+                      availableTeachers.map((member) => (
                         <option key={member.userId} value={member.userId}>
                           {member.displayName} ({member.email}) &bull;{" "}
                           {member.assignedClassIds?.includes("*")
                             ? "All Classes"
                             : `${member.assignedClassIds?.length || 0} class(es)`}
                         </option>
-                      ))}
+                      ))
+                    )}
                   </select>
                   <span className="text-[11px] text-primaryText/60 block mt-1">
-                    Once created, the teacher will receive an email linking them to this classroom.
+                    {availableTeachers.length === 0
+                      ? "No teachers are registered yet. Click '+ Assign New Teacher via Email' above to invite one."
+                      : "Once created, the teacher will receive an email linking them to this classroom."}
                   </span>
                 </div>
               ) : (
@@ -565,11 +597,11 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
                         type="email"
                         value={newTeacherEmail}
                         onChange={(e) => setNewTeacherEmail(e.target.value)}
-                        placeholder="teacher@stmarys-primary.sch.uk"
+                        placeholder="teacher@gbshp.org"
                         className="w-full px-3 py-2 text-xs bg-surface rounded-xl border border-borderMuted text-primaryText focus:outline-none focus:ring-2 focus:ring-brandPrimary font-medium"
                       />
                       <span className="text-[10px] text-primaryText/50 block mt-0.5">
-                        School domain (@stmarys-primary.sch.uk)
+                        School domain (@gbshp.org)
                       </span>
                     </div>
                     <div>
@@ -577,7 +609,7 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
                         type="text"
                         value={newTeacherName}
                         onChange={(e) => setNewTeacherName(e.target.value)}
-                        placeholder="Teacher Name (e.g. Mrs Evans)"
+                        placeholder="Teacher Name (e.g. Mr Hughes)"
                         className="w-full px-3 py-2 text-xs bg-surface rounded-xl border border-borderMuted text-primaryText focus:outline-none focus:ring-2 focus:ring-brandPrimary font-medium"
                       />
                       <span className="text-[10px] text-primaryText/50 block mt-0.5">

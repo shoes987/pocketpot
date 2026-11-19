@@ -63,6 +63,31 @@ export function notifyBalanceSync(): void {
   }
 }
 
+/**
+ * One-time purge of legacy offline mock datasets from browser localStorage.
+ * Ensures the app synchronizes exclusively with live Cloud Firestore.
+ */
+export function purgeLegacyMockStorage(): void {
+  if (typeof window === "undefined") return;
+  try {
+    const PURGE_FLAG = "pocketpot_mock_purged_v5";
+    if (!localStorage.getItem(PURGE_FLAG)) {
+      localStorage.removeItem("pocketpot_classes_v1");
+      localStorage.removeItem("pocketpot_pupils_v1");
+      localStorage.removeItem("pocketpot_pots_v1");
+      localStorage.removeItem("pocketpot_transactions_v1");
+      localStorage.removeItem("pocketpot_staff_users_v1");
+      localStorage.removeItem("pocketpot_current_staff_id_v1");
+      localStorage.removeItem("pocketpot_current_teacher_id_v1");
+      localStorage.removeItem("pocketpot_tenants_v1");
+      localStorage.removeItem("pocketpot_tenant_invites_v1");
+      localStorage.setItem(PURGE_FLAG, "true");
+    }
+  } catch (err) {
+    console.warn("purgeLegacyMockStorage warning:", err);
+  }
+}
+
 export interface CreateClassPayload {
   className: string;
   yearGroup: "Year 3" | "Year 4" | "Year 5" | "Year 6";

@@ -3,8 +3,10 @@
 import React, { useState, useEffect } from "react";
 import { Users, School, Check, AlertCircle } from "lucide-react";
 import { ClassDocument, UserDocument } from "@/lib/firebase/types";
-import { getStaffUsers, assignClassesToTeacher } from "@/lib/services/auth-service";
-import { assignTeachersToClass } from "@/lib/services/class-service";
+import { getStaffUsers, getTeachersOnly, assignClassesToTeacher } from "@/lib/services/auth-service";
+import { assignTeachersToClass, purgeLegacyMockStorage } from "@/lib/services/class-service";
+import { subscribeToStaff } from "@/lib/firebase/firestore-service";
+import { DEFAULT_TENANT_ID } from "@/lib/services/tenant-service";
 
 interface TeacherAssignmentModalProps {
   isOpen: boolean;
@@ -19,22 +21,59 @@ export function TeacherAssignmentModal({
   onClose,
   onAssignmentUpdated,
 }: TeacherAssignmentModalProps) {
-  const staff = getStaffUsers().filter((u) => u.role === "teacher" || u.role === "admin");
+  const [staffList, setStaffList] = useState<UserDocument[]>(() => {
+    try {
+      return getTeachersOnly().filter(
+        (t) =>
+          (t.tenantId === DEFAULT_TENANT_ID || !t.tenantId) &&
+          !t.displayName?.toLowerCase().includes("henderson")
+      );
+    } catch {
+      return [];
+    }
+  });
+
   const [selectedLeadId, setSelectedLeadId] = useState<string>(
-    targetClass?.leadTeacherId || targetClass?.teacherId || staff[0]?.userId || ""
+    targetClass?.leadTeacherId || targetClass?.teacherId || ""
   );
   const [selectedAssignedIds, setSelectedAssignedIds] = useState<string[]>(
-    targetClass?.assignedTeacherIds || [targetClass?.leadTeacherId || staff[0]?.userId || ""]
+    targetClass?.assignedTeacherIds || (targetClass?.leadTeacherId ? [targetClass.leadTeacherId] : [])
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!isOpen) return;
+    purgeLegacyMockStorage();
+
+    const filtered = getTeachersOnly().filter(
+      (t) =>
+        (t.tenantId === DEFAULT_TENANT_ID || !t.tenantId) &&
+        !t.displayName?.toLowerCase().includes("henderson")
+    );
+    setStaffList(filtered);
+
+    const unsub = subscribeToStaff(DEFAULT_TENANT_ID, (liveStaff) => {
+      if (liveStaff) {
+        const teachers = liveStaff.filter(
+          (t) =>
+            t.role === "teacher" &&
+            (t.tenantId === DEFAULT_TENANT_ID || !t.tenantId) &&
+            !t.displayName?.toLowerCase().includes("henderson")
+        );
+        setStaffList(teachers);
+      }
+    });
+
+    return () => unsub();
+  }, [isOpen]);
+
+  useEffect(() => {
     if (targetClass) {
-      const lead = targetClass.leadTeacherId || targetClass.teacherId || staff[0]?.userId || "";
+      const lead = targetClass.leadTeacherId || targetClass.teacherId || staffList[0]?.userId || "";
       setSelectedLeadId(lead);
       setSelectedAssignedIds(targetClass.assignedTeacherIds || (lead ? [lead] : []));
     }
-  }, [targetClass]);
+  }, [targetClass, staffList]);
 
   if (!isOpen || !targetClass) return null;
 
@@ -52,7 +91,7 @@ export function TeacherAssignmentModal({
 
     try {
       // Ensure lead is in assigned list
-      const finalAssigned = Array.from(new Set([selectedLeadId, ...selectedAssignedIds]));
+      const finalAssigned = Array.from(new Set([selectedLeadId, ...selectedAssignedIds].filter(Boolean)));
       const updatedCls = assignTeachersToClass(
         targetClass.classId,
         selectedLeadId,
@@ -61,7 +100,7 @@ export function TeacherAssignmentModal({
 
       // Sync teacher profiles
       finalAssigned.forEach((tid) => {
-        const teacher = staff.find((s) => s.userId === tid);
+        const teacher = staffList.find((s) => s.userId === tid);
         if (teacher && (!teacher.assignedClassIds || !teacher.assignedClassIds.includes(targetClass.classId))) {
           const newClasses = [...(teacher.assignedClassIds || []), targetClass.classId];
           assignClassesToTeacher(tid, newClasses);
@@ -130,11 +169,15 @@ export function TeacherAssignmentModal({
               }}
               className="w-full px-3.5 py-2.5 text-sm bg-canvas rounded-xl border border-borderMuted font-bold text-primaryText focus:ring-2 focus:ring-brandPrimary"
             >
-              {staff.map((u) => (
-                <option key={u.userId} value={u.userId}>
-                  {u.displayName} ({u.email})
-                </option>
-              ))}
+              {staffList.length === 0 ? (
+                <option value="">No teacher accounts signed to this school yet</option>
+              ) : (
+                staffList.map((u) => (
+                  <option key={u.userId} value={u.userId}>
+                    {u.displayName} ({u.email})
+                  </option>
+                ))
+              )}
             </select>
             <span className="text-[11px] text-primaryText/60 block mt-1">
               Primary educator accountable for class rewards, jobs, and reports.
@@ -147,33 +190,39 @@ export function TeacherAssignmentModal({
               Permitted Staff &amp; Co-Teachers
             </label>
             <div className="space-y-2 max-h-48 overflow-y-auto">
-              {staff.map((member) => {
-                const isSelected = selectedAssignedIds.includes(member.userId) || member.userId === selectedLeadId;
-                return (
-                  <label
-                    key={member.userId}
-                    className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
-                      isSelected
-                        ? "bg-tealSurface border-brandPrimary shadow-xs"
-                        : "bg-canvas border-borderMuted hover:border-brandPrimary/40"
-                    }`}
-                  >
-                    <div className="text-left">
-                      <strong className="text-xs font-bold text-primaryText block">
-                        {member.displayName}
-                      </strong>
-                      <span className="text-[11px] text-primaryText/60">{member.email}</span>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      disabled={member.userId === selectedLeadId}
-                      onChange={() => handleToggleAssigned(member.userId)}
-                      className="accent-brandPrimary w-4 h-4 rounded"
-                    />
-                  </label>
-                );
-              })}
+              {staffList.length === 0 ? (
+                <p className="text-xs text-primaryText/60 italic p-2">
+                  No teacher accounts enrolled yet for this school.
+                </p>
+              ) : (
+                staffList.map((member) => {
+                  const isSelected = selectedAssignedIds.includes(member.userId) || member.userId === selectedLeadId;
+                  return (
+                    <label
+                      key={member.userId}
+                      className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+                        isSelected
+                          ? "bg-tealSurface border-brandPrimary shadow-xs"
+                          : "bg-canvas border-borderMuted hover:border-brandPrimary/40"
+                      }`}
+                    >
+                      <div className="text-left">
+                        <strong className="text-xs font-bold text-primaryText block">
+                          {member.displayName}
+                        </strong>
+                        <span className="text-[11px] text-primaryText/60">{member.email}</span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        disabled={member.userId === selectedLeadId}
+                        onChange={() => handleToggleAssigned(member.userId)}
+                        className="accent-brandPrimary w-4 h-4 rounded"
+                      />
+                    </label>
+                  );
+                })
+              )}
             </div>
             <span className="text-[11px] text-primaryText/60 block mt-1">
               Teachers checked here can view and operate this classroom from their dashboard.

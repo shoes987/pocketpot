@@ -29,7 +29,7 @@ export const DEFAULT_TENANT: TenantDocument = {
   schoolUrn: "100123",
   allowedDomains: ["@gbshp"],
   status: "Production Live",
-  activeTeacherCount: 3,
+  activeTeacherCount: 1,
   pendingInviteCount: 0,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),

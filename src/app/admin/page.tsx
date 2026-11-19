@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 import { SchoolOverviewDashboard } from "@/components/teacher/SchoolOverviewDashboard";
 import { ClassSetup } from "@/components/teacher/ClassSetup";
 import { TeacherJobsBoard } from "@/components/teacher/TeacherJobsBoard";
@@ -17,6 +19,7 @@ import {
   getSavedPupils,
   getSavedClasses,
   getSavedPots,
+  purgeLegacyMockStorage,
   autoReconcileAllClassesWeeklyIncome,
   BALANCE_SYNC_EVENT,
 } from "@/lib/services/class-service";
@@ -58,7 +61,7 @@ export default function AdminPortalPage() {
   const [csvTargetClass, setCsvTargetClass] = useState<ClassDocument | null>(null);
   const [isInviteTeacherModalOpen, setIsInviteTeacherModalOpen] = useState(false);
 
-  // Authenticated Admin User (Defaults to headteacher Mrs Henderson)
+  // Authenticated Admin User (Defaults to School Administrator)
   const [isMounted, setIsMounted] = useState(false);
   const [currentAdmin, setCurrentAdmin] = useState<UserDocument | null>(null);
 
@@ -69,22 +72,44 @@ export default function AdminPortalPage() {
   const refreshState = () => {
     const staff = getStaffUsers();
     const adminUser = staff.find((u) => u.role === "admin") || staff[0];
-    setCurrentAdmin(adminUser);
-    setCurrentStaffUser(adminUser.userId);
-
-    const loadedPupils = getSavedPupils();
-    const loadedClasses = getSavedClasses();
-    const loadedPots = getSavedPots();
-
-    setPupils(loadedPupils);
-    setClasses(loadedClasses);
-    setPots(loadedPots);
+    if (adminUser) {
+      setCurrentAdmin((prev) => prev || adminUser);
+      setCurrentStaffUser(adminUser.userId);
+    }
   };
 
   useEffect(() => {
     setIsMounted(true);
+    purgeLegacyMockStorage();
     autoReconcileAllClassesWeeklyIncome();
     refreshState();
+
+    // Firebase Auth session listener for active admin
+    let unsubAuth = () => {};
+    if (auth) {
+      unsubAuth = onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          try {
+            const tokenResult = await user.getIdTokenResult();
+            const tenantId = (tokenResult.claims.tenantId as string) || "sch_local_pilot";
+            const adminProfile: UserDocument = {
+              userId: user.uid,
+              email: user.email || "",
+              displayName: user.displayName || (user.email === "shaun.pocketpot@gmail.com" ? "School Administrator" : user.email?.split("@")[0] || "Administrator"),
+              role: "admin",
+              tenantId,
+              assignedClassIds: ["*"],
+              createdAt: user.metadata.creationTime || new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            };
+            setCurrentAdmin(adminProfile);
+            setCurrentStaffUser(user.uid);
+          } catch (err) {
+            console.warn("Admin auth sync warning:", err);
+          }
+        }
+      });
+    }
 
     // Real-time Firestore onSnapshot listeners
     const unsubClasses = subscribeToClasses((liveClasses) => {
@@ -104,6 +129,7 @@ export default function AdminPortalPage() {
     window.addEventListener(BALANCE_SYNC_EVENT, handleSync);
 
     return () => {
+      unsubAuth();
       unsubClasses();
       unsubPupils();
       unsubPots();
@@ -136,7 +162,7 @@ export default function AdminPortalPage() {
       {/* 1. TRUE FULL-WIDTH STICKY TOP HEADER IN TEAL WITH PERMANENT SUB-BAR */}
       <AppTopHeader
         role="admin"
-        userName={(isMounted && currentAdmin?.displayName) || "Headteacher / Admin"}
+        userName={(isMounted && currentAdmin?.displayName) || "School Administrator"}
         userSubtitle="Senior Leadership Level"
         mainLinkHref="/admin"
         notificationBell={

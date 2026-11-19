@@ -51,6 +51,18 @@ export function getStaffUsers(): UserDocument[] {
     try {
       const parsed: UserDocument[] = JSON.parse(stored);
       if (Array.isArray(parsed) && parsed.length > 0) {
+        // Auto-purge legacy mock staff containing "Henderson" or stmarys placeholder domain
+        const hasLegacy = parsed.some(
+          (u) =>
+            u.displayName?.includes("Henderson") ||
+            u.email?.includes("stmarys-primary") ||
+            u.email?.includes("oak-lead") ||
+            u.displayName?.includes("Mr Davis")
+        );
+        if (hasLegacy) {
+          saveStaffUsers(DEFAULT_STAFF_USERS);
+          return DEFAULT_STAFF_USERS;
+        }
         return parsed;
       }
     } catch {

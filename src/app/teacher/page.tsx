@@ -18,6 +18,7 @@ import {
   getSavedClasses,
   getSavedClassesForUser,
   getSavedPots,
+  purgeLegacyMockStorage,
   autoReconcileAllClassesWeeklyIncome,
   BALANCE_SYNC_EVENT,
 } from "@/lib/services/class-service";
@@ -89,6 +90,7 @@ export default function TeacherPortalPage() {
 
   useEffect(() => {
     setIsMounted(true);
+    purgeLegacyMockStorage();
     autoReconcileAllClassesWeeklyIncome();
     refreshState();
 

@@ -113,7 +113,7 @@ export default function AdultLoginPage() {
         );
       } else if (code === "auth/invalid-email") {
         setErrorMessage(
-          "Please enter a valid school email address (for example: educator@stmarys-primary.sch.uk)."
+          "Please enter a valid school email address (for example: educator@gbshp.org)."
         );
       } else if (code === "auth/too-many-requests") {
         setErrorMessage(
@@ -199,7 +199,7 @@ export default function AdultLoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="educator@stmarys-primary.sch.uk"
+                  placeholder="educator@gbshp.org"
                   className="w-full pl-10 pr-4 py-3 text-sm bg-transparent rounded-2xl font-bold text-primaryText placeholder:text-primaryText/35 focus:outline-none"
                 />
               </div>

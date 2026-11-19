@@ -54,7 +54,7 @@ export interface UserDocument {
   userId: string;              // Firebase Auth UID or Pupil UUID v4
   role: UserRole;              // Strictly enforced: 'admin' | 'teacher' | 'pupil'
   email?: string;              // School educator email (Staff only)
-  displayName?: string;        // Staff title, e.g. "Mrs Henderson (Headteacher)"
+  displayName?: string;        // Staff title, e.g. "Mr Hughes (Teacher)" or "School Administrator"
   tenantId?: string;           // Multi-tenant school reference (e.g. "sch_urn100123")
   schoolId?: string;           // School reference (legacy alias for tenantId)
   assignedClassIds?: string[]; // Permitted classes (teachers have list, admins have ['*'])
