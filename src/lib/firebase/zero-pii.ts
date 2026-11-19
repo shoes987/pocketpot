@@ -3,7 +3,7 @@
  * Adhering strictly to GDPR (UK/EU), COPPA (US), and KS2 Safeguarding Standards.
  */
 
-import { PupilDocument, SavingsPotDocument, PotLedgerEntry } from "./types";
+import { PupilDocument, SavingsPotDocument, PotLedgerEntry, PotAccentTheme } from "./types";
 
 const ANIMALS = [
   "River Otter", "Otter", "Badger", "Falcon", "Hedgehog", "Robin", "Panda", "Fox", "Dolphin",
@@ -161,8 +161,10 @@ export function createAnonymousPupilProfile(
 
   const rawDisplayName = options?.localDisplayName?.trim();
   const hasLocalName = Boolean(rawDisplayName && rawDisplayName.length > 0);
-  const localDisplayName = hasLocalName ? rawDisplayName : undefined;
   const anonymize = options?.anonymize !== undefined ? options.anonymize : !hasLocalName;
+  const educationalCodename = `${randomAdj} ${randomAnimal} #${deskBadgeNumber}`;
+  const effectiveDisplayName = anonymize ? educationalCodename : (hasLocalName ? rawDisplayName : educationalCodename);
+  const localDisplayName = anonymize ? undefined : (hasLocalName ? rawDisplayName : undefined);
 
   const mainBalanceCents =
     options?.initialBalanceCents !== undefined
@@ -172,7 +174,8 @@ export function createAnonymousPupilProfile(
   return {
     pupilId,
     classId,
-    educationalCodename: `${randomAdj} ${randomAnimal} #${deskBadgeNumber}`,
+    educationalCodename,
+    displayName: effectiveDisplayName,
     localDisplayName,
     anonymized: anonymize,
     avatarIconKey: `badge-${randomAnimal.toLowerCase()}`,
@@ -181,50 +184,68 @@ export function createAnonymousPupilProfile(
     pinNumber,
     mainBalanceCents,
     totalSavedCents: 0,
-    activePotsCount: 2,
+    activePotsCount: 0,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
 }
 
 /**
- * Creates starter Savings Pots for a newly enrolled pupil.
+ * Creates starter Savings Pots for a newly enrolled pupil based strictly on teacher templates.
+ * Numerical starting balance is always 0 minor units to prevent phantom funds.
  */
 export function createStarterPots(
   pupilId: string,
-  classId: string
+  classId: string,
+  templatePots?: { title: string; theme?: PotAccentTheme; targetAmountCents?: number; categoryLabel?: string }[]
 ): SavingsPotDocument[] {
+  if (!templatePots || templatePots.length === 0) {
+    return [];
+  }
   const now = new Date().toISOString();
-  return [
-    {
-      potId: crypto.randomUUID(),
-      pupilId,
-      classId,
-      title: "Zoo Wildlife Pot",
-      theme: "calmingTeal",
-      targetAmountCents: 2000, // £20.00
-      currentAmountCents: 1450, // £14.50
-      status: "active",
-      categoryLabel: "Nature & Animals",
-      lastInteractionAt: now,
-      createdAt: now,
-      updatedAt: now,
-    },
-    {
-      potId: crypto.randomUUID(),
-      pupilId,
-      classId,
-      title: "Class Planetarium Trip Pot",
-      theme: "warmAmber",
-      targetAmountCents: 2500, // £25.00
-      currentAmountCents: 1200, // £12.00
-      status: "active",
-      categoryLabel: "School Adventures",
-      lastInteractionAt: now,
-      createdAt: now,
-      updatedAt: now,
-    },
-  ];
+  return templatePots.map((tp) => ({
+    potId: crypto.randomUUID(),
+    pupilId,
+    classId,
+    title: tp.title,
+    theme: tp.theme || "calmingTeal",
+    targetAmountCents: tp.targetAmountCents || 2000,
+    currentAmountCents: 0,
+    status: "active",
+    categoryLabel: tp.categoryLabel || "General Savings",
+    lastInteractionAt: now,
+    createdAt: now,
+    updatedAt: now,
+  }));
+}
+
+/**
+ * Canonical helper: Resolves the authoritative display name for a pupil.
+ * Strictly respects the teacher's selection in the class setup wizard:
+ * - If anonymizeNames === true: returns the educational animal codename (e.g. "Swift Teal Falcon #101").
+ * - If anonymizeNames === false: returns the child's classroom first name (e.g. "Leo").
+ * Guarantees 100% consistency across Teacher, Admin, and Pupil views.
+ */
+export function getPupilDisplayName(
+  pupil?: {
+    educationalCodename?: string;
+    displayName?: string;
+    localDisplayName?: string;
+    anonymized?: boolean;
+  } | null,
+  classDoc?: { anonymizeNames?: boolean } | null
+): string {
+  if (!pupil) return "Pupil";
+  // Strict Animal Codenames mode
+  if (pupil.anonymized === true || classDoc?.anonymizeNames === true) {
+    return pupil.educationalCodename || "Pupil";
+  }
+  // Classroom First Name mode
+  const firstName = pupil.displayName || pupil.localDisplayName;
+  if (firstName && firstName.trim().length > 0 && firstName !== pupil.educationalCodename) {
+    return firstName.trim();
+  }
+  return pupil.educationalCodename || "Pupil";
 }
 
 /**

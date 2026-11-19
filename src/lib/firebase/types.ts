@@ -79,6 +79,7 @@ export interface ClassDocument {
   joinCode?: string;           // Convenient alias for classJoinCode
   yearGroup: "Year 3" | "Year 4" | "Year 5" | "Year 6"; // KS2
   pupilCount: number;
+  anonymizeNames?: boolean;    // Teacher selection: true = Animal Codenames; false = Classroom First Names
   initialOpeningBalanceCents?: number; // Opening deposit given upon account creation (e.g. 500 = £5.00)
   weeklyBasicIncomeCents?: number;     // Minimum basic income weekly payout (e.g. 200 = £2.00)
   payoutDay?: "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday"; // Weekly payout day
@@ -104,6 +105,7 @@ export interface PupilDocument {
   pupilId: string;             // Cryptographically generated UUID v4 (ZERO PII)
   classId: string;             // Belongs to classroom
   educationalCodename: string; // e.g. "Swift Teal Badger #104", "Calm River Otter #101"
+  displayName?: string;        // Consistent display name chosen by teacher (e.g. "Leo" or "Swift Teal Badger #104")
   localDisplayName?: string;   // Local-only first name (stored strictly on local device)
   anonymized?: boolean;        // Whether the teacher selected full anonymization
   avatarIconKey: string;       // e.g. "badge-otter", "badge-falcon"

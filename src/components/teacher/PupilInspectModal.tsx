@@ -2,7 +2,7 @@
 
 import React from "react";
 import { PupilDocument, SavingsPotDocument } from "@/lib/firebase/types";
-import { formatCurrency } from "@/lib/firebase/zero-pii";
+import { formatCurrency, getPupilDisplayName } from "@/lib/firebase/zero-pii";
 import { getSimplifiedFraction } from "@/lib/utils/money-breakdown";
 import { BritishMoneyView } from "../ui/BritishMoneyView";
 import {
@@ -56,7 +56,7 @@ export const PupilInspectModal: React.FC<PupilInspectModalProps> = ({
                 id="inspect-modal-title"
                 className="text-xl font-bold text-white text-left mt-0.5"
               >
-                Observing {pupil.localDisplayName ? `${pupil.localDisplayName} (${pupil.educationalCodename})` : pupil.educationalCodename}
+                Observing {getPupilDisplayName(pupil)}
               </h2>
             </div>
           </div>

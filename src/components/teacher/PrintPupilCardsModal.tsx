@@ -2,6 +2,7 @@
 
 import React, { useRef } from "react";
 import { PupilDocument } from "@/lib/firebase/types";
+import { getPupilDisplayName } from "@/lib/firebase/zero-pii";
 import { PocketPotLogoMark } from "@/components/ui/PocketPotLogo";
 import { Printer, X, Wifi, KeyRound, Sparkles, CheckCircle2 } from "lucide-react";
 
@@ -133,7 +134,7 @@ export const PrintPupilCardsModal: React.FC<PrintPupilCardsModalProps> = ({
             className="grid grid-cols-1 md:grid-cols-2 gap-8 justify-items-center max-w-4xl mx-auto"
           >
             {pupils.map((pupil) => {
-              const displayName = pupil.localDisplayName || pupil.educationalCodename;
+              const displayName = getPupilDisplayName(pupil);
               const pin = pupil.pinNumber || pupil.cardLastFour || "1234";
 
               return (
@@ -227,7 +228,7 @@ export const PrintPupilCardsModal: React.FC<PrintPupilCardsModalProps> = ({
                           <span className="text-sm font-extrabold tracking-wide text-white block text-left truncate max-w-[200px]">
                             {displayName}
                           </span>
-                          {pupil.localDisplayName && (
+                          {pupil.anonymized === false && (pupil.displayName || pupil.localDisplayName) && (
                             <span className="text-[9px] text-white/70 block truncate">
                               Codename: {pupil.educationalCodename}
                             </span>

@@ -31,6 +31,7 @@ import {
 import {
   formatCurrency,
   createAnonymousPupilProfile,
+  getPupilDisplayName,
 } from "@/lib/firebase/zero-pii";
 import { PupilBottomNav } from "@/components/ui/PupilBottomNav";
 import { PupilNotificationBell } from "@/components/pupil/PupilNotificationBell";
@@ -119,7 +120,7 @@ export default function PupilJobsPage() {
 
     const unsubPupil = subscribeToPupil(targetRealId, (livePupil) => {
       if (livePupil) {
-        setPupil((prev) => (prev ? { ...prev, ...livePupil, localDisplayName: prev.localDisplayName } : livePupil));
+        setPupil(livePupil);
       }
       setLoading(false);
     });
@@ -152,7 +153,7 @@ export default function PupilJobsPage() {
     }
 
     try {
-      const displayName = pupil.localDisplayName || pupil.educationalCodename;
+      const displayName = getPupilDisplayName(pupil);
       submitJobApplication({
         jobId: applyingJob.jobId,
         classId: applyingJob.classId,
@@ -222,7 +223,7 @@ export default function PupilJobsPage() {
     );
   }
 
-  const displayName = pupil.localDisplayName || pupil.educationalCodename;
+  const displayName = getPupilDisplayName(pupil);
   const safePupilId = pupil.pupilId || pupilId || "anonymous";
 
   return (

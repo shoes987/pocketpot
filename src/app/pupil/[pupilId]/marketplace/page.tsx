@@ -8,6 +8,7 @@ import {
   getPotsForPupil,
 } from "@/lib/services/class-service";
 import { PupilDocument, SavingsPotDocument } from "@/lib/firebase/types";
+import { getPupilDisplayName } from "@/lib/firebase/zero-pii";
 import { subscribeToPupil, subscribeToPots } from "@/lib/firebase/firestore-service";
 import { PupilMarketplace } from "@/components/pupil/PupilMarketplace";
 import { PupilBottomNav } from "@/components/ui/PupilBottomNav";
@@ -48,7 +49,7 @@ export default function PupilMarketplacePage() {
 
     const unsubPupil = subscribeToPupil(targetRealId, (livePupil) => {
       if (livePupil) {
-        setPupil((prev) => (prev ? { ...prev, ...livePupil, localDisplayName: prev.localDisplayName } : livePupil));
+        setPupil(livePupil);
       }
       setLoading(false);
     });
@@ -98,7 +99,7 @@ export default function PupilMarketplacePage() {
     );
   }
 
-  const displayName = pupil.localDisplayName || pupil.educationalCodename;
+  const displayName = getPupilDisplayName(pupil);
 
   return (
     <div className="min-h-screen bg-canvas text-primaryText font-lexend text-left flex flex-col">

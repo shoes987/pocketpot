@@ -14,7 +14,7 @@ import {
   PotLedgerEntry,
   PupilDocument,
 } from "../firebase/types";
-import { formatCurrency, assertZeroPII } from "../firebase/zero-pii";
+import { formatCurrency, assertZeroPII, getPupilDisplayName } from "../firebase/zero-pii";
 import {
   getSavedPupils,
   savePupils,
@@ -311,7 +311,7 @@ export function awardBonusToPupils(params: {
   // Update pupils' main balances and generate ledger entries
   const updatedPupils = allPupils.map((pupil) => {
     if (params.pupilIds.includes(pupil.pupilId)) {
-      const name = pupil.localDisplayName || pupil.educationalCodename;
+      const name = getPupilDisplayName(pupil);
       pupilDisplayNames.push(name);
 
       const updatedMainBalance = (pupil.mainBalanceCents || 0) + targetBehaviour.amountCents;

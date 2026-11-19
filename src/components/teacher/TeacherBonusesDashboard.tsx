@@ -22,7 +22,7 @@ import {
 } from "@/lib/services/class-service";
 import { getCurrentTeacherUser, isUserAdmin } from "@/lib/services/auth-service";
 import { subscribeToPupils, subscribeToBehaviours } from "@/lib/firebase/firestore-service";
-import { formatCurrency } from "@/lib/firebase/zero-pii";
+import { formatCurrency, getPupilDisplayName } from "@/lib/firebase/zero-pii";
 import {
   Sparkles,
   Plus,
@@ -477,7 +477,7 @@ export function TeacherBonusesDashboard({
   };
 
   const filteredPupils = pupils.filter((p) => {
-    const name = (p.localDisplayName || p.educationalCodename).toLowerCase();
+    const name = getPupilDisplayName(p).toLowerCase();
     const badge = String(p.deskBadgeNumber);
     return name.includes(pupilSearch.toLowerCase()) || badge.includes(pupilSearch);
   });
@@ -875,7 +875,7 @@ export function TeacherBonusesDashboard({
             <div className="p-6 overflow-y-auto max-h-[50vh] grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {filteredPupils.map((pupil) => {
                 const isSelected = selectedPupilIds.includes(pupil.pupilId);
-                const displayName = pupil.localDisplayName || pupil.educationalCodename;
+                const displayName = getPupilDisplayName(pupil);
 
                 return (
                   <button

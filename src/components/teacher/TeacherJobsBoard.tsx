@@ -26,7 +26,7 @@ import {
   getSavedPupils,
 } from "@/lib/services/class-service";
 import { getCurrentTeacherUser, isUserAdmin } from "@/lib/services/auth-service";
-import { formatCurrency } from "@/lib/firebase/zero-pii";
+import { formatCurrency, getPupilDisplayName } from "@/lib/firebase/zero-pii";
 import { subscribeToJobs } from "@/lib/firebase/firestore-service";
 import {
   Briefcase,
@@ -452,7 +452,7 @@ export const TeacherJobsBoard: React.FC<TeacherJobsBoardProps> = ({
           ) : (
             <div className="space-y-3">
               {filteredPupils.map(({ pupil, activeJob, completedJobs, hasExperience }) => {
-                const displayName = pupil.localDisplayName || pupil.educationalCodename;
+                const displayName = getPupilDisplayName(pupil);
 
                 return (
                   <div
@@ -479,7 +479,7 @@ export const TeacherJobsBoard: React.FC<TeacherJobsBoardProps> = ({
                           <span className="text-base font-bold text-primaryText">
                             {displayName}
                           </span>
-                          {pupil.localDisplayName && (
+                          {pupil.anonymized === false && (pupil.displayName || pupil.localDisplayName) && (
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-surface border border-borderMuted text-primaryText/70">
                               {pupil.educationalCodename}
                             </span>

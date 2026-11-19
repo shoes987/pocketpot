@@ -10,13 +10,14 @@ import {
   withdrawFromPotToAccount,
   createPupilPot,
   deleteSavingsPot,
+  getSavedClasses,
   BALANCE_SYNC_EVENT,
 } from "@/lib/services/class-service";
-import { PupilDocument, SavingsPotDocument, PotAccentTheme } from "@/lib/firebase/types";
+import { PupilDocument, SavingsPotDocument, PotAccentTheme, ClassDocument } from "@/lib/firebase/types";
 import {
   formatCurrency,
   createAnonymousPupilProfile,
-  createStarterPots,
+  getPupilDisplayName,
 } from "@/lib/firebase/zero-pii";
 import { getSimplifiedFraction } from "@/lib/utils/money-breakdown";
 import { ChildBankCard } from "@/components/ui/ChildBankCard";
@@ -79,7 +80,7 @@ export default function PupilPotsPage() {
     // Real-time Firestore onSnapshot listeners
     const unsubPupil = subscribeToPupil(targetRealId, (livePupil) => {
       if (livePupil) {
-        setPupil((prev) => (prev ? { ...prev, ...livePupil, localDisplayName: prev.localDisplayName } : livePupil));
+        setPupil(livePupil);
       }
       setLoading(false);
     });
@@ -229,7 +230,9 @@ export default function PupilPotsPage() {
     );
   }
 
-  const displayName = pupil.localDisplayName || pupil.educationalCodename;
+  const classes = getSavedClasses();
+  const pupilClass = classes.find((c: ClassDocument) => c.classId === pupil?.classId);
+  const displayName = getPupilDisplayName(pupil, pupilClass);
   const safePupilId = pupil.pupilId || pupilId || "anonymous";
 
   return (

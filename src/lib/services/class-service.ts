@@ -123,6 +123,7 @@ export interface CreateClassPayload {
   leadTeacherId?: string;
   assignedTeacherIds?: string[];
   tenantId?: string;
+  starterPots?: StarterPotOption[]; // Teacher-selected starter pots
 }
 
 export interface QuickAddResult {
@@ -222,6 +223,7 @@ export function getSavedClasses(): ClassDocument[] {
             initialOpeningBalanceCents: c.initialOpeningBalanceCents ?? 500,
             weeklyBasicIncomeCents: c.weeklyBasicIncomeCents ?? 200,
             payoutDay: c.payoutDay ?? "Monday",
+            anonymizeNames: c.anonymizeNames !== undefined ? c.anonymizeNames : true,
           };
         });
       }
@@ -320,6 +322,9 @@ export function getSavedPupils(): PupilDocument[] {
         }
         return unique.map((p) => ({
           ...p,
+          displayName: p.displayName || p.localDisplayName || p.educationalCodename,
+          localDisplayName: p.localDisplayName || p.displayName,
+          anonymized: p.anonymized !== undefined ? p.anonymized : true,
           pinNumber: p.pinNumber || p.cardLastFour || "1234",
         }));
       }
@@ -506,16 +511,18 @@ export function createClassWithQuickAdd(
     const rawName = effectiveNames[idx] ? effectiveNames[idx].trim() : undefined;
     const pupil = createAnonymousPupilProfile(classId, idx + 1, {
       localDisplayName: rawName,
-      anonymize: !rawName,
+      anonymize: anonymize,
       initialBalanceCents: initialOpeningBalanceCents,
     });
 
+    // Starter Savings Pots - ONLY create if specifically selected by teacher
+    const pots = payload.starterPots && payload.starterPots.length > 0
+      ? createStarterPots(pupil.pupilId, classId, payload.starterPots)
+      : [];
+    pupil.activePotsCount = pots.length;
+
     assertZeroPII(pupil as unknown as Record<string, unknown>);
     newPupils.push(pupil);
-
-    // Starter Savings Pots
-    const pots = createStarterPots(pupil.pupilId, classId);
-    pots.forEach((p) => assertZeroPII(p as unknown as Record<string, unknown>));
     newPots.push(...pots);
 
     // Initial Account Opening Balance transaction
@@ -554,6 +561,7 @@ export function createClassWithQuickAdd(
     joinCode: classJoinCode,
     yearGroup: payload.yearGroup,
     pupilCount,
+    anonymizeNames: anonymize,
     initialOpeningBalanceCents,
     weeklyBasicIncomeCents,
     payoutDay,
@@ -1113,7 +1121,7 @@ export function enrollSinglePupil(
       ? Math.max(0, options.initialBalanceCents)
       : cls.initialOpeningBalanceCents ?? 500;
 
-  const anonymize = options?.anonymize ?? true;
+  const anonymize = options?.anonymize ?? cls.anonymizeNames ?? true;
   const rawName = options?.localDisplayName ? options.localDisplayName.trim() : undefined;
 
   const newPupil = createAnonymousPupilProfile(classId, nextBadgeSequence, {
@@ -1122,11 +1130,24 @@ export function enrollSinglePupil(
     initialBalanceCents: openingBalanceCents,
   });
 
-  assertZeroPII(newPupil as unknown as Record<string, unknown>);
+  // Inherit existing class pot templates (0 balance) or start with 0 pots
+  const existingClassPots = getSavedPots().filter((p) => p.classId === classId);
+  const distinctTemplates: Array<{ title: string; theme?: PotAccentTheme; targetAmountCents?: number; categoryLabel?: string }> = [];
+  existingClassPots.forEach((p) => {
+    if (!distinctTemplates.some((t) => t.title === p.title)) {
+      distinctTemplates.push({
+        title: p.title,
+        theme: p.theme,
+        targetAmountCents: p.targetAmountCents,
+        categoryLabel: p.categoryLabel,
+      });
+    }
+  });
 
-  // Starter Pots matching curriculum standard
-  const pots = createStarterPots(newPupil.pupilId, classId);
-  pots.forEach((p) => assertZeroPII(p as unknown as Record<string, unknown>));
+  const pots = distinctTemplates.length > 0 ? createStarterPots(newPupil.pupilId, classId, distinctTemplates) : [];
+  newPupil.activePotsCount = pots.length;
+
+  assertZeroPII(newPupil as unknown as Record<string, unknown>);
 
   const now = new Date().toISOString();
   // Opening Balance transaction
@@ -1198,18 +1219,33 @@ export function enrollBatchPupils(
 
   const effectiveNames = pupilNames.length > 0 ? pupilNames : ["", "", "", ""];
 
+  const effectiveAnonymize = anonymize ?? cls.anonymizeNames ?? true;
+  const existingClassPots = getSavedPots().filter((p) => p.classId === classId);
+  const distinctTemplates: Array<{ title: string; theme?: PotAccentTheme; targetAmountCents?: number; categoryLabel?: string }> = [];
+  existingClassPots.forEach((p) => {
+    if (!distinctTemplates.some((t) => t.title === p.title)) {
+      distinctTemplates.push({
+        title: p.title,
+        theme: p.theme,
+        targetAmountCents: p.targetAmountCents,
+        categoryLabel: p.categoryLabel,
+      });
+    }
+  });
+
   for (const name of effectiveNames) {
     const rawName = name.trim().length > 0 ? name.trim() : undefined;
     const pupil = createAnonymousPupilProfile(classId, badgeSeq++, {
       localDisplayName: rawName,
-      anonymize,
+      anonymize: effectiveAnonymize,
       initialBalanceCents: openingBalanceCents,
     });
+
+    const pots = distinctTemplates.length > 0 ? createStarterPots(pupil.pupilId, classId, distinctTemplates) : [];
+    pupil.activePotsCount = pots.length;
+
     assertZeroPII(pupil as unknown as Record<string, unknown>);
     newPupils.push(pupil);
-
-    const pots = createStarterPots(pupil.pupilId, classId);
-    pots.forEach((p) => assertZeroPII(p as unknown as Record<string, unknown>));
     newPots.push(...pots);
 
     const openingTx: PotLedgerEntry = {
@@ -1664,9 +1700,10 @@ export function setupClassroomWithWizard(config: ClassroomWizardConfig): {
     weeklyBasicIncomeCents: config.weeklyBasicIncomeCents,
     payoutDay: config.payoutDay,
     tenantId: config.tenantId,
+    starterPots: config.starterPots,
   });
 
-  const { newClass, pupils } = result;
+  const { newClass, pupils, pots: finalPots } = result;
 
   // 2b. Assign Teacher(s) as part of Classroom Setup (Requirement 2, 3, 4)
   if (
@@ -1747,46 +1784,7 @@ export function setupClassroomWithWizard(config: ClassroomWizardConfig): {
     }
   }
 
-  // 3. Customize Starter Pots if specific pots were selected
-  let finalPots = result.pots;
-  if (config.starterPots && config.starterPots.length > 0) {
-    const allPots = getSavedPots().filter((p) => p.classId !== newClass.classId);
-    const customPots: SavingsPotDocument[] = [];
-    const now = new Date().toISOString();
-
-    for (const pupil of pupils) {
-      for (const sp of config.starterPots) {
-        const pot: SavingsPotDocument = {
-          potId: crypto.randomUUID(),
-          pupilId: pupil.pupilId,
-          classId: newClass.classId,
-          title: sp.title,
-          theme: sp.theme,
-          targetAmountCents: sp.targetAmountCents,
-          currentAmountCents: 0,
-          status: "active",
-          categoryLabel: sp.categoryLabel,
-          lastInteractionAt: now,
-          createdAt: now,
-          updatedAt: now,
-        };
-        assertZeroPII(pot as unknown as Record<string, unknown>);
-        customPots.push(pot);
-      }
-    }
-
-    // Update pupil activePotsCount
-    const allPupils = getSavedPupils().map((p) => {
-      if (p.classId === newClass.classId) {
-        return { ...p, activePotsCount: config.starterPots.length };
-      }
-      return p;
-    });
-    savePupils(allPupils);
-
-    savePots([...customPots, ...allPots]);
-    finalPots = customPots;
-  }
+  // 3. Starter Pots already created cleanly by createClassWithQuickAdd without duplicates or phantom balances
 
   // 4. Create Selected Classroom Jobs
   if (config.starterJobs && config.starterJobs.length > 0) {

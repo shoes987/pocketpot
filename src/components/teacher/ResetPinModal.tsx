@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { PupilDocument } from "@/lib/firebase/types";
+import { getPupilDisplayName } from "@/lib/firebase/zero-pii";
 import { KeyRound, X, RefreshCw, CheckCircle2, Printer, ShieldCheck } from "lucide-react";
 
 export interface ResetPinModalProps {
@@ -25,7 +26,7 @@ export const ResetPinModal: React.FC<ResetPinModalProps> = ({
 
   if (!isOpen || !pupil) return null;
 
-  const displayName = pupil.localDisplayName || pupil.educationalCodename;
+  const displayName = getPupilDisplayName(pupil);
   const currentPin = pupil.pinNumber || pupil.cardLastFour || "1234";
 
   const handleGenerateRandom = () => {

@@ -97,7 +97,7 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
 
     const unsubPupil = subscribeToPupil(targetRealId, (livePupil) => {
       if (livePupil) {
-        setPupil((prev) => (prev ? { ...prev, ...livePupil, localDisplayName: prev.localDisplayName } : livePupil));
+        setPupil(livePupil);
       }
     });
 

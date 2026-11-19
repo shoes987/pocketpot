@@ -15,8 +15,8 @@ import {
 import { PupilDocument, PotLedgerEntry, SavingsPotDocument, ClassDocument } from "@/lib/firebase/types";
 import {
   formatCurrency,
+  getPupilDisplayName,
   createAnonymousPupilProfile,
-  createStarterPots,
   createStarterTransactions,
 } from "@/lib/firebase/zero-pii";
 import { ChildBankCard } from "@/components/ui/ChildBankCard";
@@ -91,7 +91,7 @@ export default function PupilAccountPage() {
     // Real-time Firestore onSnapshot listeners
     const unsubPupil = subscribeToPupil(targetRealId, (livePupil) => {
       if (livePupil) {
-        setPupil((prev) => (prev ? { ...prev, ...livePupil, localDisplayName: prev.localDisplayName } : livePupil));
+        setPupil(livePupil);
       }
       setLoading(false);
     });
@@ -157,10 +157,9 @@ export default function PupilAccountPage() {
     );
   }
 
-  const displayName = pupil.localDisplayName || pupil.educationalCodename;
-  const safePupilId = pupil.pupilId || pupilId || "anonymous";
-
   const pupilClass = (classes.length > 0 ? classes : getSavedClasses()).find((c) => c.classId === pupil?.classId);
+  const displayName = getPupilDisplayName(pupil, pupilClass);
+  const safePupilId = pupil.pupilId || pupilId || "anonymous";
   const weeklyIncomeCents = pupilClass?.weeklyBasicIncomeCents ?? 200;
   const payoutDay = pupilClass?.payoutDay ?? "Monday";
   const activeJob = getActiveJobForPupil(safePupilId);

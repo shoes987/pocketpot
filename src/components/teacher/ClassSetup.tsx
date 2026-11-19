@@ -21,7 +21,7 @@ import {
   BALANCE_SYNC_EVENT,
 } from "@/lib/services/class-service";
 import { getCurrentTeacherUser } from "@/lib/services/auth-service";
-import { formatCurrency } from "@/lib/firebase/zero-pii";
+import { formatCurrency, getPupilDisplayName } from "@/lib/firebase/zero-pii";
 import {
   subscribeToClasses,
   subscribeToPupils,
@@ -378,7 +378,7 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
     if (!pupilToDelete) return;
     try {
       const targetId = pupilToDelete.pupilId;
-      const targetName = pupilToDelete.localDisplayName || pupilToDelete.educationalCodename;
+      const targetName = getPupilDisplayName(pupilToDelete, activeClass);
       deletePupil(targetId);
       setPupils((prev) => prev.filter((p) => p.pupilId !== targetId));
       setPots((prev) => prev.filter((p) => p.pupilId !== targetId));
@@ -453,7 +453,7 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
 
   const handleOpenPrintSingleCard = (pupil: PupilDocument) => {
     setPrintTargetPupils([pupil]);
-    setPrintModalTitle(`Print Debit Card • ${pupil.localDisplayName || pupil.educationalCodename}`);
+    setPrintModalTitle(`Print Debit Card • ${getPupilDisplayName(pupil, activeClass)}`);
     setIsPrintModalOpen(true);
   };
 
@@ -462,7 +462,7 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
     setPupils((prev) =>
       prev.map((p) => (p.pupilId === pupil.pupilId ? res.pupil : p))
     );
-    setActionSuccessMessage(`PIN for ${pupil.localDisplayName || pupil.educationalCodename} has been reset to ${res.newPin}.`);
+    setActionSuccessMessage(`PIN for ${getPupilDisplayName(pupil, activeClass)} has been reset to ${res.newPin}.`);
     setTimeout(() => setActionSuccessMessage(null), 5000);
     onPupilsChanged?.();
   };
@@ -780,11 +780,7 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
                 <div className="space-y-2.5">
                   {classPupils.map((pupil, index) => {
                     const pupilPots = pots.filter((p) => p.pupilId === pupil.pupilId);
-                    const hasLocalName = Boolean(pupil.localDisplayName);
-                    // Requirement 4: Show either child's name or codename, NOT both
-                    const displayName = hasLocalName
-                      ? pupil.localDisplayName
-                      : pupil.educationalCodename;
+                    const displayName = getPupilDisplayName(pupil, activeClass);
 
                     const activeJob = getActiveJobForPupil(pupil.pupilId);
 
@@ -806,12 +802,12 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
                               </span>
                               <span
                                 className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider shrink-0 ${
-                                  hasLocalName
+                                  pupil.anonymized === false && (pupil.displayName || pupil.localDisplayName)
                                     ? "bg-amberSurface text-brandSecondary border border-brandSecondary/30"
                                     : "bg-tealSurface text-brandPrimary border border-brandPrimary/30"
                                 }`}
                               >
-                                {hasLocalName ? "First Name" : "Codename"}
+                                {pupil.anonymized === false && (pupil.displayName || pupil.localDisplayName) ? "First Name" : "Codename"}
                               </span>
                             </div>
 
@@ -936,7 +932,7 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
             <p className="text-sm text-primaryText/85 text-left leading-relaxed">
               Are you sure you want to remove{" "}
               <strong className="text-primaryText font-bold">
-                {pupilToDelete.localDisplayName || pupilToDelete.educationalCodename}
+                {getPupilDisplayName(pupilToDelete, activeClass)}
               </strong>{" "}
               (Desk Badge #{pupilToDelete.deskBadgeNumber})?
             </p>
@@ -1140,7 +1136,7 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
         onPupilAdded={(newPupil) => {
           setPupils((prev) => [newPupil, ...prev.filter((p) => p.pupilId !== newPupil.pupilId)]);
           onPupilsChanged?.();
-          setActionSuccessMessage(`Student ${newPupil.localDisplayName || newPupil.educationalCodename} enrolled!`);
+          setActionSuccessMessage(`Student ${getPupilDisplayName(newPupil, activeClass)} enrolled!`);
           setTimeout(() => setActionSuccessMessage(null), 4000);
         }}
       />

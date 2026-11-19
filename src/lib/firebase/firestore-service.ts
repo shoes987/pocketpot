@@ -62,6 +62,9 @@ export function sanitizePupilForFirestore(
     classId: pupil.classId,
     tenantId,
     educationalCodename: pupil.educationalCodename,
+    displayName: pupil.displayName || pupil.localDisplayName || pupil.educationalCodename,
+    localDisplayName: pupil.localDisplayName || pupil.displayName || "",
+    anonymized: pupil.anonymized !== undefined ? Boolean(pupil.anonymized) : false,
     avatarIconKey: pupil.avatarIconKey || "badge-otter",
     deskBadgeNumber: Number(pupil.deskBadgeNumber || 101),
     cardLastFour: String(pupil.cardLastFour || "4821"),
@@ -202,6 +205,7 @@ export function subscribeToClasses(
           ...data,
           classId: d.id,
           paydayOfWeek: data.paydayOfWeek || data.payoutDay || "Friday",
+          anonymizeNames: data.anonymizeNames !== undefined ? data.anonymizeNames : true,
         });
       });
       callback(list);
@@ -315,6 +319,9 @@ export function subscribeToPupils(
         list.push({
           ...data,
           pupilId: d.id,
+          displayName: data.displayName || data.localDisplayName || data.educationalCodename,
+          localDisplayName: data.localDisplayName || data.displayName || undefined,
+          anonymized: data.anonymized !== undefined ? data.anonymized : true,
         });
       });
       callback(list);
@@ -336,9 +343,13 @@ export function subscribeToPupil(
     pupilRef,
     (snap) => {
       if (snap.exists()) {
+        const data = snap.data() as PupilDocument;
         callback({
-          ...(snap.data() as PupilDocument),
+          ...data,
           pupilId: snap.id,
+          displayName: data.displayName || data.localDisplayName || data.educationalCodename,
+          localDisplayName: data.localDisplayName || data.displayName || undefined,
+          anonymized: data.anonymized !== undefined ? data.anonymized : true,
         });
       } else {
         callback(null);

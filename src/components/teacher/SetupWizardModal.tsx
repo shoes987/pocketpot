@@ -31,7 +31,7 @@ import {
   isClassNameDuplicate,
   purgeLegacyMockStorage,
 } from "@/lib/services/class-service";
-import { formatCurrency } from "@/lib/firebase/zero-pii";
+import { formatCurrency, getPupilDisplayName } from "@/lib/firebase/zero-pii";
 import { ClassDocument, PupilDocument, UserDocument } from "@/lib/firebase/types";
 import { getStaffUsers } from "@/lib/services/auth-service";
 import {
@@ -1215,7 +1215,7 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
                       <span className="text-xs font-bold text-primaryText/50">#{pupil.deskBadgeNumber}</span>
                     </div>
                     <strong className="text-base font-bold text-primaryText block">
-                      {pupil.localDisplayName || pupil.educationalCodename}
+                      {getPupilDisplayName(pupil, createdClass)}
                     </strong>
                     <div className="text-xs text-primaryText/70 space-y-0.5">
                       <div>Card PIN: **** {pupil.cardLastFour}</div>
