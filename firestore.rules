@@ -84,6 +84,15 @@ service cloud.firestore {
     //   - amountCents: number (required)
     //   - Zero-PII enforced
     //
+    // Collection: notifications/{notificationId}
+    //   - notificationId: string (required)
+    //   - classId: string (required)
+    //   - title: string (required)
+    //   - message: string (required)
+    //   - type: string (required)
+    //   - read: boolean (required)
+    //   - Zero-PII enforced
+    //
     // =========================================================================
 
     // =========================================================================
@@ -521,6 +530,25 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && hasNoPII(request.resource.data);
       allow update, delete: if false;
+    }
+
+    // =========================================================================
+    // REAL-TIME NOTIFICATIONS (/notifications/{notificationId})
+    // Cross-device alerts for bonuses, jobs, terms, and marketplace rewards
+    // =========================================================================
+    match /notifications/{notificationId} {
+      // Read: Allowed for authenticated users
+      allow read: if isAuthenticated();
+
+      // Create: Authenticated users with strict Zero-PII enforcement
+      allow create: if isAuthenticated() && hasNoPII(request.resource.data);
+
+      // Update: Authenticated users marking notifications as read
+      allow update: if isAuthenticated() && 
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'updatedAt']);
+
+      // Delete: Teachers and admins only
+      allow delete: if isTeacher() || isAdmin();
     }
   }
 }

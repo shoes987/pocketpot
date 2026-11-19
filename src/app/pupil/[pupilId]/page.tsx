@@ -25,7 +25,7 @@ import { PupilBottomNav } from "@/components/ui/PupilBottomNav";
 import { PupilNotificationBell } from "@/components/pupil/PupilNotificationBell";
 import { AppTopHeader } from "@/components/ui/AppTopHeader";
 import { getActiveJobForPupil } from "@/lib/services/jobs-service";
-import { subscribeToPupil, subscribeToPots, subscribeToClasses } from "@/lib/firebase/firestore-service";
+import { subscribeToPupil, subscribeToPots, subscribeToClasses, subscribeToTransactions } from "@/lib/firebase/firestore-service";
 import {
   ShieldCheck,
   Sparkles,
@@ -104,6 +104,23 @@ export default function PupilAccountPage() {
       setClasses(liveClasses);
     });
 
+    const unsubTransactions = subscribeToTransactions(targetRealId, (liveTxs) => {
+      if (liveTxs && liveTxs.length > 0) {
+        setTransactions((prev) => {
+          const map = new Map<string, PotLedgerEntry>();
+          liveTxs.forEach((tx) => map.set(tx.transactionId, tx));
+          prev.forEach((tx) => {
+            if (!map.has(tx.transactionId)) {
+              map.set(tx.transactionId, tx);
+            }
+          });
+          const merged = Array.from(map.values());
+          merged.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+          return merged;
+        });
+      }
+    });
+
     const handleSync = () => loadData();
     window.addEventListener("storage", handleSync);
     window.addEventListener(BALANCE_SYNC_EVENT, handleSync);
@@ -112,6 +129,7 @@ export default function PupilAccountPage() {
       unsubPupil();
       unsubPots();
       unsubClasses();
+      unsubTransactions();
       window.removeEventListener("storage", handleSync);
       window.removeEventListener(BALANCE_SYNC_EVENT, handleSync);
     };

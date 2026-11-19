@@ -27,6 +27,7 @@ import {
   BonusAwardDocument,
   PotLedgerEntry,
   PositiveBehaviourDocument,
+  PupilNotificationDocument,
   TenantDocument,
   UserDocument,
   PotStatus,
@@ -618,13 +619,187 @@ export async function recordBonusAwardInFirestore(award: BonusAwardDocument): Pr
 export async function recordTransactionInFirestore(tx: PotLedgerEntry): Promise<void> {
   if (!db) return;
   try {
-    await addDoc(collection(db, "transactions"), {
-      ...tx,
-      timestamp: tx.timestamp || new Date().toISOString(),
-    });
+    const txId = tx.transactionId || crypto.randomUUID();
+    await setDoc(
+      doc(db, "transactions", txId),
+      {
+        ...tx,
+        transactionId: txId,
+        timestamp: tx.timestamp || new Date().toISOString(),
+      },
+      { merge: true }
+    );
   } catch (err) {
     console.warn("recordTransactionInFirestore warning:", err);
   }
+}
+
+export function subscribeToTransactions(
+  pupilId: string,
+  callback: (txs: PotLedgerEntry[]) => void
+): Unsubscribe {
+  if (!db || !pupilId) return () => {};
+  const txCol = collection(db, "transactions");
+  const q = query(txCol, where("pupilId", "==", pupilId));
+
+  return onSnapshot(
+    q,
+    (snap) => {
+      const list: PotLedgerEntry[] = [];
+      snap.forEach((d) => {
+        const data = d.data() as PotLedgerEntry;
+        list.push({
+          ...data,
+          transactionId: d.id || data.transactionId,
+        });
+      });
+      list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      callback(list);
+    },
+    (err) => {
+      console.warn("subscribeToTransactions error:", err);
+    }
+  );
+}
+
+/**
+ * ----------------------------------------------------
+ * NOTIFICATIONS (CROSS-DEVICE REAL-TIME PERSISTENCE)
+ * ----------------------------------------------------
+ */
+export async function saveNotificationToFirestore(
+  notif: PupilNotificationDocument
+): Promise<void> {
+  if (!db) return;
+  try {
+    const notifId = notif.notificationId || crypto.randomUUID();
+    await setDoc(
+      doc(db, "notifications", notifId),
+      {
+        ...notif,
+        notificationId: notifId,
+        createdAt: notif.createdAt || new Date().toISOString(),
+        read: notif.read ?? false,
+      },
+      { merge: true }
+    );
+  } catch (err) {
+    console.warn("saveNotificationToFirestore warning:", err);
+  }
+}
+
+export async function markNotificationReadInFirestore(
+  notificationId: string
+): Promise<void> {
+  if (!db || !notificationId) return;
+  try {
+    await updateDoc(doc(db, "notifications", notificationId), {
+      read: true,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.warn("markNotificationReadInFirestore warning:", err);
+  }
+}
+
+export async function markAllNotificationsReadInFirestore(
+  pupilId?: string,
+  forTeacher?: boolean,
+  classId?: string
+): Promise<void> {
+  if (!db) return;
+  try {
+    const notifCol = collection(db, "notifications");
+    let q = query(notifCol, where("read", "==", false));
+    if (forTeacher) {
+      if (classId) {
+        q = query(
+          notifCol,
+          where("isTeacherNotification", "==", true),
+          where("classId", "==", classId),
+          where("read", "==", false)
+        );
+      } else {
+        q = query(
+          notifCol,
+          where("isTeacherNotification", "==", true),
+          where("read", "==", false)
+        );
+      }
+    } else if (pupilId) {
+      q = query(
+        notifCol,
+        where("pupilId", "==", pupilId),
+        where("read", "==", false)
+      );
+    }
+    const snap = await getDocs(q);
+    if (snap.empty) return;
+    const batch = writeBatch(db);
+    snap.forEach((docSnap) => {
+      batch.update(docSnap.ref, {
+        read: true,
+        updatedAt: new Date().toISOString(),
+      });
+    });
+    await batch.commit();
+  } catch (err) {
+    console.warn("markAllNotificationsReadInFirestore warning:", err);
+  }
+}
+
+export function subscribeToNotifications(
+  callback: (notifs: PupilNotificationDocument[]) => void,
+  pupilId?: string,
+  forTeacher?: boolean,
+  classId?: string
+): Unsubscribe {
+  if (!db) return () => {};
+  const notifCol = collection(db, "notifications");
+  let q;
+
+  if (forTeacher) {
+    if (classId) {
+      q = query(
+        notifCol,
+        where("classId", "==", classId),
+        where("isTeacherNotification", "==", true)
+      );
+    } else {
+      q = query(
+        notifCol,
+        where("isTeacherNotification", "==", true)
+      );
+    }
+  } else if (pupilId) {
+    q = query(
+      notifCol,
+      where("pupilId", "==", pupilId)
+    );
+  } else {
+    q = query(notifCol);
+  }
+
+  return onSnapshot(
+    q,
+    (snap) => {
+      const list: PupilNotificationDocument[] = [];
+      snap.forEach((d) => {
+        const data = d.data() as PupilNotificationDocument;
+        list.push({
+          ...data,
+          notificationId: d.id || data.notificationId,
+        });
+      });
+      list.sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      callback(list);
+    },
+    (err) => {
+      console.warn("subscribeToNotifications error:", err);
+    }
+  );
 }
 
 export async function saveBehaviourToFirestore(

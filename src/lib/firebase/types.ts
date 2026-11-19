@@ -249,7 +249,11 @@ export type NotificationType =
   | "job_encouragement_rejection"
   | "job_term_one_week_reminder"
   | "job_term_completed"
-  | "reference_received";
+  | "reference_received"
+  | "bonus"
+  | "marketplace"
+  | "allowance"
+  | "general";
 
 export interface PupilNotificationDocument {
   notificationId: string;
@@ -261,8 +265,10 @@ export interface PupilNotificationDocument {
   type: NotificationType;
   jobId?: string;
   jobTitle?: string;
+  amountCents?: number;
   read: boolean;
   createdAt: string;
+  updatedAt?: string;
 }
 
 /**

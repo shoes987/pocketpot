@@ -342,7 +342,8 @@ export function awardBonusToPupils(params: {
         isTeacherNotification: false,
         title: `🌟 Bonus Awarded: +${formatCurrency(targetBehaviour.amountCents)}`,
         message: `Your teacher awarded you a ${formatCurrency(targetBehaviour.amountCents)} bonus for ${targetBehaviour.title} (${targetBehaviour.definition})!`,
-        type: "job_hired",
+        type: "bonus",
+        amountCents: targetBehaviour.amountCents,
       });
 
       return {

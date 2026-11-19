@@ -6,6 +6,7 @@ import {
   markNotificationRead,
   markAllNotificationsRead,
 } from "@/lib/services/jobs-service";
+import { subscribeToNotifications } from "@/lib/firebase/firestore-service";
 import { PupilNotificationDocument } from "@/lib/firebase/types";
 import { Bell, CheckCheck, Clock, Briefcase, Award, X } from "lucide-react";
 
@@ -29,8 +30,30 @@ export const TeacherNotificationBell: React.FC<TeacherNotificationBellProps> = (
 
   useEffect(() => {
     loadNotifications();
+
+    // Real-time Firestore onSnapshot listener for teacher alerts
+    const unsub = subscribeToNotifications((liveNotifs) => {
+      if (liveNotifs && liveNotifs.length > 0) {
+        setNotifications((prev) => {
+          const map = new Map<string, PupilNotificationDocument>();
+          liveNotifs.forEach((n) => map.set(n.notificationId, n));
+          prev.forEach((n) => {
+            if (!map.has(n.notificationId)) {
+              map.set(n.notificationId, n);
+            }
+          });
+          const merged = Array.from(map.values());
+          merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          return merged;
+        });
+      }
+    }, undefined, true);
+
     const interval = setInterval(loadNotifications, 5000);
-    return () => clearInterval(interval);
+    return () => {
+      unsub();
+      clearInterval(interval);
+    };
   }, []);
 
   // Close on outside click

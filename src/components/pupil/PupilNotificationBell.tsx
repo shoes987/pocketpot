@@ -8,6 +8,7 @@ import {
   markAllNotificationsRead,
   NOTIFICATIONS_SYNC_EVENT,
 } from "@/lib/services/jobs-service";
+import { subscribeToNotifications } from "@/lib/firebase/firestore-service";
 import { PupilNotificationDocument } from "@/lib/firebase/types";
 import {
   Bell,
@@ -44,12 +45,32 @@ export const PupilNotificationBell: React.FC<PupilNotificationBellProps> = ({
 
   useEffect(() => {
     loadNotifications();
+
+    // Live real-time Firestore onSnapshot listener
+    const unsub = subscribeToNotifications((liveNotifs) => {
+      if (liveNotifs && liveNotifs.length > 0) {
+        setNotifications((prev) => {
+          const map = new Map<string, PupilNotificationDocument>();
+          liveNotifs.forEach((n) => map.set(n.notificationId, n));
+          prev.forEach((n) => {
+            if (!map.has(n.notificationId)) {
+              map.set(n.notificationId, n);
+            }
+          });
+          const merged = Array.from(map.values());
+          merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          return merged;
+        });
+      }
+    }, pupilId, false);
+
     const interval = setInterval(loadNotifications, 4000);
     const handleSync = () => loadNotifications();
     window.addEventListener("storage", handleSync);
     window.addEventListener(NOTIFICATIONS_SYNC_EVENT, handleSync);
 
     return () => {
+      unsub();
       clearInterval(interval);
       window.removeEventListener("storage", handleSync);
       window.removeEventListener(NOTIFICATIONS_SYNC_EVENT, handleSync);
@@ -141,23 +162,47 @@ export const PupilNotificationBell: React.FC<PupilNotificationBellProps> = ({
               </div>
             ) : (
               notifications.map((notif) => {
+                const isBonus = notif.type === "bonus";
+                const isMarketplace = notif.type === "marketplace";
+                const isAllowance = notif.type === "allowance";
                 const isHired = notif.type === "job_hired";
                 const isRejection = notif.type === "job_encouragement_rejection";
                 const isRef = notif.type === "reference_received";
 
-                // Green for hired/successful; Amber for role given to someone else; Teal for general
-                const cardStyle = isHired
+                // Calming colour coding: Amber for bonus, Green for hired, Indigo for ref, Purple for market, Teal for allowance
+                const cardStyle = isBonus
+                  ? "bg-amberSurface/80 border-brandSecondary/50 text-primaryText"
+                  : isHired
                   ? "bg-greenSurface border-positiveState/40 text-primaryText"
+                  : isMarketplace
+                  ? "bg-purple-50 dark:bg-purple-950/30 border-purple-300 dark:border-purple-700/40 text-primaryText"
+                  : isAllowance
+                  ? "bg-tealSurface/70 border-brandPrimary/40 text-primaryText"
                   : isRejection
                   ? "bg-amberSurface border-brandSecondary/40 text-primaryText"
                   : isRef
                   ? "bg-indigoSurface border-focusIndicator/30 text-primaryText"
                   : "bg-tealSurface/50 border-brandPrimary/30 text-primaryText";
 
-                const badgePill = isHired ? (
+                const badgePill = isBonus ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/90 text-brandSecondary border border-brandSecondary/30 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-brandSecondary" />
+                    <span>Bonus Awarded</span>
+                  </span>
+                ) : isHired ? (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/90 text-positiveState border border-positiveState/30 flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3" />
                     <span>Application Approved</span>
+                  </span>
+                ) : isMarketplace ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/90 text-purple-700 dark:text-purple-300 border border-purple-300/50 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" />
+                    <span>Class Reward</span>
+                  </span>
+                ) : isAllowance ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/90 text-brandPrimary border border-brandPrimary/30 flex items-center gap-1">
+                    <Award className="w-3 h-3" />
+                    <span>PocketPot Payout</span>
                   </span>
                 ) : isRejection ? (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/90 text-brandSecondary border border-brandSecondary/30 flex items-center gap-1">
@@ -190,19 +235,27 @@ export const PupilNotificationBell: React.FC<PupilNotificationBellProps> = ({
                         {/* Icon Badge */}
                         <div
                           className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 shadow-xs ${
-                            isHired
-                              ? "bg-white text-positiveState"
-                              : isRejection
+                            isBonus || isRejection
                               ? "bg-white text-brandSecondary"
+                              : isHired
+                              ? "bg-white text-positiveState"
+                              : isMarketplace
+                              ? "bg-white text-purple-600"
                               : "bg-white text-brandPrimary"
                           }`}
                         >
-                          {isHired ? (
-                            <Award className="w-4 h-4" />
+                          {isBonus ? (
+                            <Sparkles className="w-4 h-4 text-brandSecondary" />
+                          ) : isHired ? (
+                            <Award className="w-4 h-4 text-positiveState" />
+                          ) : isMarketplace ? (
+                            <span className="text-sm">🛍️</span>
+                          ) : isAllowance ? (
+                            <span className="text-sm">🪙</span>
                           ) : isRejection ? (
-                            <Star className="w-4 h-4" />
+                            <Star className="w-4 h-4 text-brandSecondary" />
                           ) : (
-                            <Sparkles className="w-4 h-4" />
+                            <Sparkles className="w-4 h-4 text-brandPrimary" />
                           )}
                         </div>
 

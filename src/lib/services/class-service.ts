@@ -18,6 +18,7 @@ import {
   createStarterPots,
   createStarterTransactions,
   assertZeroPII,
+  formatCurrency,
 } from "../firebase/zero-pii";
 import {
   getActiveJobForPupil,
@@ -25,6 +26,7 @@ import {
   getSavedJobs,
   saveJobs,
   createJob,
+  addNotification,
 } from "./jobs-service";
 import { saveBehaviours } from "./bonus-service";
 import { seedDefaultRewardsForClass } from "./marketplace-service";
@@ -879,6 +881,14 @@ export function addAllowanceToAccount(
   const txs = getSavedTransactions();
   saveTransactions([tx, ...txs]);
 
+  // Real-time Firestore sync
+  try {
+    updatePupilBalanceInFirestore(pupilId, pupil.mainBalanceCents, pupil.totalSavedCents);
+    recordTransactionInFirestore(tx);
+  } catch (err) {
+    console.warn("Firestore reward sync warning:", err);
+  }
+
   return { updatedPupil: pupil, tx };
 }
 
@@ -985,6 +995,13 @@ export function deleteSavingsPot(
 
     const txs = getSavedTransactions();
     saveTransactions([tx, ...txs]);
+
+    // Real-time Firestore sync
+    try {
+      recordTransactionInFirestore(tx);
+    } catch (err) {
+      console.warn("Firestore deletePupilPot tx sync warning:", err);
+    }
   }
 
   // Remove pot from saved list
@@ -998,6 +1015,12 @@ export function deleteSavingsPot(
   pupil.updatedAt = now;
   pupils[pupilIdx] = pupil;
   savePupils(pupils);
+
+  try {
+    updatePupilBalanceInFirestore(realPupilId, pupil.mainBalanceCents, pupil.totalSavedCents);
+  } catch (err) {
+    console.warn("Firestore deletePupilPot pupil sync warning:", err);
+  }
 
   return { refundedCents, updatedPupil: pupil };
 }
@@ -1541,6 +1564,17 @@ export function distributeWeeklyBasicIncome(
         timestamp: now,
       });
 
+      // Send celebratory notification to pupil
+      addNotification({
+        pupilId: p.pupilId,
+        classId,
+        isTeacherNotification: false,
+        title: `🪙 Weekly Basic Income: +${formatCurrency(weeklyAmountCents)}`,
+        message: `Your weekly basic income of ${formatCurrency(weeklyAmountCents)} has arrived in your card balance!`,
+        type: "allowance",
+        amountCents: weeklyAmountCents,
+      });
+
       // 2. Active Job Wage (Paid on the exact same day as Basic Income)
       const activeJob = getActiveJobForPupil(p.pupilId);
       if (activeJob && activeJob.status === "filled" && activeJob.wageCents > 0) {
@@ -1555,6 +1589,16 @@ export function distributeWeeklyBasicIncome(
           category: "income" as const,
           nonPunitiveNote: `Weekly earnings for classroom role as ${activeJob.title}`,
           timestamp: now,
+        });
+
+        addNotification({
+          pupilId: p.pupilId,
+          classId,
+          isTeacherNotification: false,
+          title: `💼 Weekly Job Wage: +${formatCurrency(activeJob.wageCents)}`,
+          message: `Your weekly wage of ${formatCurrency(activeJob.wageCents)} for ${activeJob.title} has been paid into your card balance!`,
+          type: "allowance",
+          amountCents: activeJob.wageCents,
         });
       }
 
@@ -1578,6 +1622,18 @@ export function distributeWeeklyBasicIncome(
   cls.updatedAt = now;
   classes[classIdx] = cls;
   saveClasses(classes);
+
+  // Real-time Firestore sync for all payout transactions and balances
+  try {
+    newTxs.forEach((tx) => recordTransactionInFirestore(tx));
+    updatedPupils.forEach((p) => {
+      if (p.classId === classId) {
+        updatePupilBalanceInFirestore(p.pupilId, p.mainBalanceCents, p.totalSavedCents);
+      }
+    });
+  } catch (err) {
+    console.warn("Firestore autoReconcile sync warning:", err);
+  }
 
   return {
     updatedClass: cls,

@@ -18,7 +18,12 @@ import {
   JobStatus,
 } from "../firebase/types";
 import { formatCurrency, assertZeroPII } from "../firebase/zero-pii";
-import { saveJobsBatchToFirestore } from "../firebase/firestore-service";
+import {
+  saveJobsBatchToFirestore,
+  saveNotificationToFirestore,
+  markNotificationReadInFirestore,
+  markAllNotificationsReadInFirestore,
+} from "../firebase/firestore-service";
 
 const STORAGE_KEY_JOBS = "pocketpot_jobs_v1";
 const STORAGE_KEY_APPLICATIONS = "pocketpot_job_applications_v1";
@@ -238,6 +243,12 @@ export function addNotification(notif: Omit<PupilNotificationDocument, "notifica
     createdAt: new Date().toISOString(),
   };
   saveNotifications([newNotif, ...notifs]);
+  
+  // Real-time Firestore sync
+  saveNotificationToFirestore(newNotif).catch((err) =>
+    console.warn("saveNotificationToFirestore warning:", err)
+  );
+
   return newNotif;
 }
 
@@ -245,9 +256,13 @@ export function markNotificationRead(notificationId: string): void {
   const notifs = getSavedNotifications();
   const updated = notifs.map((n) => (n.notificationId === notificationId ? { ...n, read: true } : n));
   saveNotifications(updated);
+
+  markNotificationReadInFirestore(notificationId).catch((err) =>
+    console.warn("markNotificationReadInFirestore warning:", err)
+  );
 }
 
-export function markAllNotificationsRead(pupilId?: string, forTeacher?: boolean): void {
+export function markAllNotificationsRead(pupilId?: string, forTeacher?: boolean, classId?: string): void {
   const notifs = getSavedNotifications();
   const updated = notifs.map((n) => {
     if (forTeacher && n.isTeacherNotification) return { ...n, read: true };
@@ -258,6 +273,10 @@ export function markAllNotificationsRead(pupilId?: string, forTeacher?: boolean)
     return n;
   });
   saveNotifications(updated);
+
+  markAllNotificationsReadInFirestore(pupilId, forTeacher, classId).catch((err) =>
+    console.warn("markAllNotificationsReadInFirestore warning:", err)
+  );
 }
 
 /**

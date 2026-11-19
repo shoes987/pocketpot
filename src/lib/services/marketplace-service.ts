@@ -22,6 +22,7 @@ import {
   saveTransactions,
 } from "./class-service";
 import { formatCurrency } from "../firebase/zero-pii";
+import { addNotification } from "./jobs-service";
 import {
   saveRewardsBatchToFirestore,
   savePurchaseToFirestore,
@@ -389,6 +390,26 @@ export function purchaseReward(
   reward.purchasesCount = (reward.purchasesCount || 0) + 1;
   saveRewards([...rewards]);
 
+  // 5. Send celebratory pupil notification and teacher notification
+  addNotification({
+    pupilId: pupil.pupilId,
+    classId: pupil.classId,
+    isTeacherNotification: false,
+    title: `🛍️ Reward Redeemed: ${reward.title}`,
+    message: `You redeemed "${reward.title}" for ${formatCurrency(costCents)}! Show your desk badge to your teacher when ready.`,
+    type: "marketplace",
+    amountCents: costCents,
+  });
+
+  addNotification({
+    classId: pupil.classId,
+    isTeacherNotification: true,
+    title: `New Reward Request: ${reward.title}`,
+    message: `${pupil.displayName || pupil.educationalCodename || "A pupil"} redeemed "${reward.title}" (${formatCurrency(costCents)}).`,
+    type: "marketplace",
+    amountCents: costCents,
+  });
+
   // Real-time Firestore sync
   try {
     updatePupilBalanceInFirestore(pupil.pupilId, pupil.mainBalanceCents);
@@ -456,6 +477,26 @@ export function refundPurchase(
   purchase.refundReason = refundReason || "Teacher processed refund";
   savePurchases([...purchases]);
 
+  // 4. Send refund notification to pupil
+  addNotification({
+    pupilId: pupil.pupilId,
+    classId: pupil.classId,
+    isTeacherNotification: false,
+    title: `Refund: ${purchase.rewardTitle}`,
+    message: `${formatCurrency(refundAmount)} was refunded back to your card balance for "${purchase.rewardTitle}".`,
+    type: "marketplace",
+    amountCents: refundAmount,
+  });
+
+  // Real-time Firestore sync
+  try {
+    updatePupilBalanceInFirestore(pupil.pupilId, pupil.mainBalanceCents, pupil.totalSavedCents);
+    savePurchaseToFirestore(purchase);
+    recordTransactionInFirestore(refundTx);
+  } catch (err) {
+    console.warn("Firestore refundPurchase warning:", err);
+  }
+
   return { success: true };
 }
 
@@ -472,6 +513,24 @@ export function fulfillPurchase(purchaseId: string): { success: boolean; error?:
   purchase.status = "fulfilled";
   purchase.fulfilledAt = new Date().toISOString();
   savePurchases([...purchases]);
+
+  // Send delivery notification to pupil
+  addNotification({
+    pupilId: purchase.pupilId,
+    classId: purchase.classId,
+    isTeacherNotification: false,
+    title: `🎉 Reward Delivered: ${purchase.rewardTitle}`,
+    message: `Your teacher has fulfilled your reward "${purchase.rewardTitle}"! Enjoy!`,
+    type: "marketplace",
+  });
+
+  // Real-time Firestore sync
+  try {
+    savePurchaseToFirestore(purchase);
+  } catch (err) {
+    console.warn("Firestore fulfillPurchase warning:", err);
+  }
+
   return { success: true };
 }
 
