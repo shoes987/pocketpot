@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   getPupilById,
   getPupilTransactions,
@@ -43,6 +43,7 @@ import {
 } from "lucide-react";
 
 export default function PupilAccountPage() {
+  const router = useRouter();
   const routeParams = useParams();
   const pupilId: string = typeof routeParams?.pupilId === "string" ? routeParams.pupilId : "";
 
@@ -54,6 +55,17 @@ export default function PupilAccountPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Cross-pupil isolation guard: enforce that logged-in PIN session matches pupilId
+    try {
+      const activePupilId = localStorage.getItem("pocketpot_active_pupil_id");
+      if (activePupilId && pupilId && activePupilId !== pupilId) {
+        router.replace(`/pupil/${activePupilId}`);
+        return;
+      }
+    } catch {
+      // Ignore storage error
+    }
+
     // Run real-world automated reconciliation check
     autoReconcileAllClassesWeeklyIncome();
 

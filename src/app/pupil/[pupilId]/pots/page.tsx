@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   getPupilById,
   getPotsForPupil,
@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 
 export default function PupilPotsPage() {
+  const router = useRouter();
   const routeParams = useParams();
   const pupilId: string = typeof routeParams?.pupilId === "string" ? routeParams.pupilId : "";
 
@@ -48,6 +49,17 @@ export default function PupilPotsPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   useEffect(() => {
+    // Cross-pupil isolation guard: enforce that logged-in PIN session matches pupilId
+    try {
+      const activePupilId = localStorage.getItem("pocketpot_active_pupil_id");
+      if (activePupilId && pupilId && activePupilId !== pupilId) {
+        router.replace(`/pupil/${activePupilId}/pots`);
+        return;
+      }
+    } catch {
+      // Ignore storage error
+    }
+
     const activeId = pupilId.trim() || "pupil-1";
     let targetRealId = activeId;
 

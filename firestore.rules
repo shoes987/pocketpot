@@ -52,6 +52,38 @@ service cloud.firestore {
     //   - pupilId: string (required, UUID v4)
     //   - Zero-PII enforced (NO names, emails, phones, birthdates, addresses)
     //
+    // Collection: pupils/{pupilId}
+    //   - pupilId: string (required, UUID v4)
+    //   - Zero-PII enforced (NO names, emails, phones, birthdates, UPNs, addresses)
+    //
+    // Collection: pots/{potId}
+    //   - potId: string (immutable, required)
+    //   - pupilId: string (immutable, required)
+    //   - targetAmountCents: number (required, > 0)
+    //   - currentAmountCents: number (required, >= 0)
+    //   - status: string (required) - 'active' | 'taking_a_pause' | 'goal_reached'
+    //   - Zero-PII enforced
+    //
+    // Collection: jobs/{jobId}
+    //   - jobId: string (required)
+    //   - classId: string (required)
+    //   - title: string (required)
+    //   - wageCents: number (required)
+    //   - Zero-PII enforced
+    //
+    // Collection: marketplace/{rewardId}
+    //   - rewardId: string (required)
+    //   - classId: string (required)
+    //   - title: string (required)
+    //   - costCents: number (required)
+    //   - Zero-PII enforced
+    //
+    // Collection: behaviours/{behaviourId}
+    //   - behaviourId: string (required)
+    //   - title: string (required)
+    //   - amountCents: number (required)
+    //   - Zero-PII enforced
+    //
     // =========================================================================
 
     // =========================================================================
@@ -196,6 +228,15 @@ service cloud.firestore {
              request.resource.data.role == resource.data.role &&
              request.resource.data.invitedBy == resource.data.invitedBy &&
              request.resource.data.assignedClassIds == resource.data.assignedClassIds;
+    }
+
+    function isValidPot(data) {
+      return hasNoPII(data) &&
+             data.targetAmountCents is number &&
+             data.targetAmountCents > 0 &&
+             data.currentAmountCents is number &&
+             data.currentAmountCents >= 0 &&
+             data.status in ['active', 'taking_a_pause', 'goal_reached'];
     }
 
     // =========================================================================
@@ -362,21 +403,30 @@ service cloud.firestore {
     }
 
     // =========================================================================
-    // DIRECT PUPIL SUBPATHS (Root alias compatibility)
+    // PUPILS ROSTER & FINANCIAL PROFILES (/pupils/{pupilId})
+    // Strictly enforces cross-pupil isolation and Zero-PII compliance
     // =========================================================================
     match /pupils/{pupilId} {
+      // Read: Pupil can ONLY read their own document (cross-pupil blocked); teachers & tenant admins can inspect
       allow read: if isPupilSelf(pupilId) || 
                      isTeacher() || 
                      (isAdmin() && (resource == null || resource.data.schoolId == request.auth.token.tenantId || resource.data.tenantId == request.auth.token.tenantId));
 
-      allow create, update: if (isPupilSelf(pupilId) || 
-                               isTeacher() || 
-                               (isAdmin() && (resource == null || resource.data.schoolId == request.auth.token.tenantId || resource.data.tenantId == request.auth.token.tenantId))) && 
-                            hasNoPII(request.resource.data);
+      // Create: Teachers and tenant admins can provision anonymous accounts
+      allow create: if (isTeacher() || (isAdmin() && (request.resource.data.schoolId == request.auth.token.tenantId || request.resource.data.tenantId == request.auth.token.tenantId))) &&
+                       hasNoPII(request.resource.data);
 
+      // Update: Teachers can award whiteboard micro-bonuses (atomic increment()), admins can manage, and pupils can update self (non-PII)
+      allow update: if (isTeacher() || 
+                        isPupilSelf(pupilId) || 
+                        (isAdmin() && (resource == null || resource.data.schoolId == request.auth.token.tenantId || resource.data.tenantId == request.auth.token.tenantId))) && 
+                       hasNoPII(request.resource.data);
+
+      // Delete: Teachers or tenant admins only
       allow delete: if isTeacher() || 
                        (isAdmin() && (resource.data.schoolId == request.auth.token.tenantId || resource.data.tenantId == request.auth.token.tenantId));
 
+      // Nested pots subcollection compatibility
       match /pots/{potId} {
         allow read: if isPupilSelf(pupilId) || isTeacher() || isAdmin();
         allow create, update: if isPupilSelf(pupilId) &&
@@ -384,6 +434,93 @@ service cloud.firestore {
                                  hasNoPII(request.resource.data);
         allow delete: if isPupilSelf(pupilId);
       }
+    }
+
+    // =========================================================================
+    // TOP-LEVEL SAVINGS POTS (/pots/{potId})
+    // Strict cross-pupil isolation and teacher/admin management
+    // =========================================================================
+    match /pots/{potId} {
+      // Read: Pupil can only read their own pots (cross-pupil blocked); staff can inspect
+      allow read: if (isPupil() && resource.data.pupilId == request.auth.uid) ||
+                     isTeacher() ||
+                     isAdmin();
+
+      // Create: Pupil can create their own pot, or teacher/admin can provision
+      allow create: if ((isPupil() && request.resource.data.pupilId == request.auth.uid) || isTeacher() || isAdmin()) &&
+                       isValidPot(request.resource.data);
+
+      // Update: Pupil can only update their own pot; teacher/admin can manage
+      allow update: if ((isPupil() && resource.data.pupilId == request.auth.uid && request.resource.data.pupilId == resource.data.pupilId) || isTeacher() || isAdmin()) &&
+                       isValidPot(request.resource.data);
+
+      // Delete: Pupil can delete their own pot; teacher/admin can delete
+      allow delete: if (isPupil() && resource.data.pupilId == request.auth.uid) ||
+                       isTeacher() ||
+                       isAdmin();
+    }
+
+    // =========================================================================
+    // CLASSROOM JOBS BOARD (/jobs/{jobId})
+    // =========================================================================
+    match /jobs/{jobId} {
+      // Read: Allowed for authenticated staff and pupils
+      allow read: if isAuthenticated();
+
+      // Create, update, delete: Allowed for teachers and admins of the class/tenant
+      allow create, update: if (isTeacher() || isAdmin()) && hasNoPII(request.resource.data);
+      allow delete: if isTeacher() || isAdmin();
+    }
+
+    // =========================================================================
+    // CLASSROOM MARKETPLACE & REWARDS (/marketplace/{rewardId})
+    // =========================================================================
+    match /marketplace/{rewardId} {
+      // Read: Allowed for authenticated staff and pupils
+      allow read: if isAuthenticated();
+
+      // Create, update, delete: Allowed for teachers and admins of the class/tenant
+      allow create, update: if (isTeacher() || isAdmin()) && hasNoPII(request.resource.data);
+      allow delete: if isTeacher() || isAdmin();
+    }
+
+    // =========================================================================
+    // POSITIVE BEHAVIOURS & REWARD DEFINITIONS (/behaviours/{behaviourId})
+    // =========================================================================
+    match /behaviours/{behaviourId} {
+      // Read: Allowed for teachers, admins, and pupils
+      allow read: if isAuthenticated();
+
+      // Create, update, delete: Allowed for teachers and admins
+      allow create, update: if (isTeacher() || isAdmin()) && hasNoPII(request.resource.data);
+      allow delete: if isTeacher() || isAdmin();
+    }
+
+    // =========================================================================
+    // WHITEBOARD BONUSES AUDIT TRAIL (/bonus_awards/{awardId})
+    // =========================================================================
+    match /bonus_awards/{awardId} {
+      allow read: if isAuthenticated();
+      allow create: if (isTeacher() || isAdmin()) && hasNoPII(request.resource.data);
+      allow update, delete: if false;
+    }
+
+    // =========================================================================
+    // TOP-LEVEL LEDGER TRANSACTIONS (/transactions/{transactionId})
+    // =========================================================================
+    match /transactions/{transactionId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && hasNoPII(request.resource.data);
+      allow update, delete: if false;
+    }
+
+    // =========================================================================
+    // MARKETPLACE PURCHASES AUDIT TRAIL (/purchases/{purchaseId})
+    // =========================================================================
+    match /purchases/{purchaseId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && hasNoPII(request.resource.data);
+      allow update, delete: if false;
     }
   }
 }

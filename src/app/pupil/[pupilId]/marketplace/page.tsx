@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   getPupilById,
   getPotsForPupil,
@@ -16,6 +16,7 @@ import { AppTopHeader } from "@/components/ui/AppTopHeader";
 import { Sparkles, ShieldCheck, ArrowLeft, ShoppingBag } from "lucide-react";
 
 export default function PupilMarketplacePage() {
+  const router = useRouter();
   const routeParams = useParams();
   const pupilId: string = typeof routeParams?.pupilId === "string" ? routeParams.pupilId : "";
 
@@ -24,6 +25,17 @@ export default function PupilMarketplacePage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Cross-pupil isolation guard: enforce that logged-in PIN session matches pupilId
+    try {
+      const activePupilId = localStorage.getItem("pocketpot_active_pupil_id");
+      if (activePupilId && pupilId && activePupilId !== pupilId) {
+        router.replace(`/pupil/${activePupilId}/marketplace`);
+        return;
+      }
+    } catch {
+      // Ignore storage error
+    }
+
     const activeId = pupilId.trim() || crypto.randomUUID();
     const foundPupil = pupilId.trim() ? getPupilById(pupilId.trim()) : null;
     const targetRealId = foundPupil?.pupilId || activeId;

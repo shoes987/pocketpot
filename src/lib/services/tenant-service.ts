@@ -85,7 +85,18 @@ export function getTenant(tenantId: string = DEFAULT_TENANT_ID): TenantDocument 
   if (stored) {
     try {
       const tenants: Record<string, TenantDocument> = JSON.parse(stored);
-      if (tenants[tenantId]) return tenants[tenantId];
+      if (tenants[tenantId]) {
+        // Auto-purge if stored tenant has legacy St Mary's name or outdated domains
+        if (
+          tenants[tenantId].schoolName?.includes("St Mary") ||
+          (tenants[tenantId] as { schoolId?: string }).schoolId?.includes("stmarys") ||
+          !tenants[tenantId].allowedDomains?.includes("@gbshp")
+        ) {
+          saveTenant(DEFAULT_TENANT);
+          return DEFAULT_TENANT;
+        }
+        return tenants[tenantId];
+      }
     } catch {
       // Fallback
     }

@@ -143,6 +143,36 @@ export function getSavedRewards(classId?: string): MarketplaceRewardDocument[] {
 }
 
 /**
+ * Seeds pedagogical starter marketplace rewards for a classroom and writes them to Firestore.
+ */
+export function seedDefaultRewardsForClass(classId: string): MarketplaceRewardDocument[] {
+  const normalizedClassId = normalizeClassId(classId);
+  const existing = getSavedRewards(normalizedClassId);
+  if (existing.length > 0) {
+    try {
+      saveRewardsBatchToFirestore(existing);
+    } catch (err) {
+      console.warn("Firestore seedDefaultRewardsForClass existing sync warning:", err);
+    }
+    return existing;
+  }
+
+  const now = new Date().toISOString();
+  const seeded: MarketplaceRewardDocument[] = DEFAULT_MARKETPLACE_REWARDS.map((r, i) => ({
+    ...r,
+    rewardId: `rew-${normalizedClassId}-seed-${i + 1}-${crypto.randomUUID().slice(0, 6)}`,
+    classId: normalizedClassId,
+    purchasesCount: 0,
+    createdAt: now,
+    updatedAt: now,
+  }));
+
+  const all = getSavedRewards();
+  saveRewards([...seeded, ...all]);
+  return seeded;
+}
+
+/**
  * Persists rewards list to local storage and dispatches update event.
  */
 export function saveRewards(rewards: MarketplaceRewardDocument[]): void {

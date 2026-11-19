@@ -27,6 +27,7 @@ import {
   createJob,
 } from "./jobs-service";
 import { saveBehaviours } from "./bonus-service";
+import { seedDefaultRewardsForClass } from "./marketplace-service";
 import { getStaffUsers, saveStaffUsers, createStaffUser, getCurrentTeacherUser } from "./auth-service";
 import { recordClassTeacherInvitation } from "./tenant-service";
 import {
@@ -35,6 +36,7 @@ import {
   savePupilsBatchToFirestore,
   updatePupilBalanceInFirestore,
   deletePupilFromFirestore,
+  savePotToFirestore,
   savePotsBatchToFirestore,
   updatePotBalanceInFirestore,
   deletePotFromFirestore,
@@ -70,8 +72,26 @@ export function notifyBalanceSync(): void {
 export function purgeLegacyMockStorage(): void {
   if (typeof window === "undefined") return;
   try {
-    const PURGE_FLAG = "pocketpot_mock_purged_v5";
-    if (!localStorage.getItem(PURGE_FLAG)) {
+    const PURGE_FLAG = "pocketpot_mock_purged_v7";
+    const hasLegacyMarkers = () => {
+      const staff = localStorage.getItem("pocketpot_staff_users_v1") || "";
+      const classes = localStorage.getItem("pocketpot_classes_v1") || "";
+      const pupils = localStorage.getItem("pocketpot_pupils_v1") || "";
+      const tenant = localStorage.getItem("pocketpot_tenants_v1") || "";
+      return (
+        staff.includes("Henderson") ||
+        staff.includes("stmarys") ||
+        staff.includes("davis") ||
+        classes.includes("Hazel") ||
+        classes.includes("st-marys") ||
+        classes.includes("class-year-3") ||
+        pupils.includes("st-marys") ||
+        pupils.includes("hazel") ||
+        tenant.includes("St Mary")
+      );
+    };
+
+    if (!localStorage.getItem(PURGE_FLAG) || hasLegacyMarkers()) {
       localStorage.removeItem("pocketpot_classes_v1");
       localStorage.removeItem("pocketpot_pupils_v1");
       localStorage.removeItem("pocketpot_pots_v1");
@@ -81,6 +101,9 @@ export function purgeLegacyMockStorage(): void {
       localStorage.removeItem("pocketpot_current_teacher_id_v1");
       localStorage.removeItem("pocketpot_tenants_v1");
       localStorage.removeItem("pocketpot_tenant_invites_v1");
+      localStorage.removeItem("pocketpot_behaviours_v1");
+      localStorage.removeItem("pocketpot_marketplace_rewards_v1");
+      localStorage.removeItem("pocketpot_jobs_v1");
       localStorage.setItem(PURGE_FLAG, "true");
     }
   } catch (err) {
@@ -160,6 +183,19 @@ export function getSavedClasses(): ClassDocument[] {
     try {
       const parsed: ClassDocument[] = JSON.parse(stored);
       if (Array.isArray(parsed) && parsed.length > 0) {
+        // Auto-purge if legacy mock classes detected (e.g. Year 3 Hazel, st-marys-primary)
+        const hasLegacy = parsed.some(
+          (c) =>
+            c.schoolId === "st-marys-primary" ||
+            c.className?.includes("Hazel") ||
+            c.classId?.includes("hazel") ||
+            c.classId?.startsWith("class-year-3")
+        );
+        if (hasLegacy) {
+          localStorage.removeItem(STORAGE_KEY_CLASSES);
+          return [];
+        }
+
         const unique = deduplicateClasses(parsed);
         if (unique.length !== parsed.length) {
           localStorage.setItem(STORAGE_KEY_CLASSES, JSON.stringify(unique));
@@ -265,6 +301,18 @@ export function getSavedPupils(): PupilDocument[] {
     try {
       const parsed: PupilDocument[] = JSON.parse(stored);
       if (Array.isArray(parsed) && parsed.length > 0) {
+        // Auto-purge if legacy mock pupils detected
+        const hasLegacy = parsed.some(
+          (p) =>
+            (p as { schoolId?: string }).schoolId === "st-marys-primary" ||
+            p.classId?.includes("hazel") ||
+            p.pupilId?.includes("stmarys")
+        );
+        if (hasLegacy) {
+          localStorage.removeItem(STORAGE_KEY_PUPILS);
+          return [];
+        }
+
         const unique = deduplicatePupils(parsed);
         if (unique.length !== parsed.length) {
           // Self-heal corrupted/duplicated storage
@@ -304,6 +352,15 @@ export function getSavedPots(): SavingsPotDocument[] {
     try {
       const parsed: SavingsPotDocument[] = JSON.parse(stored);
       if (Array.isArray(parsed)) {
+        // Auto-purge if legacy mock pots detected
+        const hasLegacy = parsed.some(
+          (p) => p.potId?.includes("stmarys") || p.classId?.includes("hazel")
+        );
+        if (hasLegacy) {
+          localStorage.removeItem(STORAGE_KEY_POTS);
+          return [];
+        }
+
         const unique = deduplicatePots(parsed);
         if (unique.length !== parsed.length) {
           localStorage.setItem(STORAGE_KEY_POTS, JSON.stringify(unique));
@@ -867,6 +924,13 @@ export function createPupilPot(
   pupil.updatedAt = now;
   pupils[pupilIdx] = pupil;
   savePupils(pupils);
+
+  try {
+    savePotToFirestore(newPot);
+    updatePupilBalanceInFirestore(realPupilId, pupil.mainBalanceCents, pupil.totalSavedCents);
+  } catch (err) {
+    console.warn("Firestore createPupilPot sync warning:", err);
+  }
 
   return { pot: newPot, updatedPupil: pupil };
 }
@@ -1756,6 +1820,13 @@ export function setupClassroomWithWizard(config: ClassroomWizardConfig): {
       updatedAt: now,
     }));
     saveBehaviours(formattedBehaviours);
+  }
+
+  // 6. Seed Classroom Marketplace Rewards directly to Firestore
+  try {
+    seedDefaultRewardsForClass(newClass.classId);
+  } catch (err) {
+    console.warn("Firestore seedDefaultRewardsForClass warning:", err);
   }
 
   return {

@@ -24,8 +24,10 @@ import {
 import { addNotification } from "./jobs-service";
 import {
   updatePupilBalanceInFirestore,
+  awardMicroBonusInFirestore,
   recordBonusAwardInFirestore,
   recordTransactionInFirestore,
+  saveBehavioursBatchToFirestore,
 } from "../firebase/firestore-service";
 
 const STORAGE_KEY_BEHAVIOURS = "pocketpot_positive_behaviours_v1";
@@ -156,6 +158,11 @@ export function saveBehaviours(behaviours: PositiveBehaviourDocument[]): void {
   if (typeof window === "undefined") return;
   behaviours.forEach((b) => assertZeroPII(b as unknown as Record<string, unknown>));
   localStorage.setItem(STORAGE_KEY_BEHAVIOURS, JSON.stringify(behaviours));
+  try {
+    saveBehavioursBatchToFirestore(behaviours);
+  } catch (err) {
+    console.warn("Firestore saveBehaviours warning:", err);
+  }
 }
 
 /**
@@ -368,9 +375,10 @@ export function awardBonusToPupils(params: {
   const existingAwards = getSavedBonusAwards();
   saveBonusAwards([awardRecord, ...existingAwards]);
 
-  // Real-time Firestore sync for Whiteboard Mode bonuses
+  // Real-time Firestore sync for Whiteboard Mode bonuses (Atomic increment)
   try {
     params.pupilIds.forEach((pid) => {
+      awardMicroBonusInFirestore(pid, targetBehaviour.amountCents);
       const p = updatedPupils.find((item) => item.pupilId === pid);
       if (p) {
         updatePupilBalanceInFirestore(pid, p.mainBalanceCents, p.totalSavedCents);

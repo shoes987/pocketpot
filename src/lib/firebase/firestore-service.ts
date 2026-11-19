@@ -14,6 +14,7 @@ import {
   where,
   Unsubscribe,
   writeBatch,
+  increment,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
@@ -266,6 +267,25 @@ export async function updatePupilBalanceInFirestore(
     await updateDoc(doc(db, "pupils", pupilId), updates);
   } catch (err) {
     console.warn("updatePupilBalanceInFirestore warning:", err);
+  }
+}
+
+/**
+ * Atomically increments a pupil's main balance in Cloud Firestore.
+ * Triggers live onSnapshot listeners on connected pupil devices immediately without race conditions.
+ */
+export async function awardMicroBonusInFirestore(
+  pupilId: string,
+  bonusAmountCents: number
+): Promise<void> {
+  if (!db || !pupilId) return;
+  try {
+    await updateDoc(doc(db, "pupils", pupilId), {
+      mainBalanceCents: increment(bonusAmountCents),
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.warn("awardMicroBonusInFirestore warning:", err);
   }
 }
 

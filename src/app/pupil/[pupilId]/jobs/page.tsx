@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   getPupilById,
   getSavedClasses,
@@ -55,6 +55,7 @@ import {
 } from "lucide-react";
 
 export default function PupilJobsPage() {
+  const router = useRouter();
   const routeParams = useParams();
   const pupilId: string = typeof routeParams?.pupilId === "string" ? routeParams.pupilId : "";
 
@@ -95,6 +96,17 @@ export default function PupilJobsPage() {
   };
 
   useEffect(() => {
+    // Cross-pupil isolation guard: enforce that logged-in PIN session matches pupilId
+    try {
+      const activePupilId = localStorage.getItem("pocketpot_active_pupil_id");
+      if (activePupilId && pupilId && activePupilId !== pupilId) {
+        router.replace(`/pupil/${activePupilId}/jobs`);
+        return;
+      }
+    } catch {
+      // Ignore storage error
+    }
+
     loadAll();
 
     const activeId = pupilId.trim() || crypto.randomUUID();
