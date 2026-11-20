@@ -29,6 +29,10 @@ import {
   recordTransactionInFirestore,
   saveBehavioursBatchToFirestore,
 } from "../firebase/firestore-service";
+import {
+  safeLocalStorageSetItem,
+  safeLocalStorageGetItem,
+} from "./storage-helper";
 
 const STORAGE_KEY_BEHAVIOURS = "pocketpot_positive_behaviours_v1";
 const STORAGE_KEY_BONUS_AWARDS = "pocketpot_bonus_awards_v1";
@@ -133,7 +137,7 @@ export const DEFAULT_POSITIVE_BEHAVIOURS: PositiveBehaviourDocument[] = [
 export function getSavedBehaviours(classId?: string): PositiveBehaviourDocument[] {
   if (typeof window === "undefined") return DEFAULT_POSITIVE_BEHAVIOURS;
 
-  const stored = localStorage.getItem(STORAGE_KEY_BEHAVIOURS);
+  const stored = safeLocalStorageGetItem(STORAGE_KEY_BEHAVIOURS);
   if (stored) {
     try {
       const parsed: PositiveBehaviourDocument[] = JSON.parse(stored);
@@ -157,7 +161,7 @@ export function getSavedBehaviours(classId?: string): PositiveBehaviourDocument[
 export function saveBehaviours(behaviours: PositiveBehaviourDocument[]): void {
   if (typeof window === "undefined") return;
   behaviours.forEach((b) => assertZeroPII(b as unknown as Record<string, unknown>));
-  localStorage.setItem(STORAGE_KEY_BEHAVIOURS, JSON.stringify(behaviours));
+  safeLocalStorageSetItem(STORAGE_KEY_BEHAVIOURS, JSON.stringify(behaviours));
   try {
     saveBehavioursBatchToFirestore(behaviours);
   } catch (err) {
@@ -245,7 +249,7 @@ export function deleteBehaviour(behaviourId: string): void {
  */
 export function getSavedBonusAwards(classId?: string, limit: number = 20): BonusAwardDocument[] {
   if (typeof window === "undefined") return [];
-  const stored = localStorage.getItem(STORAGE_KEY_BONUS_AWARDS);
+  const stored = safeLocalStorageGetItem(STORAGE_KEY_BONUS_AWARDS);
   if (stored) {
     try {
       const parsed: BonusAwardDocument[] = JSON.parse(stored);
@@ -264,7 +268,7 @@ export function getSavedBonusAwards(classId?: string, limit: number = 20): Bonus
 export function saveBonusAwards(awards: BonusAwardDocument[]): void {
   if (typeof window === "undefined") return;
   awards.forEach((a) => assertZeroPII(a as unknown as Record<string, unknown>));
-  localStorage.setItem(STORAGE_KEY_BONUS_AWARDS, JSON.stringify(awards));
+  safeLocalStorageSetItem(STORAGE_KEY_BONUS_AWARDS, JSON.stringify(awards));
 }
 
 export interface AwardBonusResult {

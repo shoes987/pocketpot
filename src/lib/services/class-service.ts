@@ -44,6 +44,19 @@ import {
   deletePotFromFirestore,
   recordTransactionInFirestore,
 } from "../firebase/firestore-service";
+import {
+  safeLocalStorageSetItem,
+  safeLocalStorageGetItem,
+  safeLocalStorageRemoveItem,
+  evictNonEssentialStorage,
+} from "./storage-helper";
+
+export {
+  safeLocalStorageSetItem,
+  safeLocalStorageGetItem,
+  safeLocalStorageRemoveItem,
+  evictNonEssentialStorage,
+};
 
 const STORAGE_KEY_CLASSES = "pocketpot_classes_v1";
 const STORAGE_KEY_PUPILS = "pocketpot_pupils_v1";
@@ -57,7 +70,7 @@ const STORAGE_KEY_DELETED_PUPILS = "pocketpot_deleted_pupils_v1";
 export function getDeletedPupilIds(): Set<string> {
   if (typeof window === "undefined") return new Set();
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_DELETED_PUPILS);
+    const raw = safeLocalStorageGetItem(STORAGE_KEY_DELETED_PUPILS);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) return new Set(parsed);
@@ -76,7 +89,7 @@ export function recordDeletedPupil(pupilId: string): void {
   try {
     const set = getDeletedPupilIds();
     set.add(pupilId);
-    localStorage.setItem(STORAGE_KEY_DELETED_PUPILS, JSON.stringify(Array.from(set)));
+    safeLocalStorageSetItem(STORAGE_KEY_DELETED_PUPILS, JSON.stringify(Array.from(set)));
   } catch {
     // fallback
   }
@@ -213,7 +226,7 @@ function deduplicatePots(list: SavingsPotDocument[]): SavingsPotDocument[] {
  */
 export function getSavedClasses(): ClassDocument[] {
   if (typeof window === "undefined") return [];
-  const stored = localStorage.getItem(STORAGE_KEY_CLASSES);
+  const stored = safeLocalStorageGetItem(STORAGE_KEY_CLASSES);
   if (stored) {
     try {
       const parsed: ClassDocument[] = JSON.parse(stored);
@@ -227,13 +240,13 @@ export function getSavedClasses(): ClassDocument[] {
             c.classId?.startsWith("class-year-3")
         );
         if (hasLegacy) {
-          localStorage.removeItem(STORAGE_KEY_CLASSES);
+          safeLocalStorageRemoveItem(STORAGE_KEY_CLASSES);
           return [];
         }
 
         const unique = deduplicateClasses(parsed);
         if (unique.length !== parsed.length) {
-          localStorage.setItem(STORAGE_KEY_CLASSES, JSON.stringify(unique));
+          safeLocalStorageSetItem(STORAGE_KEY_CLASSES, JSON.stringify(unique));
         }
         // Ensure existing classes have opening balance and weekly income defaults
         return unique.map((c) => {
@@ -291,9 +304,7 @@ export function getSavedClasses(): ClassDocument[] {
       updatedAt: "2026-11-20T00:00:00.000Z",
     },
   ];
-  try {
-    localStorage.setItem(STORAGE_KEY_CLASSES, JSON.stringify(defaultPilotClasses));
-  } catch {}
+  safeLocalStorageSetItem(STORAGE_KEY_CLASSES, JSON.stringify(defaultPilotClasses));
   return defaultPilotClasses;
 }
 
@@ -345,7 +356,7 @@ export function assignTeachersToClass(
 export function cacheClassesLocally(classes: ClassDocument[]): void {
   if (typeof window === "undefined") return;
   const unique = deduplicateClasses(classes);
-  localStorage.setItem(STORAGE_KEY_CLASSES, JSON.stringify(unique));
+  safeLocalStorageSetItem(STORAGE_KEY_CLASSES, JSON.stringify(unique));
 }
 
 export function cachePupilsLocally(pupils: PupilDocument[]): void {
@@ -353,19 +364,19 @@ export function cachePupilsLocally(pupils: PupilDocument[]): void {
   const deleted = getDeletedPupilIds();
   const nonDeleted = pupils.filter((p) => !deleted.has(p.pupilId));
   const unique = deduplicatePupils(nonDeleted);
-  localStorage.setItem(STORAGE_KEY_PUPILS, JSON.stringify(unique));
+  safeLocalStorageSetItem(STORAGE_KEY_PUPILS, JSON.stringify(unique));
 }
 
 export function cachePotsLocally(pots: SavingsPotDocument[]): void {
   if (typeof window === "undefined") return;
   const unique = deduplicatePots(pots);
-  localStorage.setItem(STORAGE_KEY_POTS, JSON.stringify(unique));
+  safeLocalStorageSetItem(STORAGE_KEY_POTS, JSON.stringify(unique));
 }
 
 export function saveClasses(classes: ClassDocument[]): void {
   if (typeof window === "undefined") return;
   const unique = deduplicateClasses(classes);
-  localStorage.setItem(STORAGE_KEY_CLASSES, JSON.stringify(unique));
+  safeLocalStorageSetItem(STORAGE_KEY_CLASSES, JSON.stringify(unique));
   notifyBalanceSync();
 
   // Real-time Firestore sync
@@ -380,7 +391,7 @@ export function saveClasses(classes: ClassDocument[]): void {
 
 export function getSavedPupils(): PupilDocument[] {
   if (typeof window === "undefined") return [];
-  const stored = localStorage.getItem(STORAGE_KEY_PUPILS);
+  const stored = safeLocalStorageGetItem(STORAGE_KEY_PUPILS);
   if (stored) {
     try {
       const parsed: PupilDocument[] = JSON.parse(stored);
@@ -393,7 +404,7 @@ export function getSavedPupils(): PupilDocument[] {
             p.pupilId?.includes("stmarys")
         );
         if (hasLegacy) {
-          localStorage.removeItem(STORAGE_KEY_PUPILS);
+          safeLocalStorageRemoveItem(STORAGE_KEY_PUPILS);
           return [];
         }
 
@@ -402,7 +413,7 @@ export function getSavedPupils(): PupilDocument[] {
         const nonDeleted = unique.filter((p) => !deleted.has(p.pupilId));
         if (nonDeleted.length !== parsed.length) {
           // Self-heal corrupted/duplicated storage
-          localStorage.setItem(STORAGE_KEY_PUPILS, JSON.stringify(nonDeleted));
+          safeLocalStorageSetItem(STORAGE_KEY_PUPILS, JSON.stringify(nonDeleted));
         }
         return nonDeleted.map((p) => ({
           ...p,
@@ -423,7 +434,7 @@ export function getSavedPupils(): PupilDocument[] {
 export function savePupils(pupils: PupilDocument[]): void {
   if (typeof window === "undefined") return;
   const unique = deduplicatePupils(pupils);
-  localStorage.setItem(STORAGE_KEY_PUPILS, JSON.stringify(unique));
+  safeLocalStorageSetItem(STORAGE_KEY_PUPILS, JSON.stringify(unique));
   notifyBalanceSync();
 
   // Real-time Firestore sync (Strict Zero-PII)
@@ -436,7 +447,7 @@ export function savePupils(pupils: PupilDocument[]): void {
 
 export function getSavedPots(): SavingsPotDocument[] {
   if (typeof window === "undefined") return [];
-  const stored = localStorage.getItem(STORAGE_KEY_POTS);
+  const stored = safeLocalStorageGetItem(STORAGE_KEY_POTS);
   if (stored) {
     try {
       const parsed: SavingsPotDocument[] = JSON.parse(stored);
@@ -446,13 +457,13 @@ export function getSavedPots(): SavingsPotDocument[] {
           (p) => p.potId?.includes("stmarys") || p.classId?.includes("hazel")
         );
         if (hasLegacy) {
-          localStorage.removeItem(STORAGE_KEY_POTS);
+          safeLocalStorageRemoveItem(STORAGE_KEY_POTS);
           return [];
         }
 
         const unique = deduplicatePots(parsed);
         if (unique.length !== parsed.length) {
-          localStorage.setItem(STORAGE_KEY_POTS, JSON.stringify(unique));
+          safeLocalStorageSetItem(STORAGE_KEY_POTS, JSON.stringify(unique));
         }
         return unique;
       }
@@ -466,7 +477,7 @@ export function getSavedPots(): SavingsPotDocument[] {
 export function savePots(pots: SavingsPotDocument[]): void {
   if (typeof window === "undefined") return;
   const unique = deduplicatePots(pots);
-  localStorage.setItem(STORAGE_KEY_POTS, JSON.stringify(unique));
+  safeLocalStorageSetItem(STORAGE_KEY_POTS, JSON.stringify(unique));
   notifyBalanceSync();
 
   // Real-time Firestore sync
@@ -479,7 +490,7 @@ export function savePots(pots: SavingsPotDocument[]): void {
 
 export function getSavedTransactions(): PotLedgerEntry[] {
   if (typeof window === "undefined") return [];
-  const stored = localStorage.getItem(STORAGE_KEY_TRANSACTIONS);
+  const stored = safeLocalStorageGetItem(STORAGE_KEY_TRANSACTIONS);
   if (stored) {
     try {
       return JSON.parse(stored);
@@ -490,8 +501,8 @@ export function getSavedTransactions(): PotLedgerEntry[] {
   return [];
 }
 
-const MAX_TRANSACTIONS = 1000;
-const QUOTA_FALLBACK_TRANSACTIONS = 300;
+const MAX_TRANSACTIONS = 150;
+const QUOTA_FALLBACK_TRANSACTIONS = 40;
 
 export function pruneTransactions(txs: PotLedgerEntry[], limit = MAX_TRANSACTIONS): PotLedgerEntry[] {
   const seen = new Set<string>();
@@ -514,28 +525,7 @@ export function pruneTransactions(txs: PotLedgerEntry[], limit = MAX_TRANSACTION
 export function saveTransactions(txs: PotLedgerEntry[]): void {
   if (typeof window === "undefined") return;
   const pruned = pruneTransactions(txs, MAX_TRANSACTIONS);
-  try {
-    localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(pruned));
-  } catch (error: any) {
-    if (
-      error?.name === "QuotaExceededError" ||
-      error?.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
-      error?.code === 22 ||
-      error?.code === 1014
-    ) {
-      console.warn(
-        `Storage quota exceeded in saveTransactions; falling back to ${QUOTA_FALLBACK_TRANSACTIONS} transactions.`
-      );
-      try {
-        const fallbackPruned = pruneTransactions(pruned, QUOTA_FALLBACK_TRANSACTIONS);
-        localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(fallbackPruned));
-      } catch (innerError) {
-        console.error("Failed to save transactions even with quota fallback window:", innerError);
-      }
-    } else {
-      console.error("Failed to save transactions to localStorage:", error);
-    }
-  }
+  safeLocalStorageSetItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(pruned));
   notifyBalanceSync();
 }
 
@@ -1145,9 +1135,7 @@ export function deletePupil(pupilId: string): { success: boolean; deletedPupilId
   // 2. Remove pupil from local storage
   const updatedPupils = pupils.filter((p) => p.pupilId !== pupilId);
   const unique = deduplicatePupils(updatedPupils);
-  if (typeof window !== "undefined") {
-    localStorage.setItem(STORAGE_KEY_PUPILS, JSON.stringify(unique));
-  }
+  safeLocalStorageSetItem(STORAGE_KEY_PUPILS, JSON.stringify(unique));
 
   // 3. Remove pupil from Firestore
   try {
@@ -1860,6 +1848,9 @@ export function setupClassroomWithWizard(config: ClassroomWizardConfig): {
   pupils: PupilDocument[];
   pots: SavingsPotDocument[];
 } {
+  // Proactively free up non-essential storage quota before provisioning new class cohort
+  evictNonEssentialStorage();
+
   // 1. Prepare Student Names or Anonymous Placeholders
   let namesToUse: string[] = [];
   if (!config.anonymizeNames && config.studentNames && config.studentNames.length > 0) {

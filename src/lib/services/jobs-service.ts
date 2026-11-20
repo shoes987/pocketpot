@@ -24,6 +24,10 @@ import {
   markNotificationReadInFirestore,
   markAllNotificationsReadInFirestore,
 } from "../firebase/firestore-service";
+import {
+  safeLocalStorageSetItem,
+  safeLocalStorageGetItem,
+} from "./storage-helper";
 
 const STORAGE_KEY_JOBS = "pocketpot_jobs_v1";
 const STORAGE_KEY_APPLICATIONS = "pocketpot_job_applications_v1";
@@ -56,7 +60,7 @@ export const PRESET_REFERENCES = [
  */
 export function getSavedJobs(classId?: string): JobPostingDocument[] {
   if (typeof window === "undefined") return [];
-  const stored = localStorage.getItem(STORAGE_KEY_JOBS);
+  const stored = safeLocalStorageGetItem(STORAGE_KEY_JOBS);
   if (stored) {
     try {
       const parsed: JobPostingDocument[] = JSON.parse(stored);
@@ -76,7 +80,7 @@ export function getSavedJobs(classId?: string): JobPostingDocument[] {
 
 export function saveJobs(jobs: JobPostingDocument[]): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY_JOBS, JSON.stringify(jobs));
+  safeLocalStorageSetItem(STORAGE_KEY_JOBS, JSON.stringify(jobs));
   try {
     saveJobsBatchToFirestore(jobs);
   } catch (err) {
@@ -167,7 +171,7 @@ export function saveApplications(apps: JobApplicationDocument[]): void {
     delete copy.pupilName;
     return copy as unknown as JobApplicationDocument;
   });
-  localStorage.setItem(STORAGE_KEY_APPLICATIONS, JSON.stringify(sanitized));
+  safeLocalStorageSetItem(STORAGE_KEY_APPLICATIONS, JSON.stringify(sanitized));
 }
 
 /**
@@ -175,7 +179,7 @@ export function saveApplications(apps: JobApplicationDocument[]): void {
  */
 export function getCompletedJobsForPupil(pupilId: string): CompletedJobRecord[] {
   if (typeof window === "undefined") return [];
-  const stored = localStorage.getItem(STORAGE_KEY_COMPLETED_JOBS);
+  const stored = safeLocalStorageGetItem(STORAGE_KEY_COMPLETED_JOBS);
   if (stored) {
     try {
       const parsed: Record<string, CompletedJobRecord[]> = JSON.parse(stored);
@@ -189,7 +193,7 @@ export function getCompletedJobsForPupil(pupilId: string): CompletedJobRecord[] 
 
 export function saveCompletedJobForPupil(pupilId: string, record: CompletedJobRecord): void {
   if (typeof window === "undefined") return;
-  const stored = localStorage.getItem(STORAGE_KEY_COMPLETED_JOBS);
+  const stored = safeLocalStorageGetItem(STORAGE_KEY_COMPLETED_JOBS);
   let parsed: Record<string, CompletedJobRecord[]> = {};
   if (stored) {
     try {
@@ -200,7 +204,7 @@ export function saveCompletedJobForPupil(pupilId: string, record: CompletedJobRe
   }
   const existing = parsed[pupilId] || [];
   parsed[pupilId] = [record, ...existing];
-  localStorage.setItem(STORAGE_KEY_COMPLETED_JOBS, JSON.stringify(parsed));
+  safeLocalStorageSetItem(STORAGE_KEY_COMPLETED_JOBS, JSON.stringify(parsed));
 }
 
 export const NOTIFICATIONS_SYNC_EVENT = "pocketpot_notifications_sync";
@@ -210,7 +214,7 @@ export const NOTIFICATIONS_SYNC_EVENT = "pocketpot_notifications_sync";
  */
 export function getSavedNotifications(pupilId?: string, forTeacher?: boolean): PupilNotificationDocument[] {
   if (typeof window === "undefined") return [];
-  const stored = localStorage.getItem(STORAGE_KEY_NOTIFICATIONS);
+  const stored = safeLocalStorageGetItem(STORAGE_KEY_NOTIFICATIONS);
   if (stored) {
     try {
       const parsed: PupilNotificationDocument[] = JSON.parse(stored);
@@ -230,7 +234,7 @@ export function getSavedNotifications(pupilId?: string, forTeacher?: boolean): P
 
 export function saveNotifications(notifs: PupilNotificationDocument[]): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(notifs));
+  safeLocalStorageSetItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(notifs));
   window.dispatchEvent(new Event(NOTIFICATIONS_SYNC_EVENT));
 }
 

@@ -29,6 +29,10 @@ import {
   updatePupilBalanceInFirestore,
   recordTransactionInFirestore,
 } from "../firebase/firestore-service";
+import {
+  safeLocalStorageSetItem,
+  safeLocalStorageGetItem,
+} from "./storage-helper";
 
 const STORAGE_KEY_REWARDS = "pocketpot_marketplace_rewards_v2";
 const STORAGE_KEY_PURCHASES = "pocketpot_marketplace_purchases_v2";
@@ -119,7 +123,7 @@ export const DEFAULT_MARKETPLACE_REWARDS: Omit<
  */
 export function getSavedRewards(classId?: string): MarketplaceRewardDocument[] {
   if (typeof window === "undefined") return [];
-  const stored = localStorage.getItem(STORAGE_KEY_REWARDS);
+  const stored = safeLocalStorageGetItem(STORAGE_KEY_REWARDS);
   let rewards: MarketplaceRewardDocument[] = [];
 
   if (stored) {
@@ -178,7 +182,7 @@ export function seedDefaultRewardsForClass(classId: string): MarketplaceRewardDo
  */
 export function saveRewards(rewards: MarketplaceRewardDocument[]): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY_REWARDS, JSON.stringify(rewards));
+  safeLocalStorageSetItem(STORAGE_KEY_REWARDS, JSON.stringify(rewards));
   window.dispatchEvent(new CustomEvent("pocketpot_marketplace_updated"));
   try {
     saveRewardsBatchToFirestore(rewards);
@@ -258,7 +262,7 @@ export function getSavedPurchases(
   pupilId?: string
 ): MarketplacePurchaseDocument[] {
   if (typeof window === "undefined") return [];
-  const stored = localStorage.getItem(STORAGE_KEY_PURCHASES);
+  const stored = safeLocalStorageGetItem(STORAGE_KEY_PURCHASES);
   let purchases: MarketplacePurchaseDocument[] = [];
 
   if (stored) {
@@ -296,7 +300,7 @@ export function getSavedPurchases(
  */
 export function savePurchases(purchases: MarketplacePurchaseDocument[]): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY_PURCHASES, JSON.stringify(purchases));
+  safeLocalStorageSetItem(STORAGE_KEY_PURCHASES, JSON.stringify(purchases));
   window.dispatchEvent(new CustomEvent("pocketpot_marketplace_updated"));
 }
 

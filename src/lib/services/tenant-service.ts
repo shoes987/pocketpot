@@ -17,6 +17,10 @@
 import { TenantDocument, TeacherInviteDocument, UserDocument } from "../firebase/types";
 import { getStaffUsers, saveStaffUsers } from "./auth-service";
 import { saveTenantToFirestore } from "../firebase/firestore-service";
+import {
+  safeLocalStorageSetItem,
+  safeLocalStorageGetItem,
+} from "./storage-helper";
 
 const STORAGE_KEY_TENANTS = "pocketpot_tenants_v1";
 const STORAGE_KEY_INVITES = "pocketpot_tenant_invites_v1";
@@ -81,7 +85,7 @@ export function getTenant(tenantId: string = DEFAULT_TENANT_ID): TenantDocument 
     serverTenants[tenantId] = newTenant;
     return newTenant;
   }
-  const stored = localStorage.getItem(STORAGE_KEY_TENANTS);
+  const stored = safeLocalStorageGetItem(STORAGE_KEY_TENANTS);
   if (stored) {
     try {
       const tenants: Record<string, TenantDocument> = JSON.parse(stored);
@@ -113,7 +117,7 @@ export function saveTenant(tenant: TenantDocument): void {
     serverTenants[tenant.tenantId] = { ...tenant };
     return;
   }
-  const stored = localStorage.getItem(STORAGE_KEY_TENANTS);
+  const stored = safeLocalStorageGetItem(STORAGE_KEY_TENANTS);
   let tenants: Record<string, TenantDocument> = {};
   if (stored) {
     try {
@@ -123,7 +127,7 @@ export function saveTenant(tenant: TenantDocument): void {
     }
   }
   tenants[tenant.tenantId] = tenant;
-  localStorage.setItem(STORAGE_KEY_TENANTS, JSON.stringify(tenants));
+  safeLocalStorageSetItem(STORAGE_KEY_TENANTS, JSON.stringify(tenants));
 
   // Sync to Cloud Firestore
   try {
@@ -217,7 +221,7 @@ export function getTenantInvites(tenantId: string = DEFAULT_TENANT_ID): TeacherI
   if (typeof window === "undefined") {
     return serverInvites.filter((inv) => inv.tenantId === tenantId);
   }
-  const stored = localStorage.getItem(STORAGE_KEY_INVITES);
+  const stored = safeLocalStorageGetItem(STORAGE_KEY_INVITES);
   if (stored) {
     try {
       const allInvites: TeacherInviteDocument[] = JSON.parse(stored);
@@ -239,7 +243,7 @@ export function saveTenantInvites(invites: TeacherInviteDocument[]): void {
     serverInvites = [...invites];
     return;
   }
-  localStorage.setItem(STORAGE_KEY_INVITES, JSON.stringify(invites));
+  safeLocalStorageSetItem(STORAGE_KEY_INVITES, JSON.stringify(invites));
 }
 
 export interface InviteTeacherPayload {

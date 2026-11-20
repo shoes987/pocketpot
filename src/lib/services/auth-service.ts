@@ -9,6 +9,10 @@
  */
 
 import { UserDocument, UserRole } from "../firebase/types";
+import {
+  safeLocalStorageSetItem,
+  safeLocalStorageGetItem,
+} from "./storage-helper";
 
 const STORAGE_KEY_STAFF_USERS = "pocketpot_staff_users_v1";
 const STORAGE_KEY_CURRENT_STAFF_ID = "pocketpot_current_staff_id_v1";
@@ -46,7 +50,7 @@ let serverStaffUsers: UserDocument[] = [...DEFAULT_STAFF_USERS];
  */
 export function getStaffUsers(): UserDocument[] {
   if (typeof window === "undefined") return [...serverStaffUsers];
-  const stored = localStorage.getItem(STORAGE_KEY_STAFF_USERS);
+  const stored = safeLocalStorageGetItem(STORAGE_KEY_STAFF_USERS);
   if (stored) {
     try {
       const parsed: UserDocument[] = JSON.parse(stored);
@@ -81,7 +85,7 @@ export function saveStaffUsers(users: UserDocument[]): void {
     serverStaffUsers = [...users];
     return;
   }
-  localStorage.setItem(STORAGE_KEY_STAFF_USERS, JSON.stringify(users));
+  safeLocalStorageSetItem(STORAGE_KEY_STAFF_USERS, JSON.stringify(users));
 }
 
 /**
@@ -92,7 +96,7 @@ export function getCurrentStaffUser(): UserDocument {
   const staff = getStaffUsers();
   if (typeof window === "undefined") return staff[0];
 
-  const currentId = localStorage.getItem(STORAGE_KEY_CURRENT_STAFF_ID);
+  const currentId = safeLocalStorageGetItem(STORAGE_KEY_CURRENT_STAFF_ID);
   if (currentId) {
     const found = staff.find((u) => u.userId === currentId);
     if (found) return found;
@@ -110,7 +114,7 @@ export function setCurrentStaffUser(userId: string): UserDocument {
   const staff = getStaffUsers();
   const target = staff.find((u) => u.userId === userId) || staff[0];
   if (typeof window !== "undefined") {
-    localStorage.setItem(STORAGE_KEY_CURRENT_STAFF_ID, target.userId);
+    safeLocalStorageSetItem(STORAGE_KEY_CURRENT_STAFF_ID, target.userId);
   }
   return target;
 }
@@ -138,7 +142,7 @@ export function getCurrentTeacherUser(): UserDocument {
   const teachers = getTeachersOnly();
   if (typeof window === "undefined") return teachers[0];
 
-  const currentId = localStorage.getItem("pocketpot_current_teacher_id_v1");
+  const currentId = safeLocalStorageGetItem("pocketpot_current_teacher_id_v1");
   if (currentId) {
     const found = teachers.find((u) => u.userId === currentId);
     if (found) return found;
@@ -154,7 +158,7 @@ export function setCurrentTeacherUser(userId: string): UserDocument {
   const teachers = getTeachersOnly();
   const target = teachers.find((u) => u.userId === userId) || teachers[0];
   if (typeof window !== "undefined") {
-    localStorage.setItem("pocketpot_current_teacher_id_v1", target.userId);
+    safeLocalStorageSetItem("pocketpot_current_teacher_id_v1", target.userId);
   }
   return target;
 }

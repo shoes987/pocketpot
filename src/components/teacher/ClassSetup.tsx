@@ -101,6 +101,8 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
   const [isSingleAddOpen, setIsSingleAddOpen] = useState(false);
   const [isCsvUploadOpen, setIsCsvUploadOpen] = useState(false);
   const [isCreateClassModalOpen, setIsCreateClassModalOpen] = useState(false);
+  const [isEnrollSuccessModalOpen, setIsEnrollSuccessModalOpen] = useState(false);
+  const [enrolledSuccessCount, setEnrolledSuccessCount] = useState<number>(0);
 
   // Print Debit Cards Modal state (Requirement 2 & 3)
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
@@ -703,7 +705,7 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
             </div>
 
             {/* 5. ENROLLED STUDENT ACCOUNTS / CLASS SETUP AND LIST */}
-            <div className="space-y-4 text-left">
+            <div id="class-list-section" className="space-y-4 text-left">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left">
                 <div>
                   <h4 className="text-lg font-extrabold text-primaryText text-left">
@@ -1198,9 +1200,10 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
         onClose={() => setIsSingleAddOpen(false)}
         onPupilAdded={(newPupil) => {
           setPupils((prev) => [newPupil, ...prev.filter((p) => p.pupilId !== newPupil.pupilId)]);
+          setClasses(getSavedClasses());
           onPupilsChanged?.();
-          setActionSuccessMessage(`Student ${getPupilDisplayName(newPupil, activeClass)} enrolled!`);
-          setTimeout(() => setActionSuccessMessage(null), 4000);
+          setEnrolledSuccessCount(1);
+          setIsEnrollSuccessModalOpen(true);
         }}
       />
 
@@ -1208,17 +1211,70 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
       <CsvClasslistUploadModal
         isOpen={isCsvUploadOpen}
         activeClass={activeClass}
+        classes={classes}
         onClose={() => setIsCsvUploadOpen(false)}
         onPupilsEnrolled={(newPupils) => {
           setPupils((prev) => {
             const newIds = new Set(newPupils.map((p) => p.pupilId));
             return [...newPupils, ...prev.filter((p) => !newIds.has(p.pupilId))];
           });
+          setClasses(getSavedClasses());
           onPupilsChanged?.();
-          setActionSuccessMessage(`${newPupils.length} students enrolled via CSV!`);
-          setTimeout(() => setActionSuccessMessage(null), 4000);
+          setEnrolledSuccessCount(newPupils.length);
+          setIsEnrollSuccessModalOpen(true);
         }}
       />
+
+      {/* 5B. PUPILS ADDED CONFIRMATION POP-UP MODAL */}
+      {isEnrollSuccessModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="pupils-added-heading"
+          className="fixed inset-0 z-50 bg-primaryText/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200"
+        >
+          <div className="bg-surface rounded-3xl border border-borderMuted shadow-2xl p-6 sm:p-8 space-y-5 text-center max-w-md w-full animate-in zoom-in-95 duration-200 font-lexend">
+            <div className="w-16 h-16 rounded-2xl bg-tealSurface text-brandPrimary border border-brandPrimary/30 mx-auto flex items-center justify-center text-3xl shadow-xs">
+              🎉
+            </div>
+
+            <div className="space-y-2">
+              <h3 id="pupils-added-heading" className="text-xl font-black text-primaryText">
+                Your pupils have been added
+              </h3>
+              <p className="text-xs text-primaryText/70 leading-relaxed">
+                {enrolledSuccessCount > 1
+                  ? `${enrolledSuccessCount} pupils have been successfully added to ${activeClass?.className || "your class"}. Their debit cards and savings pots are ready.`
+                  : `Your pupils have been successfully added to ${activeClass?.className || "your class"}. Their debit cards and savings pots are ready.`}
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEnrollSuccessModalOpen(false);
+                  const el = document.getElementById("class-list-section");
+                  if (el) {
+                    el.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }
+                }}
+                className="w-full sm:w-auto px-6 py-2.5 rounded-full bg-brandPrimary hover:bg-teal-700 text-white font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <Users className="w-4 h-4" />
+                <span>Go to class</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsEnrollSuccessModalOpen(false)}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-full border border-borderMuted hover:bg-canvas text-primaryText font-bold text-xs transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 6. PRINT CLASS DEBIT CARDS MODAL (Requirement 2 & 3) */}
       <PrintPupilCardsModal

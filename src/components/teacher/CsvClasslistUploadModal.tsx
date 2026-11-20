@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   ShieldCheck,
   Upload,
@@ -56,6 +56,16 @@ export function CsvClasslistUploadModal({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setIsProcessing(false);
+      setAuditResult(null);
+      setPupilRows([]);
+      setCustomCsvText("");
+      setErrorMessage(null);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -234,12 +244,21 @@ export function CsvClasslistUploadModal({
       }));
 
       const result = enrollMultiClassPupils(enrollments, anonymize, availableClasses);
-      await savePupilsBatchToFirestore(result.allPupils);
+
+      // Background Firestore sync to avoid blocking UI on network latency/quota
+      savePupilsBatchToFirestore(result.allPupils).catch((err) => {
+        console.warn("Background Firestore sync warning:", err);
+      });
+
+      setIsProcessing(false);
+      setAuditResult(null);
+      setPupilRows([]);
+      setCustomCsvText("");
       onPupilsEnrolled(result.allPupils);
       onClose();
     } catch (err: unknown) {
       console.error("Enrollment error:", err);
-      setErrorMessage(err instanceof Error ? err.message : "Failed to enroll pupils.");
+      setErrorMessage(err instanceof Error ? err.message : "Failed to enrol pupils.");
       setIsProcessing(false);
     }
   };
@@ -671,8 +690,8 @@ export function CsvClasslistUploadModal({
               <Check className="w-4 h-4 shrink-0" />
               <span className="truncate sm:whitespace-normal">
                 {isProcessing
-                  ? "Enrolling Students..."
-                  : `Confirm & Enroll ${pupilRows.length} Pupils`}
+                  ? "Enrolling Pupils..."
+                  : `Confirm & Enrol ${pupilRows.length} Pupils`}
               </span>
             </button>
           )}
