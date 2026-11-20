@@ -233,8 +233,8 @@ export default function PupilLoginPage() {
         savePupils([...currentPupils, matchedPupil]);
       }
 
-      // Route directly to the pupil dashboard
-      router.push(`/pupil/${matchedPupil.pupilId}`);
+      // Route directly to the pupil dashboard card
+      router.push("/pupil/card/");
     } catch {
       setErrorMessage("Let's puzzle this out together! Check your desk card code and PIN.");
       setIsLoading(false);
@@ -305,7 +305,7 @@ export default function PupilLoginPage() {
 
               <button
                 type="button"
-                onClick={() => router.push(`/pupil/${activeSession.pupilId}`)}
+                onClick={() => router.push("/pupil/card/")}
                 className="px-4 py-2 rounded-xl bg-brandPrimary hover:bg-teal-700 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all active:scale-95 shrink-0"
               >
                 <span>Continue</span>

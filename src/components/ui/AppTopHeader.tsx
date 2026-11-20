@@ -34,7 +34,9 @@ export const AppTopHeader: React.FC<AppTopHeaderProps> = ({
   const resolvedMainLink =
     mainLinkHref ||
     (role === "pupil"
-      ? `/pupil/${pupilId || "pupil-1"}`
+      ? (pupilId && pupilId !== "pupil-1" && pupilId !== "anonymous"
+          ? `/pupil/card/?pupilId=${encodeURIComponent(pupilId)}`
+          : "/pupil/card/")
       : role === "teacher"
       ? "/teacher"
       : "/admin");

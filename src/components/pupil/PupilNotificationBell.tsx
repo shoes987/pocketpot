@@ -308,7 +308,11 @@ export const PupilNotificationBell: React.FC<PupilNotificationBellProps> = ({
               </button>
             ) : (
               <Link
-                href={`/pupil/${pupilId}/jobs`}
+                href={
+                  pupilId && pupilId !== "anonymous"
+                    ? `/pupil/jobs/?pupilId=${encodeURIComponent(pupilId)}`
+                    : "/pupil/jobs/"
+                }
                 onClick={() => setIsOpen(false)}
                 className="w-full py-2 px-3 rounded-xl bg-surface hover:bg-tealSurface text-brandPrimary border border-borderMuted text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs"
               >

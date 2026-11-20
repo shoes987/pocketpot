@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   getPupilById,
   getPotsForPupil,
@@ -14,34 +14,44 @@ import { PupilMarketplace } from "@/components/pupil/PupilMarketplace";
 import { PupilBottomNav } from "@/components/ui/PupilBottomNav";
 import { PupilNotificationBell } from "@/components/pupil/PupilNotificationBell";
 import { AppTopHeader } from "@/components/ui/AppTopHeader";
-import { Sparkles, ShieldCheck, ArrowLeft, ShoppingBag } from "lucide-react";
+import { Sparkles } from "lucide-react";
 
-export default function PupilMarketplacePage() {
+function PupilMarketplaceContent() {
   const router = useRouter();
-  const routeParams = useParams();
-  const pupilId: string = typeof routeParams?.pupilId === "string" ? routeParams.pupilId : "";
+  const searchParams = useSearchParams();
+  const queryPupilId = searchParams.get("pupilId");
 
+  const [activeId, setActiveId] = useState<string>("");
   const [pupil, setPupil] = useState<PupilDocument | null>(null);
   const [pots, setPots] = useState<SavingsPotDocument[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Resolve active pupil ID from query param or session storage
   useEffect(() => {
-    // Cross-pupil isolation guard: enforce that logged-in PIN session matches pupilId
-    try {
-      const activePupilId = localStorage.getItem("pocketpot_active_pupil_id");
-      if (activePupilId && pupilId && activePupilId !== pupilId) {
-        router.replace(`/pupil/${activePupilId}/marketplace`);
-        return;
+    let resolvedId = queryPupilId?.trim();
+    if (!resolvedId) {
+      try {
+        resolvedId = localStorage.getItem("pocketpot_active_pupil_id") || "";
+      } catch {
+        // Ignore storage error
       }
-    } catch {
-      // Ignore storage error
     }
 
-    const activeId = pupilId.trim() || crypto.randomUUID();
-    const foundPupil = pupilId.trim() ? getPupilById(pupilId.trim()) : null;
-    const targetRealId = foundPupil?.pupilId || activeId;
+    if (!resolvedId) {
+      router.replace("/pupil");
+      return;
+    }
 
+    setActiveId(resolvedId);
+  }, [queryPupilId, router]);
+
+  useEffect(() => {
+    if (!activeId) return;
+
+    let targetRealId = activeId;
+    const foundPupil = getPupilById(activeId);
     if (foundPupil) {
+      targetRealId = foundPupil.pupilId;
       setPupil(foundPupil);
       setPots(getPotsForPupil(foundPupil.pupilId));
       setLoading(false);
@@ -62,7 +72,7 @@ export default function PupilMarketplacePage() {
       unsubPupil();
       unsubPots();
     };
-  }, [pupilId]);
+  }, [activeId]);
 
   if (loading) {
     return (
@@ -100,21 +110,22 @@ export default function PupilMarketplacePage() {
   }
 
   const displayName = getPupilDisplayName(pupil);
+  const safePupilId = pupil.pupilId || activeId || "anonymous";
 
   return (
     <div className="min-h-screen bg-canvas text-primaryText font-lexend text-left flex flex-col">
       {/* 1. TRUE FULL-WIDTH STICKY TOP HEADER IN TEAL */}
       <AppTopHeader
         role="pupil"
-        pupilId={pupil.pupilId}
+        pupilId={safePupilId}
         userName={displayName}
         badgeNumber={pupil.deskBadgeNumber}
-        notificationBell={<PupilNotificationBell pupilId={pupil.pupilId} inverted={true} />}
+        notificationBell={<PupilNotificationBell pupilId={safePupilId} inverted={true} />}
       />
 
       <main className="flex-1 w-full max-w-5xl mx-auto p-4 sm:p-6 md:p-8 pb-56 sm:pb-64 md:pb-72 text-left">
         {/* Pupil Marketplace Component */}
-        <PupilMarketplace pupilId={pupil.pupilId} />
+        <PupilMarketplace pupilId={safePupilId} />
 
         {/* Extra spacer to guarantee a generous gap above the fixed bottom navigation */}
         <div className="h-10 sm:h-14 w-full" aria-hidden="true" />
@@ -122,10 +133,27 @@ export default function PupilMarketplacePage() {
 
       {/* Pupil Bottom Navigation */}
       <PupilBottomNav
-        pupilId={pupil.pupilId}
+        pupilId={safePupilId}
         activeTab="marketplace"
         potsCount={pots.length}
       />
     </div>
+  );
+}
+
+export default function PupilMarketplacePage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-canvas text-primaryText p-8 flex items-center justify-center font-lexend text-left">
+          <div className="bg-surface rounded-pot p-8 border border-borderMuted shadow-islandCard space-y-3 text-left">
+            <Sparkles className="w-8 h-8 text-brandPrimary animate-spin" />
+            <h2 className="text-xl font-bold text-primaryText">Opening Classroom Market...</h2>
+          </div>
+        </main>
+      }
+    >
+      <PupilMarketplaceContent />
+    </Suspense>
   );
 }

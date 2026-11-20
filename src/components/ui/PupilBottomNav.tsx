@@ -24,6 +24,12 @@ export const PupilBottomNav: React.FC<PupilBottomNavProps> = ({
   const isJobs = activeTab === "jobs";
   const isMarketplace = activeTab === "marketplace";
 
+  const hasParam = pupilId && pupilId !== "anonymous";
+  const cardHref = hasParam ? `/pupil/card/?pupilId=${encodeURIComponent(pupilId)}` : "/pupil/card/";
+  const potsHref = hasParam ? `/pupil/pots/?pupilId=${encodeURIComponent(pupilId)}` : "/pupil/pots/";
+  const jobsHref = hasParam ? `/pupil/jobs/?pupilId=${encodeURIComponent(pupilId)}` : "/pupil/jobs/";
+  const marketplaceHref = hasParam ? `/pupil/marketplace/?pupilId=${encodeURIComponent(pupilId)}` : "/pupil/marketplace/";
+
   return (
     <nav
       role="navigation"
@@ -33,7 +39,7 @@ export const PupilBottomNav: React.FC<PupilBottomNavProps> = ({
       <div className="max-w-xl mx-auto px-3 sm:px-4 py-2 flex items-center justify-around gap-1.5 sm:gap-3">
         {/* Tab 1: My Card & Account */}
         <Link
-          href={`/pupil/${pupilId}`}
+          href={cardHref}
           className={`flex-1 flex flex-col items-center justify-center py-2 px-2.5 rounded-island transition-all focus-visible:outline focus-visible:outline-3 focus-visible:outline-focusIndicator ${
             isCard
               ? "bg-tealSurface text-brandPrimary font-bold shadow-xs"
@@ -54,7 +60,7 @@ export const PupilBottomNav: React.FC<PupilBottomNavProps> = ({
 
         {/* Tab 2: Savings Pots */}
         <Link
-          href={`/pupil/${pupilId}/pots`}
+          href={potsHref}
           className={`flex-1 flex flex-col items-center justify-center py-2 px-2.5 rounded-island transition-all focus-visible:outline focus-visible:outline-3 focus-visible:outline-focusIndicator ${
             isPots
               ? "bg-amberSurface text-brandSecondary font-bold shadow-xs"
@@ -86,7 +92,7 @@ export const PupilBottomNav: React.FC<PupilBottomNavProps> = ({
 
         {/* Tab 3: Jobs Board */}
         <Link
-          href={`/pupil/${pupilId}/jobs`}
+          href={jobsHref}
           className={`flex-1 flex flex-col items-center justify-center py-2 px-2.5 rounded-island transition-all focus-visible:outline focus-visible:outline-3 focus-visible:outline-focusIndicator ${
             isJobs
               ? "bg-tealSurface text-brandPrimary font-bold shadow-xs"
@@ -112,7 +118,7 @@ export const PupilBottomNav: React.FC<PupilBottomNavProps> = ({
 
         {/* Tab 4: Classroom Market & Rewards */}
         <Link
-          href={`/pupil/${pupilId}/marketplace`}
+          href={marketplaceHref}
           className={`flex-1 flex flex-col items-center justify-center py-2 px-2.5 rounded-island transition-all focus-visible:outline focus-visible:outline-3 focus-visible:outline-focusIndicator ${
             isMarketplace
               ? "bg-tealSurface text-brandPrimary font-bold shadow-xs"

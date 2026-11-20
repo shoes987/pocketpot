@@ -81,7 +81,7 @@ export const PupilInspectModal: React.FC<PupilInspectModalProps> = ({
           </div>
 
           <a
-            href={`/pupil/${pupil.pupilId}`}
+            href={`/pupil/card/?pupilId=${encodeURIComponent(pupil.pupilId)}`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-xs font-bold text-brandPrimary hover:underline text-left"

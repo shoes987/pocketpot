@@ -39,6 +39,7 @@ interface PupilMarketplaceProps {
 }
 
 export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) => {
+  const potsHref = pupilId && pupilId !== "anonymous" ? `/pupil/pots/?pupilId=${encodeURIComponent(pupilId)}` : "/pupil/pots/";
   const [pupil, setPupil] = useState<PupilDocument | null>(null);
   const [rewards, setRewards] = useState<MarketplaceRewardDocument[]>([]);
   const [myPurchases, setMyPurchases] = useState<MarketplacePurchaseDocument[]>([]);
@@ -239,7 +240,7 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
               </p>
             </div>
             <Link
-              href={`/pupil/${pupilId}/pots`}
+              href={potsHref}
               className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-full bg-tealSurface text-brandPrimary hover:bg-brandPrimary hover:text-white font-bold text-xs shrink-0 transition-colors border border-brandPrimary/20 self-end sm:self-center"
             >
               <span>View My Pots</span>
@@ -275,7 +276,7 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
               </p>
             </div>
             <Link
-              href={`/pupil/${pupilId}/pots`}
+              href={potsHref}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-tealSurface text-brandPrimary font-bold text-xs hover:bg-tealSurface/80 transition-colors"
             >
               <Layers className="w-4 h-4" />
@@ -432,7 +433,7 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
                         <>
                           {existingPot ? (
                             <Link
-                              href={`/pupil/${pupilId}/pots`}
+                              href={potsHref}
                               className="w-full py-2.5 px-4 rounded-xl bg-amberSurface hover:bg-amberSurface/80 text-brandSecondary border border-brandSecondary/30 font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-all"
                             >
                               <Layers className="w-4 h-4 text-brandSecondary" />
@@ -630,7 +631,7 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
 
             <div className="space-y-2 pt-2">
               <Link
-                href={`/pupil/${pupilId}/pots`}
+                href={potsHref}
                 className="w-full py-3 px-4 rounded-xl bg-brandPrimary hover:bg-teal-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-all"
               >
                 <Layers className="w-4 h-4" />
