@@ -23,6 +23,7 @@ import {
   getSavedClassesForUser,
   getSavedPots,
   getDeletedPupilIds,
+  getDeletedClassIds,
   purgeLegacyMockStorage,
   autoReconcileAllClassesWeeklyIncome,
   BALANCE_SYNC_EVENT,
@@ -135,11 +136,23 @@ export default function TeacherPortalPage() {
 
     // Real-time Firestore onSnapshot listeners with local offline/quota fallback
     const unsubClasses = subscribeToClasses((liveClasses) => {
-      if (liveClasses && liveClasses.length > 0) {
-        setClasses(liveClasses);
-        cacheClassesLocally(liveClasses);
+      const deletedClassIds = getDeletedClassIds();
+      const activeClasses = (liveClasses || []).filter(
+        (c) =>
+          !deletedClassIds.has(c.classId) &&
+          !deletedClassIds.has((c as any).id) &&
+          !deletedClassIds.has(c.className?.trim().toLowerCase() || "")
+      );
+      if (activeClasses && activeClasses.length > 0) {
+        setClasses(activeClasses);
+        cacheClassesLocally(activeClasses);
       } else {
-        const local = getSavedClasses();
+        const local = getSavedClasses().filter(
+          (c) =>
+            !deletedClassIds.has(c.classId) &&
+            !deletedClassIds.has((c as any).id) &&
+            !deletedClassIds.has(c.className?.trim().toLowerCase() || "")
+        );
         if (local.length > 0) setClasses(local);
       }
     });

@@ -222,7 +222,7 @@ export function SchoolOverviewDashboard({
     if (!deletingClass) return;
     try {
       setIsDeleting(true);
-      deleteClass(deletingClass.classId);
+      deleteClass(deletingClass.classId, classes);
       showToast(`Class "${deletingClass.className}" has been permanently deleted.`);
       setDeletingClass(null);
       setIsDeleting(false);

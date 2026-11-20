@@ -18,6 +18,7 @@ import {
   getNextScheduledPayoutTime,
   getSavedClassesForUser,
   resetPupilPin,
+  getDeletedClassIds,
   BALANCE_SYNC_EVENT,
 } from "@/lib/services/class-service";
 import { getCurrentTeacherUser } from "@/lib/services/auth-service";
@@ -246,10 +247,17 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
     let unsubClasses = () => {};
     if (propsClasses === undefined) {
       unsubClasses = subscribeToClasses((liveClasses) => {
+        const deletedClassIds = getDeletedClassIds();
+        const activeLiveClasses = (liveClasses || []).filter(
+          (c) =>
+            !deletedClassIds.has(c.classId) &&
+            !deletedClassIds.has((c as any).id) &&
+            !deletedClassIds.has(c.className?.trim().toLowerCase() || "")
+        );
         const currentTeacher = getCurrentTeacherUser();
         const filtered = isAdmin
-          ? liveClasses
-          : liveClasses.filter((c) => {
+          ? activeLiveClasses
+          : activeLiveClasses.filter((c) => {
               if (currentTeacher?.role === "admin") return true;
               return (
                 c.teacherId === currentTeacher?.userId ||
@@ -443,8 +451,12 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
     const targetClassId = activeClass.classId;
     const targetClassName = activeClass.className;
     try {
-      deleteClass(targetClassId);
-      const remainingClasses = classes.filter((c) => c.classId !== targetClassId);
+      deleteClass(targetClassId, classes);
+      const remainingClasses = classes.filter(
+        (c) =>
+          c.classId !== targetClassId &&
+          c.className?.trim().toLowerCase() !== targetClassName?.trim().toLowerCase()
+      );
       setClasses(remainingClasses);
       setPupils((prev) => prev.filter((p) => p.classId !== targetClassId));
       setPots((prev) => prev.filter((p) => p.classId !== targetClassId));
@@ -458,6 +470,8 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
       );
       setTimeout(() => setActionSuccessMessage(null), 4000);
       setIsDeletingClass(false);
+      onPupilsChanged?.();
+      onClassesChanged?.();
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : "Failed to delete class.");
     }

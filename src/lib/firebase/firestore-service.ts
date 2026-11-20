@@ -188,6 +188,21 @@ export async function deleteClassFromFirestore(classId: string): Promise<void> {
   }
 }
 
+export async function deleteClassByNameFromFirestore(className: string): Promise<void> {
+  if (!db || !className) return;
+  try {
+    const q = query(collection(db, "classes"), where("className", "==", className));
+    const snap = await getDocs(q);
+    const promises: Promise<void>[] = [];
+    snap.forEach((d) => {
+      promises.push(deleteDoc(d.ref));
+    });
+    await Promise.all(promises);
+  } catch (err) {
+    console.warn("deleteClassByNameFromFirestore warning:", err);
+  }
+}
+
 export function subscribeToClasses(
   callback: (classes: ClassDocument[]) => void,
   tenantId?: string

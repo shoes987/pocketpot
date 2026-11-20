@@ -35,6 +35,7 @@ import { recordClassTeacherInvitation } from "./tenant-service";
 import {
   saveClassToFirestore,
   deleteClassFromFirestore,
+  deleteClassByNameFromFirestore,
   savePupilsBatchToFirestore,
   updatePupilBalanceInFirestore,
   deletePupilFromFirestore,
@@ -63,6 +64,7 @@ const STORAGE_KEY_PUPILS = "pocketpot_pupils_v1";
 const STORAGE_KEY_POTS = "pocketpot_pots_v1";
 const STORAGE_KEY_TRANSACTIONS = "pocketpot_transactions_v1";
 const STORAGE_KEY_DELETED_PUPILS = "pocketpot_deleted_pupils_v1";
+const STORAGE_KEY_DELETED_CLASSES = "pocketpot_deleted_classes_v1";
 
 /**
  * Retrieve set of permanently deleted pupil IDs to prevent synthetic resurrection.
@@ -90,6 +92,38 @@ export function recordDeletedPupil(pupilId: string): void {
     const set = getDeletedPupilIds();
     set.add(pupilId);
     safeLocalStorageSetItem(STORAGE_KEY_DELETED_PUPILS, JSON.stringify(Array.from(set)));
+  } catch {
+    // fallback
+  }
+}
+
+/**
+ * Retrieve set of permanently deleted class IDs / names to prevent synthetic resurrection.
+ */
+export function getDeletedClassIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = safeLocalStorageGetItem(STORAGE_KEY_DELETED_CLASSES);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return new Set(parsed);
+    }
+  } catch {
+    // fallback
+  }
+  return new Set();
+}
+
+/**
+ * Mark a class ID or name as permanently deleted in local persistence.
+ */
+export function recordDeletedClass(classIdOrName: string): void {
+  if (typeof window === "undefined" || !classIdOrName) return;
+  try {
+    const set = getDeletedClassIds();
+    set.add(classIdOrName);
+    set.add(classIdOrName.trim().toLowerCase());
+    safeLocalStorageSetItem(STORAGE_KEY_DELETED_CLASSES, JSON.stringify(Array.from(set)));
   } catch {
     // fallback
   }
@@ -226,11 +260,12 @@ function deduplicatePots(list: SavingsPotDocument[]): SavingsPotDocument[] {
  */
 export function getSavedClasses(): ClassDocument[] {
   if (typeof window === "undefined") return [];
+  const deleted = getDeletedClassIds();
   const stored = safeLocalStorageGetItem(STORAGE_KEY_CLASSES);
-  if (stored) {
+  if (stored !== null && stored !== undefined) {
     try {
       const parsed: ClassDocument[] = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         // Auto-purge if legacy mock classes detected (e.g. Year 3 Hazel, st-marys-primary)
         const hasLegacy = parsed.some(
           (c) =>
@@ -245,11 +280,23 @@ export function getSavedClasses(): ClassDocument[] {
         }
 
         const unique = deduplicateClasses(parsed);
-        if (unique.length !== parsed.length) {
-          safeLocalStorageSetItem(STORAGE_KEY_CLASSES, JSON.stringify(unique));
+        const nonDeleted = unique.filter(
+          (c) =>
+            !deleted.has(c.classId) &&
+            !deleted.has((c as any).id) &&
+            !deleted.has(c.className?.trim().toLowerCase() || "")
+        );
+        if (nonDeleted.length !== parsed.length) {
+          safeLocalStorageSetItem(STORAGE_KEY_CLASSES, JSON.stringify(nonDeleted));
         }
+
+        // If storage was intentionally empty or all classes were deleted, honor empty state!
+        if (nonDeleted.length === 0 && (parsed.length === 0 || deleted.size > 0)) {
+          return [];
+        }
+
         // Ensure existing classes have opening balance and weekly income defaults
-        return unique.map((c) => {
+        return nonDeleted.map((c) => {
           const validLead =
             c.leadTeacherId && c.leadTeacherId !== "teacher-oak-lead"
               ? c.leadTeacherId
@@ -277,6 +324,16 @@ export function getSavedClasses(): ClassDocument[] {
     } catch {
       // Fallback
     }
+  }
+
+  // Do not reseed if default pilot class was permanently deleted by user
+  if (
+    deleted.has("cls_year_4_oak") ||
+    deleted.has("year 4 oak") ||
+    deleted.has("Year 4 Oak") ||
+    deleted.has("class-3d8314be")
+  ) {
+    return [];
   }
 
   const defaultPilotClasses: ClassDocument[] = [
@@ -355,7 +412,14 @@ export function assignTeachersToClass(
 
 export function cacheClassesLocally(classes: ClassDocument[]): void {
   if (typeof window === "undefined") return;
-  const unique = deduplicateClasses(classes);
+  const deleted = getDeletedClassIds();
+  const nonDeleted = classes.filter(
+    (c) =>
+      !deleted.has(c.classId) &&
+      !deleted.has((c as any).id) &&
+      !deleted.has(c.className?.trim().toLowerCase() || "")
+  );
+  const unique = deduplicateClasses(nonDeleted);
   safeLocalStorageSetItem(STORAGE_KEY_CLASSES, JSON.stringify(unique));
 }
 
@@ -1455,36 +1519,128 @@ export function enrollMultiClassPupils(
 /**
  * DELETE AN ENTIRE CLASS AND ALL ASSOCIATED PUPILS AND POTS
  */
-export function deleteClass(classId: string): { success: boolean; deletedClassId: string } {
+export function deleteClass(
+  classIdentifier: string,
+  classList?: ClassDocument[]
+): { success: boolean; deletedClassId: string } {
+  if (!classIdentifier) {
+    throw new Error("Class identifier is required.");
+  }
+
+  const normId = classIdentifier.trim();
+  const normLower = normId.toLowerCase();
+
+  // 1. Record tombstones immediately so snapshot listeners and local sync never resurrect this class
+  recordDeletedClass(normId);
+  recordDeletedClass(normLower);
+
   const classes = getSavedClasses();
-  const classIdx = classes.findIndex((c) => c.classId === classId);
-  if (classIdx === -1) throw new Error("Class not found");
+  const candidates = classList && classList.length > 0 ? [...classes, ...classList] : classes;
 
-  // Remove class
-  const updatedClasses = classes.filter((c) => c.classId !== classId);
+  // Find all matching class records (by classId, id, className, or classJoinCode)
+  const matches = candidates.filter(
+    (c) =>
+      c.classId === normId ||
+      (c as any).id === normId ||
+      (c.className && c.className.trim().toLowerCase() === normLower) ||
+      (c.classJoinCode && c.classJoinCode === normId)
+  );
+
+  const matchedIds = new Set<string>();
+  matches.forEach((m) => {
+    if (m.classId) matchedIds.add(m.classId);
+    if ((m as any).id) matchedIds.add((m as any).id);
+    if (m.className) {
+      recordDeletedClass(m.className.trim().toLowerCase());
+      recordDeletedClass(m.className.trim());
+      deleteClassByNameFromFirestore(m.className.trim()).catch(() => {});
+    }
+  });
+  matchedIds.add(normId);
+
+  // Tombstone all matched IDs and delete from Firestore
+  matchedIds.forEach((id) => {
+    recordDeletedClass(id);
+    try {
+      deleteClassFromFirestore(id);
+    } catch (err) {
+      console.warn("deleteClassFromFirestore warning:", err);
+    }
+  });
+
+  // Remove matching classes from local storage
+  const updatedClasses = classes.filter(
+    (c) =>
+      !matchedIds.has(c.classId) &&
+      !matchedIds.has((c as any).id) &&
+      (!c.className || c.className.trim().toLowerCase() !== normLower)
+  );
   saveClasses(updatedClasses);
-  deleteClassFromFirestore(classId);
 
-  // Find all pupils in this class
+  // Find and remove all pupils belonging to this class
   const pupils = getSavedPupils();
-  const classPupils = pupils.filter((p) => p.classId === classId);
+  const classPupils = pupils.filter(
+    (p) =>
+      matchedIds.has(p.classId) ||
+      (p.classId && p.classId.toLowerCase() === normLower) ||
+      (matches.some((m) => m.className && p.classId === m.className))
+  );
   const classPupilIds = new Set(classPupils.map((p) => p.pupilId));
 
-  // Remove pupils in this class
-  const updatedPupils = pupils.filter((p) => p.classId !== classId);
+  classPupils.forEach((p) => {
+    recordDeletedPupil(p.pupilId);
+    try {
+      deletePupilFromFirestore(p.pupilId);
+    } catch {
+      // ignore
+    }
+  });
+
+  const updatedPupils = pupils.filter(
+    (p) => !matchedIds.has(p.classId) && !classPupilIds.has(p.pupilId)
+  );
   savePupils(updatedPupils);
 
-  // Remove all pots for this class or these pupils
+  // Clean up pots for this class or these pupils
   const pots = getSavedPots();
-  const updatedPots = pots.filter((p) => p.classId !== classId && !classPupilIds.has(p.pupilId));
+  const classPots = pots.filter(
+    (p) =>
+      matchedIds.has(p.classId) ||
+      (p.classId && p.classId.toLowerCase() === normLower) ||
+      classPupilIds.has(p.pupilId)
+  );
+  classPots.forEach((pot) => {
+    try {
+      deletePotFromFirestore(pot.potId);
+    } catch {
+      // ignore
+    }
+  });
+  const updatedPots = pots.filter(
+    (p) =>
+      !matchedIds.has(p.classId) &&
+      (!p.classId || p.classId.toLowerCase() !== normLower) &&
+      !classPupilIds.has(p.pupilId)
+  );
   savePots(updatedPots);
 
-  // Remove transactions
+  // Clean up transactions
   const txs = getSavedTransactions();
-  const updatedTxs = txs.filter((t) => t.classId !== classId && !classPupilIds.has(t.pupilId));
+  const updatedTxs = txs.filter(
+    (t) =>
+      !matchedIds.has(t.classId) &&
+      (!t.classId || t.classId.toLowerCase() !== normLower) &&
+      !classPupilIds.has(t.pupilId)
+  );
   saveTransactions(updatedTxs);
 
-  return { success: true, deletedClassId: classId };
+  notifyBalanceSync();
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("pocketpot_classes_updated"));
+  }
+
+  const primaryDeletedId = matches.length > 0 ? matches[0].classId : normId;
+  return { success: true, deletedClassId: primaryDeletedId };
 }
 
 /**
