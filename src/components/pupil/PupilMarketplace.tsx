@@ -18,7 +18,7 @@ import {
 import { getPupilById, getPotsForPupil, getSavedPupils, BALANCE_SYNC_EVENT } from "@/lib/services/class-service";
 import { subscribeToRewards, subscribeToPupil } from "@/lib/firebase/firestore-service";
 import { formatCurrency } from "@/lib/firebase/zero-pii";
-import { PocketPotMascot } from "@/components/ui/PocketPotMascot";
+import { CoinBuddyMascot } from "@/components/ui/CoinBuddyMascot";
 import {
   ShoppingBag,
   Sparkles,
@@ -198,12 +198,12 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
 
       {/* 2. PEDAGOGICAL ENCOURAGEMENT: MASCOT SPEECH BUBBLE */}
       <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
-        {/* PocketPot Mascot Avatar */}
+        {/* Coin Buddy Mascot Avatar */}
         <div className="shrink-0 flex items-center justify-center pt-1">
-          <PocketPotMascot
+          <CoinBuddyMascot
             size="md"
             className="w-16 sm:w-20 drop-shadow-sm hover:scale-105 transition-transform duration-200 cursor-pointer"
-            ariaLabel="PocketPot seedling buddy giving a smart savings tip"
+            ariaLabel="PocketPot coin buddy giving a smart savings tip"
           />
         </div>
 

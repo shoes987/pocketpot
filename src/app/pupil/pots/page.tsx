@@ -27,7 +27,7 @@ import { PupilBottomNav } from "@/components/ui/PupilBottomNav";
 import { PupilNotificationBell } from "@/components/pupil/PupilNotificationBell";
 import { AppTopHeader } from "@/components/ui/AppTopHeader";
 import { PotGraphic } from "@/components/ui/PotGraphic";
-import { CoinBuddyMascot } from "@/components/ui/CoinBuddyMascot";
+import { PocketPotMascot } from "@/components/ui/PocketPotMascot";
 import { subscribeToPupil, subscribeToPots } from "@/lib/firebase/firestore-service";
 import {
   Plus,
@@ -257,14 +257,14 @@ function PupilPotsContent() {
       />
 
       <main className="flex-1 w-full max-w-5xl mx-auto p-4 md:p-8 pb-56 sm:pb-64 md:pb-72 space-y-6 text-left">
-        {/* 1.5 PEDAGOGICAL COIN BUDDY SPEECH BUBBLE */}
+        {/* 1.5 PEDAGOGICAL MASCOT SPEECH BUBBLE */}
         <section className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
-          {/* Thoughtful Coin Buddy Mascot */}
+          {/* Mascot */}
           <div className="shrink-0 flex items-center justify-center pt-1">
-            <CoinBuddyMascot
+            <PocketPotMascot
               size="md"
               className="w-20 sm:w-24 md:w-28 h-auto drop-shadow-sm hover:scale-105 transition-transform duration-200 cursor-pointer"
-              ariaLabel="PocketPot coin buddy explaining the purpose of savings pots"
+              ariaLabel="PocketPot seedling buddy explaining the purpose of savings pots"
             />
           </div>
 
