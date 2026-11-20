@@ -24,6 +24,7 @@ import {
   enrollBatchPupils,
   enrollMultiClassPupils,
   getSavedClasses,
+  saveClasses,
 } from "@/lib/services/class-service";
 import { savePupilsBatchToFirestore } from "@/lib/firebase/firestore-service";
 import { ClassDocument, PupilDocument } from "@/lib/firebase/types";
@@ -59,7 +60,7 @@ export function CsvClasslistUploadModal({
   if (!isOpen) return null;
 
   // Retrieve all configured classes for matching
-  const availableClasses = classes && classes.length > 0 ? classes : getSavedClasses();
+  const availableClasses = classes && classes.length > 0 ? classes : activeClass ? [activeClass] : getSavedClasses();
 
   const processCsvContent = (content: string, fileName: string) => {
     setErrorMessage(null);
@@ -191,36 +192,48 @@ export function CsvClasslistUploadModal({
       return;
     }
 
-    // Ensure 100% of rows have a valid target classId
-    const finalRows = pupilRows.map((r) => ({
-      ...r,
-      assignedClassId: r.assignedClassId || defaultClassId,
-    }));
+    // Ensure 100% of rows have a valid target classId mapped to an existing class
+    const finalRows = pupilRows.map((r) => {
+      const assigned = r.assignedClassId || defaultClassId;
+      const matched = availableClasses.find(
+        (c) => c.classId === assigned || (c as any).id === assigned || c.className === assigned
+      ) || availableClasses[0];
+      return {
+        ...r,
+        assignedClassId: matched ? matched.classId : assigned,
+      };
+    });
 
     // Group assigned pupils by class
     const finalBreakdown: Record<string, { className: string; pupils: ParsedCsvPupilRow[] }> = {};
     for (const row of finalRows) {
       const cId = row.assignedClassId || defaultClassId!;
-      if (!finalBreakdown[cId]) {
-        const cls = availableClasses.find((c) => c.classId === cId);
-        finalBreakdown[cId] = {
-          className: cls ? cls.className : cId,
+      const cls = availableClasses.find(
+        (c) => c.classId === cId || (c as any).id === cId || c.className === cId
+      ) || availableClasses[0];
+      const targetId = cls ? cls.classId : cId;
+      if (!finalBreakdown[targetId]) {
+        finalBreakdown[targetId] = {
+          className: cls ? cls.className : targetId,
           pupils: [],
         };
       }
-      finalBreakdown[cId].pupils.push(row);
+      finalBreakdown[targetId].pupils.push(row);
     }
 
     setIsProcessing(true);
     setErrorMessage(null);
 
     try {
+      // Synchronize available classes to localStorage
+      saveClasses(availableClasses);
+
       const enrollments = Object.entries(finalBreakdown).map(([classId, data]) => ({
         classId,
         pupilNames: data.pupils.map((p) => p.firstName),
       }));
 
-      const result = enrollMultiClassPupils(enrollments, anonymize);
+      const result = enrollMultiClassPupils(enrollments, anonymize, availableClasses);
       await savePupilsBatchToFirestore(result.allPupils);
       onPupilsEnrolled(result.allPupils);
       onClose();

@@ -16,6 +16,7 @@ import { CsvClasslistUploadModal } from "@/components/teacher/CsvClasslistUpload
 import {
   getSavedPupils,
   getSavedClasses,
+  saveClasses,
   getSavedClassesForUser,
   getSavedPots,
   purgeLegacyMockStorage,
@@ -131,6 +132,9 @@ export default function TeacherPortalPage() {
     // Real-time Firestore onSnapshot listeners
     const unsubClasses = subscribeToClasses((liveClasses) => {
       setClasses(liveClasses);
+      if (liveClasses && liveClasses.length > 0) {
+        saveClasses(liveClasses);
+      }
     });
 
     const unsubPupils = subscribeToPupils((livePupils) => {

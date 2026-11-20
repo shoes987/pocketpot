@@ -1220,14 +1220,22 @@ export function enrollBatchPupils(
   classId: string,
   pupilNames: string[],
   anonymize: boolean = true,
-  initialOpeningBalanceCents?: number
+  initialOpeningBalanceCents?: number,
+  classList?: ClassDocument[]
 ): PupilDocument[] {
-  const classes = getSavedClasses();
-  const cls = classes.find((c) => c.classId === classId);
-  if (!cls) throw new Error("Class not found");
+  const classes = classList && classList.length > 0 ? [...classList] : getSavedClasses();
+  let cls = classes.find(
+    (c) => c.classId === classId || (c as any).id === classId || c.className === classId
+  );
+  if (!cls && classes.length > 0) {
+    cls = classes[0];
+  }
+  if (!cls) throw new Error("No classrooms available. Please create a class first.");
+
+  const targetClassId = cls.classId;
 
   const existingPupils = getSavedPupils();
-  const classPupils = existingPupils.filter((p) => p.classId === classId);
+  const classPupils = existingPupils.filter((p) => p.classId === targetClassId);
   let badgeSeq = classPupils.length + 1;
 
   const openingBalanceCents =
@@ -1243,7 +1251,7 @@ export function enrollBatchPupils(
   const effectiveNames = pupilNames.length > 0 ? pupilNames : ["", "", "", ""];
 
   const effectiveAnonymize = anonymize ?? cls.anonymizeNames ?? true;
-  const existingClassPots = getSavedPots().filter((p) => p.classId === classId);
+  const existingClassPots = getSavedPots().filter((p) => p.classId === targetClassId);
   const distinctTemplates: Array<{ title: string; theme?: PotAccentTheme; targetAmountCents?: number; categoryLabel?: string }> = [];
   existingClassPots.forEach((p) => {
     if (!distinctTemplates.some((t) => t.title === p.title)) {
@@ -1258,13 +1266,13 @@ export function enrollBatchPupils(
 
   for (const name of effectiveNames) {
     const rawName = name.trim().length > 0 ? name.trim() : undefined;
-    const pupil = createAnonymousPupilProfile(classId, badgeSeq++, {
+    const pupil = createAnonymousPupilProfile(targetClassId, badgeSeq++, {
       localDisplayName: rawName,
       anonymize: effectiveAnonymize,
       initialBalanceCents: openingBalanceCents,
     });
 
-    const pots = distinctTemplates.length > 0 ? createStarterPots(pupil.pupilId, classId, distinctTemplates) : [];
+    const pots = distinctTemplates.length > 0 ? createStarterPots(pupil.pupilId, targetClassId, distinctTemplates) : [];
     pupil.activePotsCount = pots.length;
 
     assertZeroPII(pupil as unknown as Record<string, unknown>);
@@ -1274,7 +1282,7 @@ export function enrollBatchPupils(
     const openingTx: PotLedgerEntry = {
       transactionId: crypto.randomUUID(),
       pupilId: pupil.pupilId,
-      classId,
+      classId: targetClassId,
       title: "Account Opening Balance",
       deltaCents: openingBalanceCents,
       type: "reward",
@@ -1283,7 +1291,7 @@ export function enrollBatchPupils(
       timestamp: now,
     };
     newTxs.push(openingTx);
-    const starterTxs = createStarterTransactions(pupil.pupilId, classId);
+    const starterTxs = createStarterTransactions(pupil.pupilId, targetClassId);
     newTxs.push(...starterTxs);
   }
 
@@ -1292,7 +1300,7 @@ export function enrollBatchPupils(
   saveTransactions([...newTxs, ...getSavedTransactions()]);
 
   // Update Class Metrics
-  const classIdx = classes.findIndex((c) => c.classId === classId);
+  const classIdx = classes.findIndex((c) => c.classId === targetClassId);
   if (classIdx !== -1) {
     const updatedCls = { ...classes[classIdx] };
     updatedCls.pupilCount = (updatedCls.pupilCount || 0) + newPupils.length;
@@ -1306,6 +1314,11 @@ export function enrollBatchPupils(
     updatedCls.updatedAt = now;
     classes[classIdx] = updatedCls;
     saveClasses(classes);
+    saveClassToFirestore(updatedCls).catch((err) => console.warn("saveClassToFirestore warning:", err));
+  }
+
+  if (newPots.length > 0) {
+    savePotsBatchToFirestore(newPots).catch((err) => console.warn("savePotsBatchToFirestore warning:", err));
   }
 
   return newPupils;
@@ -1321,7 +1334,8 @@ export interface MultiClassEnrollmentItem {
  */
 export function enrollMultiClassPupils(
   enrollments: MultiClassEnrollmentItem[],
-  anonymize: boolean = true
+  anonymize: boolean = true,
+  classList?: ClassDocument[]
 ): { totalEnrolled: number; perClass: Record<string, number>; allPupils: PupilDocument[] } {
   let totalEnrolled = 0;
   const perClass: Record<string, number> = {};
@@ -1329,7 +1343,7 @@ export function enrollMultiClassPupils(
 
   for (const item of enrollments) {
     if (item.classId && item.pupilNames.length > 0) {
-      const enrolled = enrollBatchPupils(item.classId, item.pupilNames, anonymize);
+      const enrolled = enrollBatchPupils(item.classId, item.pupilNames, anonymize, undefined, classList);
       totalEnrolled += enrolled.length;
       perClass[item.classId] = enrolled.length;
       allPupils.push(...enrolled);
