@@ -73,8 +73,8 @@ export const AppTopHeader: React.FC<AppTopHeaderProps> = ({
             <PocketPotLogo variant="horizontal" size="md" inverted={true} />
           </Link>
 
-          {/* View Badge Tag - hidden for pupil view */}
-          {role !== "pupil" && (
+          {/* View Badge Tag - hidden for pupil and admin view */}
+          {role !== "pupil" && role !== "admin" && (
             <span className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-white/15 text-white/95 border border-white/20">
               {roleLabel}
             </span>
@@ -116,16 +116,19 @@ export const AppTopHeader: React.FC<AppTopHeaderProps> = ({
               <span className="text-xs sm:text-sm font-extrabold text-white truncate max-w-[120px] sm:max-w-[180px]">
                 {userName}
               </span>
-              <span className="text-[10px] text-teal-100/90 font-semibold truncate">
-                {userSubtitle ||
-                  (badgeNumber !== undefined
+              {userSubtitle ? (
+                <span className="text-[10px] text-teal-100/90 font-semibold truncate">
+                  {userSubtitle}
+                </span>
+              ) : role !== "admin" ? (
+                <span className="text-[10px] text-teal-100/90 font-semibold truncate">
+                  {badgeNumber !== undefined
                     ? `User No. ${badgeNumber}`
                     : role === "pupil"
                     ? "Learner"
-                    : role === "teacher"
-                    ? "Educator"
-                    : "Headteacher")}
-              </span>
+                    : "Educator"}
+                </span>
+              ) : null}
             </div>
           </div>
         </div>

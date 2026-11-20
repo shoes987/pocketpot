@@ -454,12 +454,9 @@ export function SchoolOverviewDashboard({
           <div className="flex items-center gap-2.5 text-left">
             <span className="w-3.5 h-3.5 rounded-full bg-brandPrimary inline-block shrink-0" />
             <h2 className="text-2xl sm:text-3xl font-extrabold text-primaryText tracking-tight">
-              Whole-School Governance &amp; Class Allocation
+              Teachers and Classes
             </h2>
           </div>
-          <p className="text-xs sm:text-sm text-primaryText/75 font-medium max-w-2xl leading-relaxed">
-            Multi-class oversight for Headteachers &amp; PSHE Leads &bull; Key Stage 2 (Years 3–6)
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 self-start md:self-center shrink-0">
@@ -518,7 +515,6 @@ export function SchoolOverviewDashboard({
             <strong className="text-2xl sm:text-3xl font-extrabold text-primaryText block" suppressHydrationWarning>
               {classes.length}
             </strong>
-            <span className="text-[11px] text-brandPrimary font-bold block">Across KS2 Cohort</span>
           </div>
         </div>
 
@@ -534,7 +530,6 @@ export function SchoolOverviewDashboard({
             <strong className="text-2xl sm:text-3xl font-extrabold text-primaryText block" suppressHydrationWarning>
               {totalEnrolledPupils}
             </strong>
-            <span className="text-[11px] text-positiveState font-bold block">100% Zero-PII Protected</span>
           </div>
         </div>
 
@@ -550,7 +545,6 @@ export function SchoolOverviewDashboard({
             <strong className="text-2xl sm:text-3xl font-extrabold text-brandSecondary block" suppressHydrationWarning>
               {formatCurrency(totalSchoolSavings)}
             </strong>
-            <span className="text-[11px] text-primaryText/60 font-bold block">Across all pupil pots</span>
           </div>
         </div>
 
@@ -566,7 +560,6 @@ export function SchoolOverviewDashboard({
             <strong className="text-2xl sm:text-3xl font-extrabold text-focusIndicator block" suppressHydrationWarning>
               {staffList.length}
             </strong>
-            <span className="text-[11px] text-positiveState font-bold block">Unlimited Capacity</span>
           </div>
         </div>
       </div>
@@ -575,7 +568,7 @@ export function SchoolOverviewDashboard({
       <section className="space-y-4 text-left">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-borderMuted/60 pb-3 gap-3 text-left">
           <div>
-            <h3 className="text-xl font-extrabold text-primaryText">Teaching Staff Directory</h3>
+            <h3 className="text-xl font-extrabold text-primaryText">Teachers</h3>
             <p className="text-xs text-primaryText/70 font-medium mt-0.5">
               Onboard educators, customize roles, and assign to one or multiple Key Stage 2 classrooms.
             </p>
@@ -590,54 +583,6 @@ export function SchoolOverviewDashboard({
               <UserPlus className="w-4 h-4" />
               <span>+ Add Teacher</span>
             </button>
-          </div>
-        </div>
-
-        {/* Multi-Tenant Domain Boundary Banner */}
-        <div className="p-4 rounded-2xl bg-canvas border border-borderMuted flex flex-col md:flex-row md:items-center justify-between gap-4 text-left">
-          <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-xl bg-tealSurface flex items-center justify-center text-brandPrimary shrink-0 mt-0.5">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div className="space-y-1.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-bold text-primaryText">
-                  Multi-Tenant School Boundary: {tenant.schoolName}
-                </span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-tealSurface text-brandPrimary font-bold border border-brandPrimary/30">
-                  URN: {tenant.schoolUrn}
-                </span>
-                {/* Read-Only Licensed Domain Informational Badge */}
-                <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 font-bold border border-emerald-300 shadow-2xs">
-                  <Lock className="w-3 h-3 text-emerald-600" />
-                  <span>Licensed Domain: {Array.from(new Set(tenant.allowedDomains.map((d) => d.startsWith("@") ? d : `@${d}`))).join(", ")}</span>
-                </span>
-              </div>
-              <p className="text-xs text-primaryText/70 font-medium leading-relaxed">
-                Staff Account Domain Safeguard: Only educators with authorized institutional emails (
-                <span className="font-bold text-brandPrimary">
-                  {Array.from(new Set(tenant.allowedDomains.map((d) => d.startsWith("@") ? d : `@${d}`))).join(", ")}
-                </span>
-                ) can be invited to this workspace. Consumer emails (@gmail.com, etc.) are strictly blocked.
-              </p>
-              <div className="flex items-center gap-1.5 text-[11px] text-primaryText/50 font-medium">
-                <Lock className="w-3 h-3 text-primaryText/40" />
-                <span>Domain licensing is cryptographically locked and managed exclusively by Super-Admin / CEO provisioning.</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-surface px-3.5 py-2.5 rounded-xl border border-borderMuted min-w-[190px] space-y-1 shrink-0">
-            <div className="flex justify-between text-xs font-bold">
-              <span className="text-primaryText/70">Staff Accounts</span>
-              <span className="text-positiveState flex items-center gap-1">
-                <Check className="w-3.5 h-3.5" />
-                Unlimited
-              </span>
-            </div>
-            <span className="text-[11px] text-primaryText/60 font-semibold block" suppressHydrationWarning>
-              {currentTeacherCount} Active Teachers Enrolled
-            </span>
           </div>
         </div>
 
@@ -1004,14 +949,11 @@ export function SchoolOverviewDashboard({
         </div>
       </section>
 
-      {/* 4. CLASSROOM ALLOCATIONS & MULTI-TEACHER ASSIGNMENTS */}
+      {/* 4. CLASSES */}
       <section className="space-y-4 text-left">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-borderMuted/60 pb-3 gap-3 text-left">
           <div>
-            <h3 className="text-xl font-extrabold text-primaryText">Classroom Allocations</h3>
-            <p className="text-xs text-primaryText/70 font-medium mt-0.5">
-              Multi-teacher assignment: Lead Teachers, Co-Teachers, and Teaching Assistants across Key Stage 2.
-            </p>
+            <h3 className="text-xl font-extrabold text-primaryText">Classes</h3>
           </div>
 
           <div className="flex items-center gap-2.5">

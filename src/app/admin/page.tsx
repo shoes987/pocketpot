@@ -106,7 +106,7 @@ export default function AdminPortalPage() {
             const adminProfile: UserDocument = {
               userId: user.uid,
               email: user.email || "",
-              displayName: user.displayName || (user.email === "shaun.pocketpot@gmail.com" ? "School Administrator" : user.email?.split("@")[0] || "Administrator"),
+              displayName: user.displayName || (user.email === "shaun.pocketpot@gmail.com" ? "Admin" : user.email?.split("@")[0] || "Admin"),
               role: "admin",
               tenantId,
               assignedClassIds: ["*"],
@@ -195,8 +195,13 @@ export default function AdminPortalPage() {
       {/* 1. TRUE FULL-WIDTH STICKY TOP HEADER IN TEAL WITH PERMANENT SUB-BAR */}
       <AppTopHeader
         role="admin"
-        userName={(isMounted && currentAdmin?.displayName) || "School Administrator"}
-        userSubtitle="Senior Leadership Level"
+        userName={
+          (isMounted &&
+            (currentAdmin?.displayName === "School Administrator"
+              ? "Admin"
+              : currentAdmin?.displayName)) ||
+          "Admin"
+        }
         mainLinkHref="/admin"
         notificationBell={
           <TeacherNotificationBell
@@ -380,7 +385,7 @@ export default function AdminPortalPage() {
                 className="px-3.5 py-2 rounded-xl bg-canvas hover:bg-tealSurface text-primaryText font-bold border border-borderMuted transition-colors flex items-center gap-1.5 self-start sm:self-auto"
               >
                 <ArrowLeft className="w-3.5 h-3.5 text-brandPrimary" />
-                <span>Back to School Governance</span>
+                <span>Back to Teachers and Classes</span>
               </button>
             </div>
 

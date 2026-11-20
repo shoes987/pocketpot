@@ -21,7 +21,7 @@ export const DEFAULT_STAFF_USERS: UserDocument[] = [
   {
     userId: "F4desFyEszSuSHvZpnZv5cSD1Hf1",
     email: "shaun.pocketpot@gmail.com",
-    displayName: "School Administrator",
+    displayName: "Admin",
     role: "admin",
     tenantId: "sch_local_pilot",
     schoolId: "sch_local_pilot",
