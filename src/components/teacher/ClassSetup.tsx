@@ -41,6 +41,7 @@ import {
   Trash2,
   Eye,
   CheckCircle2,
+  Check,
   ExternalLink,
   School,
   ShieldCheck,
@@ -64,6 +65,7 @@ import {
   CreditCard,
   ChevronDown,
   X,
+  Pencil,
 } from "lucide-react";
 import { SinglePupilAddModal } from "./SinglePupilAddModal";
 import { CsvClasslistUploadModal } from "./CsvClasslistUploadModal";
@@ -78,6 +80,7 @@ interface ClassSetupProps {
   isAdmin?: boolean;
   onOpenAssignModal?: (cls: ClassDocument) => void;
   onPupilsChanged?: () => void;
+  onClassesChanged?: () => void;
   onClassCreated?: (newClass: ClassDocument) => void;
 }
 
@@ -91,6 +94,7 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
   isAdmin = false,
   onOpenAssignModal,
   onPupilsChanged,
+  onClassesChanged,
   onClassCreated,
 }) => {
   const [isMounted, setIsMounted] = useState(false);
@@ -188,10 +192,13 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
 
   // Policy adjustment modal state for active class
   const [isAdjustingIncomeModalOpen, setIsAdjustingIncomeModalOpen] = useState(false);
+  const [editClassNameInput, setEditClassNameInput] = useState<string>("");
+  const [editYearGroupInput, setEditYearGroupInput] = useState<"Year 3" | "Year 4" | "Year 5" | "Year 6">("Year 4");
   const [editWeeklyAmount, setEditWeeklyAmount] = useState<string>("2.00");
   const [editPayoutDay, setEditPayoutDay] = useState<
     "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday"
   >("Monday");
+  const [editAnonymizeOption, setEditAnonymizeOption] = useState<boolean>(true);
 
   // Initialize data on mount & run real-world automated income reconciliation
   useEffect(() => {
@@ -458,8 +465,11 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
 
   const handleOpenEditIncomeModal = () => {
     if (!activeClass) return;
+    setEditClassNameInput(activeClass.className);
+    setEditYearGroupInput((activeClass.yearGroup as any) || "Year 4");
     setEditWeeklyAmount(((activeClass.weeklyBasicIncomeCents ?? 200) / 100).toFixed(2));
     setEditPayoutDay(activeClass.payoutDay ?? "Monday");
+    setEditAnonymizeOption(activeClass.anonymizeNames ?? true);
     setIsAdjustingIncomeModalOpen(true);
   };
 
@@ -467,19 +477,29 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
     e.preventDefault();
     if (!activeClass) return;
     try {
+      const trimmedName = editClassNameInput.trim();
+      if (!trimmedName) {
+        setFormError("Class name cannot be empty.");
+        return;
+      }
       const weeklyCents = Math.round((parseFloat(editWeeklyAmount) || 2) * 100);
       updateClassSettings(activeClass.classId, {
+        className: trimmedName,
+        yearGroup: editYearGroupInput,
         weeklyBasicIncomeCents: weeklyCents,
         payoutDay: editPayoutDay,
+        paydayOfWeek: editPayoutDay,
+        anonymizeNames: editAnonymizeOption,
       });
       setClasses(getSavedClasses());
       setIsAdjustingIncomeModalOpen(false);
       setActionSuccessMessage(
-        `Class allowance updated: ${formatCurrency(weeklyCents)} weekly on ${editPayoutDay}s.`
+        `Class "${trimmedName}" settings updated successfully.`
       );
       setTimeout(() => setActionSuccessMessage(null), 4000);
+      onClassesChanged?.();
     } catch (err: unknown) {
-      setFormError(err instanceof Error ? err.message : "Failed to update allowance settings.");
+      setFormError(err instanceof Error ? err.message : "Failed to update class settings.");
     }
   };
 
@@ -615,11 +635,22 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
                 <span>Print Poster</span>
               </button>
 
+              {/* Edit Class Button */}
+              <button
+                type="button"
+                onClick={handleOpenEditIncomeModal}
+                className="p-1.5 px-2.5 rounded-xl bg-white/10 hover:bg-white/25 text-white/90 hover:text-white border border-white/25 transition-all text-xs flex items-center gap-1 shadow-2xs cursor-pointer"
+                title={`Edit class ${activeClass.className}`}
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline text-[11px] font-bold">Edit Class</span>
+              </button>
+
               {/* Delete Class Button */}
               <button
                 type="button"
                 onClick={() => setIsDeletingClass(true)}
-                className="p-1.5 rounded-xl bg-white/10 hover:bg-red-600 text-white/90 hover:text-white border border-white/25 transition-all text-xs flex items-center gap-1 shadow-2xs"
+                className="p-1.5 px-2.5 rounded-xl bg-white/10 hover:bg-red-600 text-white/90 hover:text-white border border-white/25 transition-all text-xs flex items-center gap-1 shadow-2xs cursor-pointer"
                 title={`Delete class ${activeClass.className}`}
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -1109,83 +1140,135 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
         </div>
       )}
 
-      {/* 9. ADJUST MINIMUM BASIC INCOME & PAYOUT DAY MODAL */}
+      {/* 9. EDIT CLASS SETTINGS MODAL */}
       {isAdjustingIncomeModalOpen && activeClass && (
         <div
           role="dialog"
           aria-modal="true"
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-primaryText/50 backdrop-blur-sm animate-in fade-in"
         >
-          <div className="bg-surface w-full max-w-md rounded-[2rem] border-2 border-brandSecondary/40 p-5 sm:p-6 md:p-8 shadow-2xl text-left space-y-4">
-            <div className="flex items-center gap-2.5 text-brandSecondary">
-              <Sliders className="w-6 h-6 text-brandSecondary flex-shrink-0" />
-              <h4 className="text-xl font-bold text-primaryText text-left">
-                Adjust Minimum Basic Income
-              </h4>
+          <div className="bg-surface w-full max-w-lg rounded-[2rem] border-2 border-brandPrimary/40 p-5 sm:p-6 md:p-8 shadow-2xl text-left space-y-4">
+            <div className="flex items-center justify-between border-b border-borderMuted/60 pb-3">
+              <div className="flex items-center gap-2.5 text-brandPrimary">
+                <Pencil className="w-6 h-6 text-brandPrimary flex-shrink-0" />
+                <div>
+                  <h4 className="text-xl font-bold text-primaryText text-left">
+                    Edit Class Settings
+                  </h4>
+                  <p className="text-xs text-primaryText/70">
+                    {activeClass.className} ({activeClass.yearGroup})
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAdjustingIncomeModalOpen(false)}
+                className="text-primaryText/40 hover:text-primaryText text-2xl font-bold p-1 leading-none cursor-pointer"
+                title="Close modal"
+              >
+                &times;
+              </button>
             </div>
 
-            <p className="text-sm text-primaryText/85 text-left leading-relaxed">
-              Update the guaranteed weekly basic income and payout schedule for{" "}
-              <strong className="text-primaryText font-bold">
-                {activeClass.className}
-              </strong>.
-            </p>
-
             <form onSubmit={handleSaveClassIncomeSettings} className="space-y-4 text-left">
-              <div>
-                <label htmlFor="edit-weekly-amount" className="text-xs font-bold text-primaryText/70 uppercase block mb-1">
-                  Weekly Basic Income (£):
+              {/* Class Name */}
+              <div className="space-y-1">
+                <label htmlFor="edit-class-name-input" className="text-xs font-bold text-primaryText uppercase block">
+                  Class Name:
                 </label>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-base font-bold text-brandSecondary">£</span>
-                  <input
-                    id="edit-weekly-amount"
-                    type="number"
-                    step="0.50"
-                    min="0"
-                    required
-                    value={editWeeklyAmount}
-                    onChange={(e) => setEditWeeklyAmount(e.target.value)}
-                    className="w-full px-3 py-2 rounded-island bg-canvas border border-borderMuted text-primaryText font-bold text-base focus-visible:outline focus-visible:outline-3 focus-visible:outline-focusIndicator"
-                  />
+                <input
+                  id="edit-class-name-input"
+                  type="text"
+                  required
+                  value={editClassNameInput}
+                  onChange={(e) => setEditClassNameInput(e.target.value)}
+                  placeholder="e.g. Year 4 Oak"
+                  className="w-full px-3 py-2 rounded-island bg-canvas border border-borderMuted text-primaryText font-bold text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-brandPrimary"
+                />
+              </div>
+
+              {/* Year Group */}
+              <div className="space-y-1">
+                <label htmlFor="edit-year-group-input" className="text-xs font-bold text-primaryText uppercase block">
+                  KS2 Year Group:
+                </label>
+                <div className="relative">
+                  <select
+                    id="edit-year-group-input"
+                    value={editYearGroupInput}
+                    onChange={(e) => setEditYearGroupInput(e.target.value as "Year 3" | "Year 4" | "Year 5" | "Year 6")}
+                    className="w-full px-3 pr-8 py-2 rounded-island bg-canvas border border-borderMuted text-primaryText font-bold text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-brandPrimary appearance-none cursor-pointer"
+                  >
+                    <option value="Year 3">Year 3 (Ages 7–8)</option>
+                    <option value="Year 4">Year 4 (Ages 8–9)</option>
+                    <option value="Year 5">Year 5 (Ages 9–10)</option>
+                    <option value="Year 6">Year 6 (Ages 10–11)</option>
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-primaryText/60 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
 
-              <div>
-                <label htmlFor="edit-payout-day" className="text-xs font-bold text-primaryText/70 uppercase block mb-1">
-                  Weekly Payout Day:
-                </label>
-                <select
-                  id="edit-payout-day"
-                  value={editPayoutDay}
-                  onChange={(e) =>
-                    setEditPayoutDay(
-                      e.target.value as "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday"
-                    )
-                  }
-                  className="w-full px-3 py-2 rounded-island bg-canvas border border-borderMuted text-primaryText font-bold text-sm focus-visible:outline focus-visible:outline-3 focus-visible:outline-focusIndicator"
-                >
-                  <option value="Monday">Monday</option>
-                  <option value="Tuesday">Tuesday</option>
-                  <option value="Wednesday">Wednesday</option>
-                  <option value="Thursday">Thursday</option>
-                  <option value="Friday">Friday</option>
-                </select>
+              {/* Basic Income */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label htmlFor="edit-weekly-amount" className="text-xs font-bold text-primaryText uppercase block">
+                    Weekly Allowance (£):
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-base font-bold text-brandSecondary">£</span>
+                    <input
+                      id="edit-weekly-amount"
+                      type="number"
+                      step="0.50"
+                      min="0"
+                      required
+                      value={editWeeklyAmount}
+                      onChange={(e) => setEditWeeklyAmount(e.target.value)}
+                      className="w-full px-3 py-2 rounded-island bg-canvas border border-borderMuted text-primaryText font-bold text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-brandSecondary"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label htmlFor="edit-payout-day" className="text-xs font-bold text-primaryText uppercase block">
+                    Weekly Payout Day:
+                  </label>
+                  <div className="relative">
+                    <select
+                      id="edit-payout-day"
+                      value={editPayoutDay}
+                      onChange={(e) =>
+                        setEditPayoutDay(
+                          e.target.value as "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday"
+                        )
+                      }
+                      className="w-full px-3 pr-8 py-2 rounded-island bg-canvas border border-borderMuted text-primaryText font-bold text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-brandSecondary appearance-none cursor-pointer"
+                    >
+                      <option value="Monday">Monday</option>
+                      <option value="Tuesday">Tuesday</option>
+                      <option value="Wednesday">Wednesday</option>
+                      <option value="Thursday">Thursday</option>
+                      <option value="Friday">Friday</option>
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-primaryText/60 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-2 text-left">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-borderMuted text-left">
                 <button
                   type="button"
                   onClick={() => setIsAdjustingIncomeModalOpen(false)}
-                  className="py-2.5 px-4 rounded-island border border-borderMuted text-primaryText text-xs font-bold hover:bg-canvas transition-colors"
+                  className="py-2.5 px-4 rounded-island border border-borderMuted text-primaryText text-xs font-bold hover:bg-canvas transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="py-2.5 px-4 rounded-island bg-brandSecondary hover:bg-amber-700 text-white text-xs font-bold shadow-sm transition-all"
+                  className="py-2.5 px-5 rounded-island bg-brandPrimary hover:bg-teal-700 text-white text-xs font-bold shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
                 >
-                  Save Policy
+                  <Check className="w-4 h-4" />
+                  <span>Save Changes</span>
                 </button>
               </div>
             </form>

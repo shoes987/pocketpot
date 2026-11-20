@@ -1762,10 +1762,13 @@ export function distributeWeeklyBasicIncome(
 export function updateClassSettings(
   classId: string,
   settings: {
+    className?: string;
+    yearGroup?: "Year 3" | "Year 4" | "Year 5" | "Year 6";
     initialOpeningBalanceCents?: number;
     weeklyBasicIncomeCents?: number;
     payoutDay?: "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday";
     paydayOfWeek?: "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday";
+    anonymizeNames?: boolean;
   }
 ): ClassDocument {
   const classes = getSavedClasses();
@@ -1773,6 +1776,15 @@ export function updateClassSettings(
   if (classIdx === -1) throw new Error("Class not found");
 
   const cls = { ...classes[classIdx] };
+  if (settings.className !== undefined && settings.className.trim()) {
+    cls.className = settings.className.trim();
+  }
+  if (settings.yearGroup !== undefined) {
+    cls.yearGroup = settings.yearGroup;
+  }
+  if (settings.anonymizeNames !== undefined) {
+    cls.anonymizeNames = settings.anonymizeNames;
+  }
   if (settings.initialOpeningBalanceCents !== undefined) {
     cls.initialOpeningBalanceCents = Math.max(0, settings.initialOpeningBalanceCents);
   }
@@ -1787,6 +1799,7 @@ export function updateClassSettings(
   cls.updatedAt = new Date().toISOString();
   classes[classIdx] = cls;
   saveClasses(classes);
+  saveClassToFirestore(cls).catch((err) => console.warn("saveClassToFirestore warning:", err));
 
   return cls;
 }

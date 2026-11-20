@@ -19,6 +19,11 @@ import {
   Mail,
   Calendar,
   Lock,
+  Pencil,
+  AlertCircle,
+  X,
+  VenetianMask,
+  UserCheck,
 } from "lucide-react";
 import {
   ClassDocument,
@@ -48,7 +53,11 @@ import {
   subscribeToTenant,
   subscribeToStaff,
 } from "@/lib/firebase/firestore-service";
-import { purgeLegacyMockStorage } from "@/lib/services/class-service";
+import {
+  purgeLegacyMockStorage,
+  updateClassSettings,
+  deleteClass,
+} from "@/lib/services/class-service";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
@@ -61,6 +70,7 @@ interface SchoolOverviewDashboardProps {
   onOpenCsvModal: (cls: ClassDocument, isWholeSchool?: boolean) => void;
   onOpenWizard: () => void;
   onOpenInviteTeacherModal?: () => void;
+  onClassesChanged?: () => void;
 }
 
 export function SchoolOverviewDashboard({
@@ -72,6 +82,7 @@ export function SchoolOverviewDashboard({
   onOpenCsvModal,
   onOpenWizard,
   onOpenInviteTeacherModal,
+  onClassesChanged,
 }: SchoolOverviewDashboardProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [staffList, setStaffList] = useState<UserDocument[]>([]);
@@ -139,6 +150,87 @@ export function SchoolOverviewDashboard({
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  // Edit Class Modal State
+  const [editingClass, setEditingClass] = useState<ClassDocument | null>(null);
+  const [editClassName, setEditClassName] = useState("");
+  const [editYearGroup, setEditYearGroup] = useState<"Year 3" | "Year 4" | "Year 5" | "Year 6">("Year 4");
+  const [editWeeklyIncome, setEditWeeklyIncome] = useState("2.00");
+  const [editPayoutDay, setEditPayoutDay] = useState<"Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday">("Friday");
+  const [editAnonymizeNames, setEditAnonymizeNames] = useState(true);
+  const [editFormError, setEditFormError] = useState<string | null>(null);
+
+  // Delete Class Modal State
+  const [deletingClass, setDeletingClass] = useState<ClassDocument | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleOpenEditModal = (cls: ClassDocument) => {
+    setEditingClass(cls);
+    setEditClassName(cls.className);
+    setEditYearGroup((cls.yearGroup as any) || "Year 4");
+    setEditWeeklyIncome(((cls.weeklyBasicIncomeCents ?? 200) / 100).toFixed(2));
+    setEditPayoutDay((cls.payoutDay as any) || (cls.paydayOfWeek as any) || "Friday");
+    setEditAnonymizeNames(cls.anonymizeNames ?? true);
+    setEditFormError(null);
+  };
+
+  const handleSaveClassEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingClass) return;
+
+    const trimmedName = editClassName.trim();
+    if (!trimmedName) {
+      setEditFormError("Please enter a classroom name.");
+      return;
+    }
+
+    const isDuplicate = classes.some(
+      (c) => c.classId !== editingClass.classId && c.className.toLowerCase() === trimmedName.toLowerCase()
+    );
+    if (isDuplicate) {
+      setEditFormError(`A class named "${trimmedName}" already exists.`);
+      return;
+    }
+
+    try {
+      const weeklyCents = Math.round((parseFloat(editWeeklyIncome) || 2) * 100);
+      updateClassSettings(editingClass.classId, {
+        className: trimmedName,
+        yearGroup: editYearGroup,
+        weeklyBasicIncomeCents: weeklyCents,
+        payoutDay: editPayoutDay,
+        paydayOfWeek: editPayoutDay,
+        anonymizeNames: editAnonymizeNames,
+      });
+
+      showToast(`Class "${trimmedName}" updated successfully.`);
+      setEditingClass(null);
+      onClassesChanged?.();
+    } catch (err: unknown) {
+      setEditFormError(err instanceof Error ? err.message : "Failed to update class.");
+    }
+  };
+
+  const handleOpenDeleteModal = (cls: ClassDocument) => {
+    setDeletingClass(cls);
+    setDeleteError(null);
+  };
+
+  const handleConfirmDeleteClass = () => {
+    if (!deletingClass) return;
+    try {
+      setIsDeleting(true);
+      deleteClass(deletingClass.classId);
+      showToast(`Class "${deletingClass.className}" has been permanently deleted.`);
+      setDeletingClass(null);
+      setIsDeleting(false);
+      onClassesChanged?.();
+    } catch (err: unknown) {
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete class.");
+      setIsDeleting(false);
+    }
   };
 
   const reloadStaff = () => {
@@ -970,10 +1062,28 @@ export function SchoolOverviewDashboard({
                     </h3>
                   </div>
 
-                  {/* Year Group Tag */}
-                  <span className="px-2.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-white/20 text-white border border-white/30 flex-shrink-0">
-                    {cls.yearGroup}
-                  </span>
+                  {/* Year Group Tag & Quick Action Buttons */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="px-2.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-white/20 text-white border border-white/30 flex-shrink-0">
+                      {cls.yearGroup}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditModal(cls)}
+                      className="p-1.5 rounded-lg bg-white/10 hover:bg-white/25 text-white transition-colors cursor-pointer"
+                      title={`Edit class ${cls.className}`}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenDeleteModal(cls)}
+                      className="p-1.5 rounded-lg bg-white/10 hover:bg-red-600 text-white transition-colors cursor-pointer"
+                      title={`Delete class ${cls.className}`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Card Body with Component Information in Clean Pills */}
@@ -1037,36 +1147,60 @@ export function SchoolOverviewDashboard({
                   </div>
 
                   {/* Card Action Buttons */}
-                  <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-borderMuted/60">
-                    <button
-                      type="button"
-                      onClick={() => onSelectClassContext(cls.classId)}
-                      className="flex-1 px-3 py-2.5 rounded-xl bg-brandPrimary hover:bg-teal-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-colors"
-                      title={`Step into ${cls.className} as teacher`}
-                    >
-                      <span>Step In</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
+                  <div className="space-y-2 pt-3 border-t border-borderMuted/60">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onSelectClassContext(cls.classId)}
+                        className="flex-1 px-3 py-2 rounded-xl bg-brandPrimary hover:bg-teal-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                        title={`Step into ${cls.className} as teacher`}
+                      >
+                        <span>Step In</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => onOpenAssignModal(cls)}
-                      className="px-3 py-2.5 rounded-xl bg-surface hover:bg-tealSurface border border-borderMuted text-primaryText font-bold text-xs flex items-center gap-1 transition-colors"
-                      title="Assign lead & co-teachers to this class"
-                    >
-                      <Users className="w-3.5 h-3.5 text-brandPrimary" />
-                      <span>Assign</span>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => onOpenAssignModal(cls)}
+                        className="px-3 py-2 rounded-xl bg-surface hover:bg-tealSurface border border-borderMuted text-primaryText font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                        title="Assign lead & co-teachers to this class"
+                      >
+                        <Users className="w-3.5 h-3.5 text-brandPrimary" />
+                        <span>Assign</span>
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => onOpenCsvModal(cls)}
-                      className="px-3 py-2.5 rounded-xl bg-positiveState hover:bg-green-700 text-white font-bold text-xs flex items-center gap-1 transition-colors shadow-2xs"
-                      title="Upload CSV classlist for this class"
-                    >
-                      <FileSpreadsheet className="w-3.5 h-3.5" />
-                      <span>CSV</span>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => onOpenCsvModal(cls)}
+                        className="px-3 py-2 rounded-xl bg-positiveState hover:bg-green-700 text-white font-bold text-xs flex items-center gap-1 transition-colors shadow-2xs cursor-pointer"
+                        title="Upload CSV classlist for this class"
+                      >
+                        <FileSpreadsheet className="w-3.5 h-3.5" />
+                        <span>CSV</span>
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1 border-t border-borderMuted/40">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditModal(cls)}
+                        className="flex-1 px-3 py-2 rounded-xl bg-canvas hover:bg-tealSurface border border-borderMuted hover:border-brandPrimary/40 text-primaryText font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                        title={`Edit class settings for ${cls.className}`}
+                      >
+                        <Pencil className="w-3.5 h-3.5 text-brandPrimary" />
+                        <span>Edit Class</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleOpenDeleteModal(cls)}
+                        className="flex-1 px-3 py-2 rounded-xl bg-canvas hover:bg-red-50 border border-borderMuted hover:border-red-300 text-primaryText/75 hover:text-red-600 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                        title={`Delete class ${cls.className}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                        <span>Delete Class</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1273,6 +1407,324 @@ export function SchoolOverviewDashboard({
                 className="px-5 py-2.5 rounded-xl bg-surface border border-borderMuted text-primaryText font-bold text-xs hover:bg-canvas"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT CLASS MODAL */}
+      {editingClass && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 bg-primaryText/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
+        >
+          <div className="bg-surface rounded-3xl border border-borderMuted shadow-2xl p-5 sm:p-6 md:p-8 space-y-5 text-left my-4 max-w-lg w-full max-h-[92vh] overflow-y-auto font-lexend">
+            <div className="flex items-start justify-between border-b border-borderMuted/60 pb-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-tealSurface text-brandPrimary flex items-center justify-center shadow-xs">
+                    <Pencil className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-xl font-extrabold text-primaryText">
+                    Edit Class &bull; {editingClass.className}
+                  </h3>
+                </div>
+                <p className="text-xs text-primaryText/70 font-medium">
+                  Update classroom name, year group, allowance policy, and privacy settings.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingClass(null);
+                  setEditFormError(null);
+                }}
+                className="text-primaryText/40 hover:text-primaryText text-2xl font-bold p-1 leading-none cursor-pointer"
+                title="Close modal"
+              >
+                &times;
+              </button>
+            </div>
+
+            {editFormError && (
+              <div className="p-3.5 rounded-xl bg-amberSurface text-warningState border border-amber-300 text-xs font-semibold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{editFormError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveClassEdit} className="space-y-4 text-left">
+              {/* Class Name */}
+              <div className="space-y-1.5">
+                <label htmlFor="edit-class-name" className="text-xs font-bold text-primaryText uppercase tracking-wider block">
+                  Class Name <span className="text-brandPrimary">*</span>
+                </label>
+                <input
+                  id="edit-class-name"
+                  type="text"
+                  required
+                  value={editClassName}
+                  onChange={(e) => {
+                    setEditClassName(e.target.value);
+                    if (editFormError) setEditFormError(null);
+                  }}
+                  placeholder="e.g. Year 4 Oak, Year 3 Teal"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-canvas border border-borderMuted text-primaryText font-medium text-sm focus:outline-hidden focus:border-brandPrimary focus:ring-1 focus:ring-brandPrimary"
+                />
+              </div>
+
+              {/* Year Group */}
+              <div className="space-y-1.5">
+                <label htmlFor="edit-year-group" className="text-xs font-bold text-primaryText uppercase tracking-wider block">
+                  KS2 Year Group
+                </label>
+                <div className="relative">
+                  <select
+                    id="edit-year-group"
+                    value={editYearGroup}
+                    onChange={(e) => setEditYearGroup(e.target.value as "Year 3" | "Year 4" | "Year 5" | "Year 6")}
+                    className="w-full px-3.5 pr-8 py-2.5 rounded-xl bg-canvas border border-borderMuted text-primaryText font-medium text-sm focus:outline-hidden focus:border-brandPrimary appearance-none cursor-pointer"
+                  >
+                    <option value="Year 3">Year 3 (Ages 7–8)</option>
+                    <option value="Year 4">Year 4 (Ages 8–9)</option>
+                    <option value="Year 5">Year 5 (Ages 9–10)</option>
+                    <option value="Year 6">Year 6 (Ages 10–11)</option>
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-primaryText/60 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Financial Policies: Weekly Basic Income & Payout Day */}
+              <div className="p-4 rounded-2xl bg-canvas border border-borderMuted space-y-3">
+                <div className="flex items-center gap-2">
+                  <Coins className="w-4 h-4 text-brandPrimary shrink-0" />
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-primaryText">
+                    Weekly Basic Income Policy
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label htmlFor="edit-weekly-income" className="text-xs font-bold text-primaryText">
+                      Weekly Allowance (£)
+                    </label>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-base font-bold text-brandSecondary">£</span>
+                      <input
+                        id="edit-weekly-income"
+                        type="number"
+                        step="0.50"
+                        min="0"
+                        required
+                        value={editWeeklyIncome}
+                        onChange={(e) => setEditWeeklyIncome(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-lg bg-surface border border-borderMuted text-primaryText font-bold text-sm focus:outline-hidden focus:border-brandSecondary"
+                      />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1 pt-1">
+                      {["1.00", "2.00", "3.00", "5.00"].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setEditWeeklyIncome(preset)}
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                            editWeeklyIncome === preset
+                              ? "bg-brandSecondary text-white"
+                              : "bg-surface text-primaryText/70 hover:bg-amberSurface border border-borderMuted"
+                          }`}
+                        >
+                          £{preset}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label htmlFor="edit-payout-day" className="text-xs font-bold text-primaryText">
+                      Weekly Payout Day
+                    </label>
+                    <div className="relative">
+                      <select
+                        id="edit-payout-day"
+                        value={editPayoutDay}
+                        onChange={(e) =>
+                          setEditPayoutDay(e.target.value as "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday")
+                        }
+                        className="w-full px-2.5 pr-7 py-2 rounded-lg bg-surface border border-borderMuted text-primaryText font-bold text-xs focus:outline-hidden focus:border-brandSecondary appearance-none cursor-pointer"
+                      >
+                        <option value="Monday">Monday (08:00)</option>
+                        <option value="Tuesday">Tuesday (08:00)</option>
+                        <option value="Wednesday">Wednesday (08:00)</option>
+                        <option value="Thursday">Thursday (08:00)</option>
+                        <option value="Friday">Friday (08:00)</option>
+                      </select>
+                      <ChevronDown className="w-4 h-4 text-primaryText/60 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Roster Privacy & Display Mode */}
+              <div className="p-4 rounded-2xl bg-canvas border border-borderMuted space-y-2">
+                <span className="text-xs font-extrabold uppercase tracking-wider text-primaryText block">
+                  Roster Privacy &amp; Display Mode
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <label
+                    className={`p-2.5 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-2 ${
+                      editAnonymizeNames
+                        ? "border-brandPrimary bg-surface shadow-2xs"
+                        : "border-borderMuted bg-surface/60 hover:bg-surface"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="edit-naming-option"
+                      checked={editAnonymizeNames}
+                      onChange={() => setEditAnonymizeNames(true)}
+                      className="mt-0.5 text-brandPrimary focus:ring-brandPrimary"
+                    />
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <VenetianMask className="w-3.5 h-3.5 text-brandPrimary" />
+                        <span className="text-xs font-bold text-primaryText">Nature Codenames</span>
+                      </div>
+                      <p className="text-[10px] text-primaryText/70 mt-0.5">
+                        Zero-PII animal codenames.
+                      </p>
+                    </div>
+                  </label>
+
+                  <label
+                    className={`p-2.5 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-2 ${
+                      !editAnonymizeNames
+                        ? "border-brandSecondary bg-surface shadow-2xs"
+                        : "border-borderMuted bg-surface/60 hover:bg-surface"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="edit-naming-option"
+                      checked={!editAnonymizeNames}
+                      onChange={() => setEditAnonymizeNames(false)}
+                      className="mt-0.5 text-brandSecondary focus:ring-brandSecondary"
+                    />
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <UserCheck className="w-3.5 h-3.5 text-brandSecondary" />
+                        <span className="text-xs font-bold text-primaryText">First Names</span>
+                      </div>
+                      <p className="text-[10px] text-primaryText/70 mt-0.5">
+                        First names (Local device).
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Modal Footer Actions */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-borderMuted">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingClass(null);
+                    setEditFormError(null);
+                  }}
+                  className="px-4 py-2.5 rounded-xl border border-borderMuted text-primaryText font-bold text-xs hover:bg-canvas transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-brandPrimary hover:bg-teal-700 text-white font-bold text-xs shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Save Changes</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE CLASS CONFIRMATION MODAL */}
+      {deletingClass && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 bg-primaryText/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
+        >
+          <div className="bg-surface rounded-3xl border-2 border-red-200 shadow-2xl p-6 sm:p-8 space-y-5 text-left my-4 max-w-md w-full font-lexend">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center text-xl shrink-0">
+                <Trash2 className="w-6 h-6 text-red-600" />
+              </div>
+              <div>
+                <h4 className="text-xl font-extrabold text-primaryText">
+                  Delete Classroom
+                </h4>
+                <p className="text-xs text-primaryText/70">
+                  {deletingClass.className} ({deletingClass.yearGroup})
+                </p>
+              </div>
+            </div>
+
+            {deleteError && (
+              <div className="p-3.5 rounded-xl bg-red-50 text-red-700 border border-red-200 text-xs font-semibold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{deleteError}</span>
+              </div>
+            )}
+
+            <div className="p-3.5 rounded-2xl bg-canvas border border-borderMuted space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-primaryText/70">Class Join Code:</span>
+                <span className="font-mono font-bold text-primaryText">{deletingClass.classJoinCode}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-primaryText/70">Enrolled Pupils:</span>
+                <span className="font-bold text-primaryText">
+                  {pupils.filter((p) => p.classId === deletingClass.classId).length} pupils
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-primaryText/70">Active Savings:</span>
+                <span className="font-bold text-[#C2410C]">
+                  {formatCurrency(
+                    pots
+                      .filter((p) => p.classId === deletingClass.classId)
+                      .reduce((sum, p) => sum + (p.currentAmountCents || 0), 0)
+                  )}
+                </span>
+              </div>
+            </div>
+
+            <p className="text-xs text-primaryText/80 leading-relaxed">
+              Deleting this classroom will <strong>permanently remove</strong> all enrolled pupils, their savings pots, transactions, and PIN debit cards. This action cannot be reversed.
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeletingClass(null);
+                  setDeleteError(null);
+                }}
+                disabled={isDeleting}
+                className="px-4 py-2.5 rounded-xl border border-borderMuted text-primaryText font-bold text-xs hover:bg-canvas transition-colors cursor-pointer"
+              >
+                Keep Class
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteClass}
+                disabled={isDeleting}
+                className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>{isDeleting ? "Deleting..." : "Delete Entire Class"}</span>
               </button>
             </div>
           </div>

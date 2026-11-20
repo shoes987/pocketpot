@@ -356,6 +356,7 @@ export default function AdminPortalPage() {
             }}
             onOpenWizard={() => setIsSetupWizardOpen(true)}
             onOpenInviteTeacherModal={() => setIsInviteTeacherModalOpen(true)}
+            onClassesChanged={refreshState}
           />
         ) : activeTab === "class-setup" ? (
           /* CLASSROOM INSPECTION & ROSTERS VIEW */
