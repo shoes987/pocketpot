@@ -33,6 +33,7 @@ import {
 } from "@/lib/services/jobs-service";
 import { PupilInspectModal } from "./PupilInspectModal";
 import { PrintPupilCardsModal } from "./PrintPupilCardsModal";
+import { PrintClassJoinCodeModal } from "./PrintClassJoinCodeModal";
 import { ResetPinModal } from "./ResetPinModal";
 import {
   PlusCircle,
@@ -105,6 +106,9 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [printTargetPupils, setPrintTargetPupils] = useState<PupilDocument[]>([]);
   const [printModalTitle, setPrintModalTitle] = useState<string | undefined>(undefined);
+
+  // Print Class Join Code Poster Modal state
+  const [isPrintJoinCodeModalOpen, setIsPrintJoinCodeModalOpen] = useState(false);
 
   // Reset PIN Modal state (Requirement 3)
   const [resettingPupil, setResettingPupil] = useState<PupilDocument | null>(null);
@@ -590,6 +594,17 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
                 </button>
               </div>
 
+              {/* Print Class Join Code Poster */}
+              <button
+                type="button"
+                onClick={() => setIsPrintJoinCodeModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 hover:bg-white/30 text-white border border-white/30 text-xs font-bold shadow-2xs transition-all"
+                title="Print A4 Join Code Poster for the Classroom"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Print Poster</span>
+              </button>
+
               {/* Delete Class Button */}
               <button
                 type="button"
@@ -725,6 +740,17 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
                   >
                     <Printer className="w-4 h-4 text-brandPrimary" />
                     <span>Print Class Cards</span>
+                  </button>
+
+                  {/* Print Class Join Code Poster */}
+                  <button
+                    type="button"
+                    onClick={() => setIsPrintJoinCodeModalOpen(true)}
+                    className="px-3.5 py-2 rounded-xl bg-amberSurface hover:bg-amberSurface/80 text-brandSecondary border border-brandSecondary/30 font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-all"
+                    title="Print an A4 branded poster with the class name, join code, and PocketPot mascots for the classroom wall"
+                  >
+                    <Printer className="w-4 h-4 text-brandSecondary" />
+                    <span>Print Class Join Code</span>
                   </button>
 
                   {isAdmin && onOpenAssignModal && (
@@ -1189,6 +1215,13 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
         className={activeClass?.className}
         classJoinCode={activeClass?.classJoinCode}
         title={printModalTitle}
+      />
+
+      {/* 6B. PRINT CLASS JOIN CODE POSTER MODAL */}
+      <PrintClassJoinCodeModal
+        isOpen={isPrintJoinCodeModalOpen}
+        onClose={() => setIsPrintJoinCodeModalOpen(false)}
+        classroom={activeClass}
       />
 
       {/* 7. RESET PUPIL PIN MODAL (Requirement 3) */}

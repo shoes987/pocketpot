@@ -46,6 +46,10 @@ export const PrintPupilCardsModal: React.FC<PrintPupilCardsModalProps> = ({
     >
       {/* Print Stylesheet injected for exact card reproduction on standard paper */}
       <style jsx global>{`
+        @page {
+          size: A4 portrait;
+          margin: 8mm;
+        }
         @media print {
           body * {
             visibility: hidden !important;
@@ -53,6 +57,8 @@ export const PrintPupilCardsModal: React.FC<PrintPupilCardsModalProps> = ({
           #pocketpot-printable-area,
           #pocketpot-printable-area * {
             visibility: visible !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
           #pocketpot-printable-area {
             position: absolute !important;
@@ -61,7 +67,11 @@ export const PrintPupilCardsModal: React.FC<PrintPupilCardsModalProps> = ({
             width: 100% !important;
             padding: 0 !important;
             margin: 0 !important;
-            background: white !important;
+            background: transparent !important;
+            display: grid !important;
+            grid-template-columns: repeat(2, 1fr) !important;
+            column-gap: 6mm !important;
+            row-gap: 6mm !important;
           }
           .no-print {
             display: none !important;
@@ -69,7 +79,10 @@ export const PrintPupilCardsModal: React.FC<PrintPupilCardsModalProps> = ({
           .printable-card-wrapper {
             break-inside: avoid !important;
             page-break-inside: avoid !important;
-            margin-bottom: 24px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
           }
         }
       `}</style>
@@ -131,7 +144,7 @@ export const PrintPupilCardsModal: React.FC<PrintPupilCardsModalProps> = ({
           <div
             id="pocketpot-printable-area"
             ref={printAreaRef}
-            className="grid grid-cols-1 md:grid-cols-2 gap-8 justify-items-center max-w-4xl mx-auto"
+            className="grid grid-cols-1 sm:grid-cols-2 gap-6 justify-items-center max-w-4xl mx-auto"
           >
             {pupils.map((pupil) => {
               const displayName = getPupilDisplayName(pupil);
@@ -140,23 +153,16 @@ export const PrintPupilCardsModal: React.FC<PrintPupilCardsModalProps> = ({
               return (
                 <div
                   key={pupil.pupilId}
-                  className="printable-card-wrapper w-full max-w-[380px] p-4 bg-white rounded-3xl border-2 border-dashed border-slate-300 shadow-xs relative text-left"
+                  className="printable-card-wrapper w-full max-w-[380px] text-left"
                 >
-                  {/* Scissor / Cut Guide Tag */}
-                  <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 mb-2 px-1 select-none">
-                    <span className="flex items-center gap-1">
-                      <span>✂</span>
-                      <span>Cut along dashed border</span>
-                    </span>
-                    <span>Desk #{pupil.deskBadgeNumber}</span>
-                  </div>
-
-                  {/* Physical PocketPot Debit Card */}
+                  {/* Physical PocketPot Green Debit Card with dotted cutting edge directly on perimeter */}
                   <div
-                    className="relative w-full h-[220px] rounded-[1.5rem] p-5 text-white overflow-hidden shadow-lg select-none flex flex-col justify-between text-left"
+                    className="relative w-full h-[225px] rounded-[1.25rem] p-4 text-white overflow-hidden shadow-lg select-none flex flex-col justify-between text-left border-2 border-dashed border-white/60"
                     style={{
                       background: "linear-gradient(135deg, #0D9488 0%, #115E59 50%, #1E293B 100%)",
                       color: "#FFFFFF",
+                      WebkitPrintColorAdjust: "exact",
+                      printColorAdjust: "exact",
                     }}
                   >
                     {/* Decorative Holographic Wave Blur Overlays */}
@@ -188,26 +194,36 @@ export const PrintPupilCardsModal: React.FC<PrintPupilCardsModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Card Middle: Golden EMV Chip & Child PIN Badge */}
-                    <div className="relative z-10 flex items-center justify-between my-auto text-left">
+                    {/* Card Middle: Golden EMV Chip & Credentials (Class Join Code + Child PIN) */}
+                    <div className="relative z-10 flex items-center justify-between my-auto text-left gap-2">
                       {/* Gold EMV Chip Graphic */}
                       <div
                         aria-label="Smart EMV Debit Chip"
-                        className="relative w-11 h-8 rounded-md bg-gradient-to-br from-[#FDE047] via-[#EAB308] to-[#CA8A04] shadow-sm border border-[#FEF08A] overflow-hidden flex flex-col justify-between p-0.5"
+                        className="relative w-11 h-8 rounded-md bg-gradient-to-br from-[#FDE047] via-[#EAB308] to-[#CA8A04] shadow-sm border border-[#FEF08A] overflow-hidden flex flex-col justify-between p-0.5 shrink-0"
                       >
                         <div className="w-full h-[1px] bg-[#1E293B]/25 my-auto" />
                         <div className="w-[1px] h-full bg-[#1E293B]/25 mx-auto absolute inset-0" />
                         <div className="w-4 h-2.5 rounded-sm border border-[#1E293B]/20 mx-auto" />
                       </div>
 
-                      {/* Prominent Child PIN Security Pill */}
-                      <div className="bg-white/20 backdrop-blur-xs border border-white/35 rounded-xl px-3 py-1 text-left flex items-center gap-2 shadow-xs">
-                        <KeyRound className="w-4 h-4 text-amber-300 flex-shrink-0" />
-                        <div>
-                          <span className="text-[8px] uppercase tracking-wider font-extrabold text-teal-100 block leading-tight">
+                      {/* Credentials: Class Code & Child PIN */}
+                      <div className="flex items-center gap-2">
+                        {classJoinCode && (
+                          <div className="bg-white/15 backdrop-blur-xs border border-white/30 rounded-xl px-2.5 py-1 text-left shadow-xs">
+                            <span className="text-[7.5px] uppercase tracking-wider font-extrabold text-teal-100 block leading-tight">
+                              Class Code
+                            </span>
+                            <span className="font-mono font-black text-xs tracking-wider text-white block leading-none">
+                              {classJoinCode}
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="bg-white/20 backdrop-blur-xs border border-white/35 rounded-xl px-2.5 py-1 text-left shadow-xs">
+                          <span className="text-[7.5px] uppercase tracking-wider font-extrabold text-teal-100 block leading-tight">
                             Child PIN
                           </span>
-                          <span className="font-mono font-black text-sm tracking-widest text-white block leading-none">
+                          <span className="font-mono font-black text-xs tracking-widest text-amber-200 block leading-none">
                             {pin}
                           </span>
                         </div>
@@ -228,9 +244,9 @@ export const PrintPupilCardsModal: React.FC<PrintPupilCardsModalProps> = ({
                           <span className="text-sm font-extrabold tracking-wide text-white block text-left truncate max-w-[200px]">
                             {displayName}
                           </span>
-                          {pupil.anonymized === false && (pupil.displayName || pupil.localDisplayName) && (
-                            <span className="text-[9px] text-white/70 block truncate">
-                              Codename: {pupil.educationalCodename}
+                          {className && (
+                            <span className="text-[9px] text-teal-100/90 block truncate">
+                              {className}
                             </span>
                           )}
                         </div>
@@ -245,11 +261,6 @@ export const PrintPupilCardsModal: React.FC<PrintPupilCardsModalProps> = ({
                         </div>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Helper footer under card for teachers */}
-                  <div className="mt-2 text-center text-[10px] text-slate-500 font-medium">
-                    {className} • Card #{pupil.deskBadgeNumber}
                   </div>
                 </div>
               );
