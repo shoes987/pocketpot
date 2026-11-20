@@ -122,29 +122,38 @@ export default function AdminPortalPage() {
       });
     }
 
-    // Real-time Firestore onSnapshot listeners
+    // Real-time Firestore onSnapshot listeners with local offline/quota fallback
     const unsubClasses = subscribeToClasses((liveClasses) => {
-      setClasses(liveClasses);
       if (liveClasses && liveClasses.length > 0) {
+        setClasses(liveClasses);
         cacheClassesLocally(liveClasses);
+      } else {
+        const local = getSavedClasses();
+        if (local.length > 0) setClasses(local);
       }
     });
 
     const unsubPupils = subscribeToPupils((livePupils) => {
       const deleted = getDeletedPupilIds();
       const activePupils = livePupils.filter((p) => !deleted.has(p.pupilId));
-      setPupils(activePupils);
       if (activePupils && activePupils.length > 0) {
+        setPupils(activePupils);
         cachePupilsLocally(activePupils);
+      } else {
+        const local = getSavedPupils();
+        if (local.length > 0) setPupils(local);
       }
     });
 
     const unsubPots = subscribeToPots((livePots) => {
       const deleted = getDeletedPupilIds();
       const activePots = livePots.filter((p) => !deleted.has(p.pupilId));
-      setPots(activePots);
       if (activePots && activePots.length > 0) {
+        setPots(activePots);
         cachePotsLocally(activePots);
+      } else {
+        const local = getSavedPots();
+        if (local.length > 0) setPots(local);
       }
     });
 
