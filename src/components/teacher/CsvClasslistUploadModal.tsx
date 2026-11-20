@@ -324,16 +324,35 @@ export function CsvClasslistUploadModal({
                 rows={3}
                 value={customCsvText}
                 onChange={(e) => setCustomCsvText(e.target.value)}
-                placeholder="Forename, Year&#10;Lucas, Year 3&#10;Chloe, Year 4&#10;Ethan, Year 5..."
+                onKeyDown={(e) => {
+                  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                    e.preventDefault();
+                    handleProcessPastedText();
+                  }
+                }}
+                placeholder="Lucas, Chloe, Ethan, Freya...&#10;Or: Lucas, Year 3&#10;Chloe, Year 4"
                 className="w-full px-3.5 py-2 text-xs bg-canvas rounded-xl border border-borderMuted font-medium text-primaryText focus:ring-2 focus:ring-brandPrimary"
               />
-              <button
-                type="button"
-                onClick={handleProcessPastedText}
-                className="mt-2 px-4 py-2 rounded-xl bg-tealSurface hover:bg-tealSurface/80 text-brandPrimary border border-brandPrimary/30 font-bold text-xs"
-              >
-                Scan &amp; Audit Pasted Text
-              </button>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 mt-2">
+                <span className="text-[11px] text-primaryText/60">
+                  {customCsvText.trim()
+                    ? `${customCsvText.split(/[,\n]/).filter((n) => n.trim().length > 0).length} name(s) entered • Press Enter or click button`
+                    : "Separate names with commas or newlines"}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleProcessPastedText}
+                  disabled={!customCsvText.trim()}
+                  className={`px-4 py-2 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs ${
+                    customCsvText.trim()
+                      ? "bg-brandPrimary hover:bg-teal-700 text-white cursor-pointer active:scale-95"
+                      : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                  }`}
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Process Pasted Names</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -598,6 +617,21 @@ export function CsvClasslistUploadModal({
           >
             Cancel
           </button>
+          {!auditResult && (
+            <button
+              type="button"
+              disabled={!customCsvText.trim()}
+              onClick={handleProcessPastedText}
+              className={`px-5 py-2.5 rounded-full font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-all text-center ${
+                customCsvText.trim()
+                  ? "bg-brandPrimary hover:bg-teal-700 text-white cursor-pointer sm:scale-[1.02]"
+                  : "bg-slate-200 text-slate-400 cursor-not-allowed"
+              }`}
+            >
+              <span>Upload Classlist</span>
+              <ArrowRight className="w-4 h-4 shrink-0" />
+            </button>
+          )}
           {auditResult && (
             <button
               type="button"

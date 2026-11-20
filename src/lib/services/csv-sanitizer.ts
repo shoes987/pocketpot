@@ -157,33 +157,64 @@ export function sanitizeClasslistCsv(
     }
   });
 
-  // If no explicit header matched, but there's a single column or first column without numbers
-  if (nameColumnIndex === -1) {
+  // A genuine CSV header row MUST contain a known name header (e.g. "Forename", "Student") 
+  // or sensitive PII columns to strip (e.g. "Surname", "DOB", "UPN").
+  const hasHeaderRow = strippedColumns.length > 0 || nameColumnIndex !== -1;
+
+  if (hasHeaderRow && nameColumnIndex === -1) {
     nameColumnIndex = 0;
   }
 
-  const rawDataLines = lines.slice(1);
   const extractedFirstNames: string[] = [];
   const pupilRows: ParsedCsvPupilRow[] = [];
 
-  for (let i = 0; i < rawDataLines.length; i++) {
-    const line = rawDataLines[i];
-    const cells = parseCsvLine(line);
-    const rawVal = cells[nameColumnIndex] || "";
-    const rawClass = classColumnIndex !== -1 ? (cells[classColumnIndex] || "").trim() : undefined;
-    // Clean to strict single first name token only (strip any accidental surnames, spaces, or numbers)
+  const addPupil = (rawVal: string, rawClass?: string) => {
     const singleToken = rawVal.trim().split(/\s+/)[0] || "";
     const cleaned = singleToken.replace(/[^a-zA-Z\-']/g, "").trim();
-
     if (cleaned.length > 0) {
-      // Capitalize nicely e.g. "leo" -> "Leo"
       const formatted = cleaned.charAt(0).toUpperCase() + cleaned.slice(1).toLowerCase();
       extractedFirstNames.push(formatted);
       pupilRows.push({
-        id: `row-${i}-${Date.now()}`,
+        id: `row-${pupilRows.length}-${Date.now()}`,
         firstName: formatted,
         rawClass: rawClass || undefined,
       });
+    }
+  };
+
+  if (hasHeaderRow) {
+    // Process standard CSV data lines after the header
+    const rawDataLines = lines.slice(1);
+    for (let i = 0; i < rawDataLines.length; i++) {
+      const cells = parseCsvLine(rawDataLines[i]);
+      const rawVal = cells[nameColumnIndex] || "";
+      const rawClass = classColumnIndex !== -1 ? (cells[classColumnIndex] || "").trim() : undefined;
+      addPupil(rawVal, rawClass);
+    }
+  } else {
+    // No header detected: lines contain raw student names (e.g. pasted or typed)
+    for (let i = 0; i < lines.length; i++) {
+      const cells = parseCsvLine(lines[i]);
+      if (cells.length === 2) {
+        // Check if second cell looks like a classroom/year (e.g. "Lucas, Year 3" or "Chloe, 4T")
+        const secondCell = cells[1].trim();
+        const isClassLike = /(?:year|y|class|form|group|[0-9])/i.test(secondCell);
+        if (isClassLike) {
+          addPupil(cells[0], secondCell);
+        } else {
+          // Comma-separated list of names (e.g. "Lucas, Chloe")
+          addPupil(cells[0]);
+          addPupil(cells[1]);
+        }
+      } else if (cells.length > 2) {
+        // Multiple comma-separated names on a line (e.g. "Lucas, Chloe, Ethan, Freya")
+        for (const cell of cells) {
+          addPupil(cell);
+        }
+      } else if (cells.length === 1) {
+        // Single name per line
+        addPupil(cells[0]);
+      }
     }
   }
 
