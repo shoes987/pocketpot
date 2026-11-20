@@ -73,16 +73,19 @@ export function CsvClasslistUploadModal({
 
     setAuditResult(result);
 
-    // Auto-sort pupils into classes based on detected class/year tokens
+    const defaultClassId =
+      activeClass?.classId || (availableClasses.length > 0 ? availableClasses[0].classId : undefined);
+
+    if (defaultClassId && !bulkAssignClassId) {
+      setBulkAssignClassId(defaultClassId);
+    }
+
+    // Auto-sort pupils into classes based on detected class/year tokens, or default to active/available class
     const mapped: ParsedCsvPupilRow[] = (result.pupilRows || []).map((row) => {
       const autoMatchedClassId = matchClassToExisting(row.rawClass, availableClasses);
       return {
         ...row,
-        assignedClassId:
-          autoMatchedClassId ||
-          (!isWholeSchool && !result.hasMultipleClasses && activeClass
-            ? activeClass.classId
-            : undefined),
+        assignedClassId: autoMatchedClassId || defaultClassId,
       };
     });
 
@@ -176,44 +179,53 @@ export function CsvClasslistUploadModal({
   }
 
   const handleConfirmEnrollment = async () => {
-    if (!auditResult || pupilRows.length === 0) return;
+    if (!auditResult || pupilRows.length === 0 || isProcessing) return;
 
-    if (unassignedRows.length > 0) {
-      setErrorMessage(
-        `${unassignedRows.length} pupil(s) have not been assigned to a classroom. Please choose a class for each child or use '⚡ Assign All' above.`
-      );
+    const defaultClassId =
+      bulkAssignClassId ||
+      activeClass?.classId ||
+      (availableClasses.length > 0 ? availableClasses[0].classId : undefined);
+
+    if (!defaultClassId && pupilRows.some((r) => !r.assignedClassId)) {
+      setErrorMessage("Please select or create a classroom to enroll these students.");
       return;
     }
 
-    setIsProcessing(true);
-    try {
-      if (isMultiClassMode || Object.keys(classBreakdown).length > 1) {
-        // Multi-Class Atomic Enrollment (Requirement 1)
-        const enrollments = Object.entries(classBreakdown).map(([classId, data]) => ({
-          classId,
-          pupilNames: data.pupils.map((p) => p.firstName),
-        }));
+    // Ensure 100% of rows have a valid target classId
+    const finalRows = pupilRows.map((r) => ({
+      ...r,
+      assignedClassId: r.assignedClassId || defaultClassId,
+    }));
 
-        const result = enrollMultiClassPupils(enrollments, anonymize);
-        await savePupilsBatchToFirestore(result.allPupils);
-        onPupilsEnrolled(result.allPupils);
-      } else {
-        // Single Class Enrollment
-        const targetClassId =
-          activeClass?.classId || assignedRows[0]?.assignedClassId || availableClasses[0]?.classId;
-        const pupilNames = pupilRows.map((p) => p.firstName);
-        const enrolled = enrollBatchPupils(
-          targetClassId,
-          pupilNames,
-          anonymize,
-          activeClass?.initialOpeningBalanceCents
-        );
-        await savePupilsBatchToFirestore(enrolled);
-        onPupilsEnrolled(enrolled);
+    // Group assigned pupils by class
+    const finalBreakdown: Record<string, { className: string; pupils: ParsedCsvPupilRow[] }> = {};
+    for (const row of finalRows) {
+      const cId = row.assignedClassId || defaultClassId!;
+      if (!finalBreakdown[cId]) {
+        const cls = availableClasses.find((c) => c.classId === cId);
+        finalBreakdown[cId] = {
+          className: cls ? cls.className : cId,
+          pupils: [],
+        };
       }
+      finalBreakdown[cId].pupils.push(row);
+    }
 
+    setIsProcessing(true);
+    setErrorMessage(null);
+
+    try {
+      const enrollments = Object.entries(finalBreakdown).map(([classId, data]) => ({
+        classId,
+        pupilNames: data.pupils.map((p) => p.firstName),
+      }));
+
+      const result = enrollMultiClassPupils(enrollments, anonymize);
+      await savePupilsBatchToFirestore(result.allPupils);
+      onPupilsEnrolled(result.allPupils);
       onClose();
     } catch (err: unknown) {
+      console.error("Enrollment error:", err);
       setErrorMessage(err instanceof Error ? err.message : "Failed to enroll pupils.");
       setIsProcessing(false);
     }
@@ -635,23 +647,19 @@ export function CsvClasslistUploadModal({
           {auditResult && (
             <button
               type="button"
-              disabled={isProcessing || unassignedRows.length > 0}
+              disabled={isProcessing}
               onClick={handleConfirmEnrollment}
-              className={`px-5 py-2.5 rounded-full font-bold text-xs flex items-center justify-center gap-1.5 shadow-md transition-all text-center ${
-                unassignedRows.length > 0
-                  ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-                  : "bg-positiveState hover:bg-green-700 text-white sm:scale-[1.02]"
+              className={`px-6 py-2.5 rounded-full font-bold text-xs flex items-center justify-center gap-1.5 shadow-md transition-all text-center ${
+                isProcessing
+                  ? "bg-slate-400 text-white cursor-wait"
+                  : "bg-positiveState hover:bg-green-700 text-white sm:scale-[1.02] cursor-pointer active:scale-95"
               }`}
             >
               <Check className="w-4 h-4 shrink-0" />
               <span className="truncate sm:whitespace-normal">
                 {isProcessing
-                  ? "Enrolling..."
-                  : unassignedRows.length > 0
-                  ? `Assign ${unassignedRows.length} remaining pupils to continue`
-                  : `Confirm & Enroll ${pupilRows.length} Pupils Across ${
-                      Object.keys(classBreakdown).length || 1
-                    } Classes`}
+                  ? "Enrolling Students..."
+                  : `Confirm & Enroll ${pupilRows.length} Pupils`}
               </span>
             </button>
           )}
