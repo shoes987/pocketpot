@@ -3,16 +3,9 @@
 import React from "react";
 import Link from "next/link";
 import {
-  ShieldCheck,
-  School,
-  Sparkles,
   ArrowRight,
   Lock,
-  Coins,
-  Briefcase,
-  Users,
   CheckCircle2,
-  ExternalLink,
 } from "lucide-react";
 
 export default function RootGatewayPage() {
@@ -27,14 +20,9 @@ export default function RootGatewayPage() {
                 P
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-2xl font-bold text-primaryText">PocketPot</h1>
-                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-tealSurface text-brandPrimary font-bold border border-brandPrimary/30">
-                    UK Key Stage 2
-                  </span>
-                </div>
+                <h1 className="text-2xl font-bold text-primaryText">PocketPot</h1>
                 <p className="text-xs text-primaryText/70 font-medium">
-                  Invest in the Future &bull; Educational Savings &amp; Classroom Economy Platform
+                  Invest in the Future
                 </p>
               </div>
             </div>
@@ -48,24 +36,14 @@ export default function RootGatewayPage() {
               <Lock className="w-3.5 h-3.5" />
               <span>Staff Login</span>
             </Link>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-tealSurface text-brandPrimary text-xs font-bold border border-brandPrimary/20">
-              <ShieldCheck className="w-4 h-4" />
-              <span>100% Zero-PII Safeguarded</span>
-            </div>
           </div>
         </header>
 
         {/* Hero Section */}
-        <div className="space-y-3 text-left">
-          <span className="text-xs font-bold uppercase tracking-wider text-brandPrimary block">
-            Role-Based Access Control (RBAC) &bull; Level Separation
-          </span>
+        <div className="space-y-2 text-left">
           <h2 className="text-3xl sm:text-4xl font-extrabold text-primaryText leading-tight">
             Select Your Account Level Portal
           </h2>
-          <p className="text-sm text-primaryText/75 max-w-2xl font-medium leading-relaxed">
-            In compliance with strict school safeguarding and least privilege architecture, <strong>Admin</strong>, <strong>Teacher</strong>, and <strong>Pupil</strong> accounts are segregated into separate security levels. Teachers are strictly restricted to their classrooms and cannot access the admin governance view.
-          </p>
         </div>
 
         {/* The 3 Separate Levels Grid */}
@@ -87,14 +65,7 @@ export default function RootGatewayPage() {
                 <h3 className="text-xl font-bold text-primaryText group-hover:text-brandSecondary transition-colors">
                   School Admin Portal
                 </h3>
-                <span className="text-xs font-semibold text-focusIndicator block mt-0.5">
-                  Senior Leadership &bull; Headteacher Level
-                </span>
               </div>
-
-              <p className="text-xs text-primaryText/70 leading-relaxed font-medium">
-                Whole-school governance hub. Manage the teaching staff directory, enforce institutional email domain whitelisting, assign educators to classes, and upload whole-school MIS CSVs.
-              </p>
 
               <div className="space-y-2 pt-2 border-t border-borderMuted/60 text-xs text-primaryText/80 font-medium">
                 <div className="flex items-center gap-2">
@@ -137,14 +108,7 @@ export default function RootGatewayPage() {
                 <h3 className="text-xl font-bold text-primaryText group-hover:text-brandPrimary transition-colors">
                   Teacher Portal
                 </h3>
-                <span className="text-xs font-semibold text-brandPrimary block mt-0.5">
-                  Classroom Educator &bull; Zero Admin Access
-                </span>
               </div>
-
-              <p className="text-xs text-primaryText/70 leading-relaxed font-medium">
-                Strictly scoped to assigned classrooms. Teachers manage pupil rosters, launch interactive smartboard mode, award micro-rewards, and manage classroom job applications.
-              </p>
 
               <div className="space-y-2 pt-2 border-t border-borderMuted/60 text-xs text-primaryText/80 font-medium">
                 <div className="flex items-center gap-2">
@@ -191,14 +155,7 @@ export default function RootGatewayPage() {
                 <h3 className="text-xl font-bold text-primaryText group-hover:text-positiveState transition-colors">
                   Pupil Card Portal
                 </h3>
-                <span className="text-xs font-semibold text-positiveState block mt-0.5">
-                  Key Stage 2 Learner &bull; Tablet Interface
-                </span>
               </div>
-
-              <p className="text-xs text-primaryText/70 leading-relaxed font-medium">
-                Child-friendly, dyslexia-conscious tablet experience. Physical-style bank card, British coins and banknotes visualizer, savings pots, and job applications.
-              </p>
 
               <div className="space-y-2 pt-2 border-t border-borderMuted/60 text-xs text-primaryText/80 font-medium">
                 <div className="flex items-center gap-2">
@@ -217,29 +174,14 @@ export default function RootGatewayPage() {
             </div>
 
             <Link
-              href="/pupil"
+              href="/pupil/"
               className="w-full py-3 px-4 rounded-xl bg-positiveState hover:bg-green-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all"
             >
-              <span>Enter Pupil Portal (Classroom Tablet Login)</span>
+              <span>Enter Pupil Portal</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
 
-        </div>
-
-        {/* Security & Multi-Tenant Assurance Banner */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-surface border border-borderMuted shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-medium text-primaryText/70">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-tealSurface flex items-center justify-center text-brandPrimary shrink-0">
-              <ShieldCheck className="w-4 h-4" />
-            </div>
-            <span>
-              <strong>Cryptographic Tenant Boundary:</strong> St Mary's Primary (URN: 100123) &bull; Allowed Staff Domains: <code className="font-bold text-brandPrimary">@st-marys.sch.uk</code>
-            </span>
-          </div>
-          <span className="text-[11px] text-primaryText/50 font-semibold whitespace-nowrap">
-            PocketPot v1.0 Production
-          </span>
         </div>
       </div>
 
