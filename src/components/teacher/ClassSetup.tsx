@@ -69,6 +69,8 @@ import { CsvClasslistUploadModal } from "./CsvClasslistUploadModal";
 
 interface ClassSetupProps {
   classes?: ClassDocument[];
+  pupils?: PupilDocument[];
+  pots?: SavingsPotDocument[];
   onOpenSetupWizard?: () => void;
   activeClassId?: string;
   onSelectClassId?: (classId: string) => void;
@@ -80,6 +82,8 @@ interface ClassSetupProps {
 
 export const ClassSetup: React.FC<ClassSetupProps> = ({
   classes: propsClasses,
+  pupils: propsPupils,
+  pots: propsPots,
   onOpenSetupWizard,
   activeClassId,
   onSelectClassId,
@@ -90,8 +94,8 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
 }) => {
   const [isMounted, setIsMounted] = useState(false);
   const [classes, setClasses] = useState<ClassDocument[]>(propsClasses || []);
-  const [pupils, setPupils] = useState<PupilDocument[]>([]);
-  const [pots, setPots] = useState<SavingsPotDocument[]>([]);
+  const [pupils, setPupils] = useState<PupilDocument[]>(propsPupils || []);
+  const [pots, setPots] = useState<SavingsPotDocument[]>(propsPots || []);
   const [selectedClassId, setSelectedClassId] = useState<string>("");
   const [isSingleAddOpen, setIsSingleAddOpen] = useState(false);
   const [isCsvUploadOpen, setIsCsvUploadOpen] = useState(false);
@@ -120,6 +124,18 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
       }
     }
   }, [propsClasses, activeClassId, selectedClassId]);
+
+  useEffect(() => {
+    if (propsPupils !== undefined) {
+      setPupils(propsPupils);
+    }
+  }, [propsPupils]);
+
+  useEffect(() => {
+    if (propsPots !== undefined) {
+      setPots(propsPots);
+    }
+  }, [propsPots]);
 
   // Form states - Start blank without pre-populated class or student names
   const [classNameInput, setClassNameInput] = useState<string>("");
@@ -187,12 +203,14 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
           ? getSavedClasses()
           : getSavedClassesForUser(currentTeacher);
 
-      const loadedPupils = getSavedPupils();
-      const loadedPots = getSavedPots();
-
       setClasses(loadedClasses);
-      setPupils(loadedPupils);
-      setPots(loadedPots);
+
+      if (propsPupils === undefined) {
+        setPupils(getSavedPupils());
+      }
+      if (propsPots === undefined) {
+        setPots(getSavedPots());
+      }
 
       if (loadedClasses.length > 0) {
         setSelectedClassId((prev) => {
@@ -211,38 +229,44 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
 
     refreshData();
 
-    // Real-time Firestore listeners
-    const unsubClasses = subscribeToClasses((liveClasses) => {
-      // If parent passed propsClasses, parent component manages class filtering
-      if (propsClasses !== undefined) return;
+    // Real-time Firestore listeners only if parent does not manage state
+    let unsubClasses = () => {};
+    if (propsClasses === undefined) {
+      unsubClasses = subscribeToClasses((liveClasses) => {
+        const currentTeacher = getCurrentTeacherUser();
+        const filtered = isAdmin
+          ? liveClasses
+          : liveClasses.filter((c) => {
+              if (currentTeacher?.role === "admin") return true;
+              return (
+                c.teacherId === currentTeacher?.userId ||
+                c.leadTeacherId === currentTeacher?.userId ||
+                c.assignedTeacherIds?.includes(currentTeacher?.userId || "") ||
+                currentTeacher?.assignedClassIds?.includes(c.classId)
+              );
+            });
+        setClasses(filtered);
+        if (filtered.length === 0) {
+          setSelectedClassId("");
+        } else if (!filtered.some((c) => c.classId === selectedClassId)) {
+          setSelectedClassId(filtered[0].classId);
+        }
+      });
+    }
 
-      const currentTeacher = getCurrentTeacherUser();
-      const filtered = isAdmin
-        ? liveClasses
-        : liveClasses.filter((c) => {
-            if (currentTeacher?.role === "admin") return true;
-            return (
-              c.teacherId === currentTeacher?.userId ||
-              c.leadTeacherId === currentTeacher?.userId ||
-              c.assignedTeacherIds?.includes(currentTeacher?.userId || "") ||
-              currentTeacher?.assignedClassIds?.includes(c.classId)
-            );
-          });
-      setClasses(filtered);
-      if (filtered.length === 0) {
-        setSelectedClassId("");
-      } else if (!filtered.some((c) => c.classId === selectedClassId)) {
-        setSelectedClassId(filtered[0].classId);
-      }
-    });
+    let unsubPupils = () => {};
+    if (propsPupils === undefined) {
+      unsubPupils = subscribeToPupils((livePupils) => {
+        setPupils(livePupils);
+      });
+    }
 
-    const unsubPupils = subscribeToPupils((livePupils) => {
-      setPupils(livePupils);
-    });
-
-    const unsubPots = subscribeToPots((livePots) => {
-      setPots(livePots);
-    });
+    let unsubPots = () => {};
+    if (propsPots === undefined) {
+      unsubPots = subscribeToPots((livePots) => {
+        setPots(livePots);
+      });
+    }
 
     const handleSync = () => {
       refreshData();
@@ -258,7 +282,7 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
       window.removeEventListener("storage", handleSync);
       window.removeEventListener(BALANCE_SYNC_EVENT, handleSync);
     };
-  }, [propsClasses, isAdmin, activeClassId]);
+  }, [isAdmin, activeClassId, propsClasses !== undefined, propsPupils !== undefined, propsPots !== undefined]);
 
   useEffect(() => {
     if (activeClassId && classes.some((c) => c.classId === activeClassId)) {
@@ -322,7 +346,7 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
           className: trimmedName,
           yearGroup,
           studentNames: pupilNameBoxes,
-          anonymizeNames: enteredNames.length === 0,
+          anonymizeNames: namingOption === "anonymize",
           initialOpeningBalanceCents: openingCents,
           weeklyBasicIncomeCents: weeklyCents,
           payoutDay: payoutDayInput,

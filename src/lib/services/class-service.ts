@@ -282,6 +282,24 @@ export function assignTeachersToClass(
   return updated;
 }
 
+export function cacheClassesLocally(classes: ClassDocument[]): void {
+  if (typeof window === "undefined") return;
+  const unique = deduplicateClasses(classes);
+  localStorage.setItem(STORAGE_KEY_CLASSES, JSON.stringify(unique));
+}
+
+export function cachePupilsLocally(pupils: PupilDocument[]): void {
+  if (typeof window === "undefined") return;
+  const unique = deduplicatePupils(pupils);
+  localStorage.setItem(STORAGE_KEY_PUPILS, JSON.stringify(unique));
+}
+
+export function cachePotsLocally(pots: SavingsPotDocument[]): void {
+  if (typeof window === "undefined") return;
+  const unique = deduplicatePots(pots);
+  localStorage.setItem(STORAGE_KEY_POTS, JSON.stringify(unique));
+}
+
 export function saveClasses(classes: ClassDocument[]): void {
   if (typeof window === "undefined") return;
   const unique = deduplicateClasses(classes);
@@ -1198,6 +1216,9 @@ export function enrollSinglePupil(
   if (classIdx !== -1) {
     const updatedCls = { ...classes[classIdx] };
     updatedCls.pupilCount = (updatedCls.pupilCount || 0) + 1;
+    if (anonymize === false) {
+      updatedCls.anonymizeNames = false;
+    }
     updatedCls.aggregateMetrics = {
       ...updatedCls.aggregateMetrics,
       totalPotsActive: (updatedCls.aggregateMetrics?.totalPotsActive || 0) + pots.length,
@@ -1208,6 +1229,7 @@ export function enrollSinglePupil(
     updatedCls.updatedAt = now;
     classes[classIdx] = updatedCls;
     saveClasses(classes);
+    saveClassToFirestore(updatedCls).catch((err) => console.warn("saveClassToFirestore warning:", err));
   }
 
   return newPupil;
@@ -1304,6 +1326,9 @@ export function enrollBatchPupils(
   if (classIdx !== -1) {
     const updatedCls = { ...classes[classIdx] };
     updatedCls.pupilCount = (updatedCls.pupilCount || 0) + newPupils.length;
+    if (effectiveAnonymize === false) {
+      updatedCls.anonymizeNames = false;
+    }
     updatedCls.aggregateMetrics = {
       ...updatedCls.aggregateMetrics,
       totalPotsActive: (updatedCls.aggregateMetrics?.totalPotsActive || 0) + newPots.length,
@@ -1637,8 +1662,9 @@ export function distributeWeeklyBasicIncome(
   classes[classIdx] = cls;
   saveClasses(classes);
 
-  // Real-time Firestore sync for all payout transactions and balances
+  // Real-time Firestore sync for all payout transactions, balances, and class timestamp
   try {
+    saveClassToFirestore(cls).catch((err) => console.warn("saveClassToFirestore payout warning:", err));
     newTxs.forEach((tx) => recordTransactionInFirestore(tx));
     updatedPupils.forEach((p) => {
       if (p.classId === classId) {

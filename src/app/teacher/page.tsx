@@ -17,6 +17,9 @@ import {
   getSavedPupils,
   getSavedClasses,
   saveClasses,
+  cacheClassesLocally,
+  cachePupilsLocally,
+  cachePotsLocally,
   getSavedClassesForUser,
   getSavedPots,
   purgeLegacyMockStorage,
@@ -133,16 +136,22 @@ export default function TeacherPortalPage() {
     const unsubClasses = subscribeToClasses((liveClasses) => {
       setClasses(liveClasses);
       if (liveClasses && liveClasses.length > 0) {
-        saveClasses(liveClasses);
+        cacheClassesLocally(liveClasses);
       }
     });
 
     const unsubPupils = subscribeToPupils((livePupils) => {
       setPupils(livePupils);
+      if (livePupils && livePupils.length > 0) {
+        cachePupilsLocally(livePupils);
+      }
     });
 
     const unsubPots = subscribeToPots((livePots) => {
       setPots(livePots);
+      if (livePots && livePots.length > 0) {
+        cachePotsLocally(livePots);
+      }
     });
 
     const handleSync = () => refreshState();
@@ -425,6 +434,8 @@ export default function TeacherPortalPage() {
           /* CLASS SETUP & STUDENT ROSTER (TEACHER VIEW: STRICTLY THIS TEACHER'S ASSIGNED CLASSES) */
           <ClassSetup
             classes={allowedClasses}
+            pupils={pupils}
+            pots={pots}
             onOpenSetupWizard={() => setIsSetupWizardOpen(true)}
             activeClassId={activeClass?.classId}
             onSelectClassId={(id) => setActiveClassId(id)}

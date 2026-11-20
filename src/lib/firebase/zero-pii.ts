@@ -236,15 +236,26 @@ export function getPupilDisplayName(
   classDoc?: { anonymizeNames?: boolean } | null
 ): string {
   if (!pupil) return "Pupil";
-  // Strict Animal Codenames mode
+
+  // 1. If pupil explicitly has First Name mode enabled with a valid name, display it
+  if (pupil.anonymized === false) {
+    const firstName = pupil.displayName || pupil.localDisplayName;
+    if (firstName && firstName.trim().length > 0 && firstName !== pupil.educationalCodename) {
+      return firstName.trim();
+    }
+  }
+
+  // 2. Strict Animal Codenames mode (if pupil or class enforces codenames)
   if (pupil.anonymized === true || classDoc?.anonymizeNames === true) {
     return pupil.educationalCodename || "Pupil";
   }
-  // Classroom First Name mode
+
+  // 3. Fallback for First Name mode
   const firstName = pupil.displayName || pupil.localDisplayName;
   if (firstName && firstName.trim().length > 0 && firstName !== pupil.educationalCodename) {
     return firstName.trim();
   }
+
   return pupil.educationalCodename || "Pupil";
 }
 
