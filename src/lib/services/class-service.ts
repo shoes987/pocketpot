@@ -125,7 +125,7 @@ export function purgeLegacyMockStorage(): void {
       );
     };
 
-    if (!localStorage.getItem(PURGE_FLAG) || hasLegacyMarkers()) {
+    if (hasLegacyMarkers()) {
       localStorage.removeItem("pocketpot_classes_v1");
       localStorage.removeItem("pocketpot_pupils_v1");
       localStorage.removeItem("pocketpot_pots_v1");
@@ -138,8 +138,8 @@ export function purgeLegacyMockStorage(): void {
       localStorage.removeItem("pocketpot_behaviours_v1");
       localStorage.removeItem("pocketpot_marketplace_rewards_v1");
       localStorage.removeItem("pocketpot_jobs_v1");
-      localStorage.setItem(PURGE_FLAG, "true");
     }
+    localStorage.setItem(PURGE_FLAG, "true");
   } catch (err) {
     console.warn("purgeLegacyMockStorage warning:", err);
   }
@@ -266,7 +266,35 @@ export function getSavedClasses(): ClassDocument[] {
     }
   }
 
-  return [];
+  const defaultPilotClasses: ClassDocument[] = [
+    {
+      classId: "cls_year_4_oak",
+      className: "Year 4 Oak",
+      yearGroup: "Year 4",
+      classJoinCode: "512222",
+      tenantId: "sch_local_pilot",
+      schoolId: "sch_local_pilot",
+      teacherId: "b5qdSySAWSOvnhYCdf8OLTDZFFo1",
+      leadTeacherId: "b5qdSySAWSOvnhYCdf8OLTDZFFo1",
+      assignedTeacherIds: ["b5qdSySAWSOvnhYCdf8OLTDZFFo1"],
+      pupilCount: 0,
+      initialOpeningBalanceCents: 500,
+      weeklyBasicIncomeCents: 200,
+      payoutDay: "Monday",
+      anonymizeNames: true,
+      aggregateMetrics: {
+        totalPotsActive: 0,
+        totalSavingsCents: 0,
+        pausedPotsCount: 0,
+      },
+      createdAt: "2026-11-20T00:00:00.000Z",
+      updatedAt: "2026-11-20T00:00:00.000Z",
+    },
+  ];
+  try {
+    localStorage.setItem(STORAGE_KEY_CLASSES, JSON.stringify(defaultPilotClasses));
+  } catch {}
+  return defaultPilotClasses;
 }
 
 /**
