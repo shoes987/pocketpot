@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" fill="none">
+  <!-- Circle Background -->
+  <circle cx="120" cy="120" r="114" fill="#FFFFFF"/>
+  <circle cx="120" cy="120" r="114" stroke="#E2E8F0" stroke-width="2"/>
+
+  <!-- Stylized "P" Stroke -->
+  <path d="M 96 193 H 86 C 70.5 193, 58 180.5, 58 165 V 75 C 58 59.5, 70.5 47, 86 47 H 154 C 169.5 47, 182 59.5, 182 75 V 112 C 182 127.5, 169.5 140, 154 140 H 142" stroke="#CC7600" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- Top Pot -->
+  <path d="M 83 79 L 86 99 H 154 L 157 79 Z" fill="#188781" stroke="#27394D" stroke-width="6" stroke-linejoin="round"/>
+  <rect x="77" y="63" width="86" height="19" rx="9.5" fill="#188781" stroke="#27394D" stroke-width="6"/>
+
+  <!-- Middle Pot -->
+  <path d="M 83 115 L 86 135 H 154 L 157 115 Z" fill="#188781" stroke="#27394D" stroke-width="6" stroke-linejoin="round"/>
+  <rect x="77" y="99" width="86" height="19" rx="9.5" fill="#188781" stroke="#27394D" stroke-width="6"/>
+
+  <!-- Bottom Pot -->
+  <path d="M 83 151 L 91 187 C 92.5 192, 96 193.5, 101 193.5 H 139 C 144 193.5, 147.5 192, 149 187 L 157 151 Z" fill="#188781" stroke="#27394D" stroke-width="6" stroke-linejoin="round"/>
+  <rect x="77" y="135" width="86" height="19" rx="9.5" fill="#188781" stroke="#27394D" stroke-width="6"/>
+</svg>

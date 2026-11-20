@@ -13,6 +13,13 @@ export const metadata: Metadata = {
   title: "PocketPot | Invest in the Future",
   description:
     "PocketPot: A dual-access educational financial application for Key Stage 2 (KS2: Ages 7-11) built for school financial literacy and classroom engagement.",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
 };
 
 export default function RootLayout({
