@@ -23,6 +23,7 @@ import {
   cachePupilsLocally,
   cachePotsLocally,
   getSavedPots,
+  getDeletedPupilIds,
   purgeLegacyMockStorage,
   autoReconcileAllClassesWeeklyIncome,
   BALANCE_SYNC_EVENT,
@@ -80,6 +81,12 @@ export default function AdminPortalPage() {
       setCurrentAdmin((prev) => prev || adminUser);
       setCurrentStaffUser(adminUser.userId);
     }
+    const loadedPupils = getSavedPupils();
+    setPupils(loadedPupils);
+    const loadedClasses = getSavedClasses();
+    setClasses(loadedClasses);
+    const loadedPots = getSavedPots();
+    setPots(loadedPots);
   };
 
   useEffect(() => {
@@ -124,16 +131,20 @@ export default function AdminPortalPage() {
     });
 
     const unsubPupils = subscribeToPupils((livePupils) => {
-      setPupils(livePupils);
-      if (livePupils && livePupils.length > 0) {
-        cachePupilsLocally(livePupils);
+      const deleted = getDeletedPupilIds();
+      const activePupils = livePupils.filter((p) => !deleted.has(p.pupilId));
+      setPupils(activePupils);
+      if (activePupils && activePupils.length > 0) {
+        cachePupilsLocally(activePupils);
       }
     });
 
     const unsubPots = subscribeToPots((livePots) => {
-      setPots(livePots);
-      if (livePots && livePots.length > 0) {
-        cachePotsLocally(livePots);
+      const deleted = getDeletedPupilIds();
+      const activePots = livePots.filter((p) => !deleted.has(p.pupilId));
+      setPots(activePots);
+      if (activePots && activePots.length > 0) {
+        cachePotsLocally(activePots);
       }
     });
 

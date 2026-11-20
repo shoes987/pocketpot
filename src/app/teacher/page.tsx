@@ -22,6 +22,7 @@ import {
   cachePotsLocally,
   getSavedClassesForUser,
   getSavedPots,
+  getDeletedPupilIds,
   purgeLegacyMockStorage,
   autoReconcileAllClassesWeeklyIncome,
   BALANCE_SYNC_EVENT,
@@ -141,16 +142,20 @@ export default function TeacherPortalPage() {
     });
 
     const unsubPupils = subscribeToPupils((livePupils) => {
-      setPupils(livePupils);
-      if (livePupils && livePupils.length > 0) {
-        cachePupilsLocally(livePupils);
+      const deleted = getDeletedPupilIds();
+      const activePupils = livePupils.filter((p) => !deleted.has(p.pupilId));
+      setPupils(activePupils);
+      if (activePupils && activePupils.length > 0) {
+        cachePupilsLocally(activePupils);
       }
     });
 
     const unsubPots = subscribeToPots((livePots) => {
-      setPots(livePots);
-      if (livePots && livePots.length > 0) {
-        cachePotsLocally(livePots);
+      const deleted = getDeletedPupilIds();
+      const activePots = livePots.filter((p) => !deleted.has(p.pupilId));
+      setPots(activePots);
+      if (activePots && activePots.length > 0) {
+        cachePotsLocally(activePots);
       }
     });
 

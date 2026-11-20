@@ -14,6 +14,7 @@ import {
   Target,
   Check,
   FileText,
+  Trash2,
 } from "lucide-react";
 
 interface PupilInspectModalProps {
@@ -21,6 +22,7 @@ interface PupilInspectModalProps {
   pots: SavingsPotDocument[];
   className: string;
   onClose: () => void;
+  onDeletePupil?: (pupil: PupilDocument) => void;
 }
 
 export const PupilInspectModal: React.FC<PupilInspectModalProps> = ({
@@ -28,6 +30,7 @@ export const PupilInspectModal: React.FC<PupilInspectModalProps> = ({
   pots,
   className: classTitle,
   onClose,
+  onDeletePupil,
 }) => {
   if (!pupil) return null;
 
@@ -250,13 +253,25 @@ export const PupilInspectModal: React.FC<PupilInspectModalProps> = ({
           <span className="text-xs text-primaryText/60 text-left font-medium">
             PocketPot Inspection Mode • Zero-PII Protected
           </span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-surface hover:bg-canvas border border-borderMuted text-primaryText font-semibold text-sm transition-all text-center sm:text-left"
-          >
-            Close Observation
-          </button>
+          <div className="flex items-center gap-2.5 w-full sm:w-auto">
+            {onDeletePupil && (
+              <button
+                type="button"
+                onClick={() => onDeletePupil(pupil)}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                <span>Delete Student</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-surface hover:bg-canvas border border-borderMuted text-primaryText font-semibold text-sm transition-all text-center sm:text-left cursor-pointer"
+            >
+              Close Observation
+            </button>
+          </div>
         </div>
       </div>
     </div>

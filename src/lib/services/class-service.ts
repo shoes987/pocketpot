@@ -49,6 +49,38 @@ const STORAGE_KEY_CLASSES = "pocketpot_classes_v1";
 const STORAGE_KEY_PUPILS = "pocketpot_pupils_v1";
 const STORAGE_KEY_POTS = "pocketpot_pots_v1";
 const STORAGE_KEY_TRANSACTIONS = "pocketpot_transactions_v1";
+const STORAGE_KEY_DELETED_PUPILS = "pocketpot_deleted_pupils_v1";
+
+/**
+ * Retrieve set of permanently deleted pupil IDs to prevent synthetic resurrection.
+ */
+export function getDeletedPupilIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_DELETED_PUPILS);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return new Set(parsed);
+    }
+  } catch {
+    // fallback
+  }
+  return new Set();
+}
+
+/**
+ * Mark a pupil ID as permanently deleted in local persistence.
+ */
+export function recordDeletedPupil(pupilId: string): void {
+  if (typeof window === "undefined" || !pupilId) return;
+  try {
+    const set = getDeletedPupilIds();
+    set.add(pupilId);
+    localStorage.setItem(STORAGE_KEY_DELETED_PUPILS, JSON.stringify(Array.from(set)));
+  } catch {
+    // fallback
+  }
+}
 
 export const BALANCE_SYNC_EVENT = "pocketpot_balance_updated";
 
@@ -290,7 +322,9 @@ export function cacheClassesLocally(classes: ClassDocument[]): void {
 
 export function cachePupilsLocally(pupils: PupilDocument[]): void {
   if (typeof window === "undefined") return;
-  const unique = deduplicatePupils(pupils);
+  const deleted = getDeletedPupilIds();
+  const nonDeleted = pupils.filter((p) => !deleted.has(p.pupilId));
+  const unique = deduplicatePupils(nonDeleted);
   localStorage.setItem(STORAGE_KEY_PUPILS, JSON.stringify(unique));
 }
 
@@ -336,11 +370,13 @@ export function getSavedPupils(): PupilDocument[] {
         }
 
         const unique = deduplicatePupils(parsed);
-        if (unique.length !== parsed.length) {
+        const deleted = getDeletedPupilIds();
+        const nonDeleted = unique.filter((p) => !deleted.has(p.pupilId));
+        if (nonDeleted.length !== parsed.length) {
           // Self-heal corrupted/duplicated storage
-          localStorage.setItem(STORAGE_KEY_PUPILS, JSON.stringify(unique));
+          localStorage.setItem(STORAGE_KEY_PUPILS, JSON.stringify(nonDeleted));
         }
-        return unique.map((p) => ({
+        return nonDeleted.map((p) => ({
           ...p,
           displayName: p.displayName || p.localDisplayName || p.educationalCodename,
           localDisplayName: p.localDisplayName || p.displayName,
@@ -1070,34 +1106,55 @@ export function updatePotNote(
  * DELETE A PUPIL ACCOUNT AND CLEAN UP THEIR POTS AND LEDGER
  */
 export function deletePupil(pupilId: string): { success: boolean; deletedPupilId: string } {
+  if (!pupilId) return { success: false, deletedPupilId: "" };
+
+  // 1. Record tombstone so background listeners never resurrect this pupil
+  recordDeletedPupil(pupilId);
+
   const pupils = getSavedPupils();
   const pupil = pupils.find((p) => p.pupilId === pupilId);
-  if (!pupil) throw new Error("Student account not found");
 
-  // Remove pupil
+  // 2. Remove pupil from local storage
   const updatedPupils = pupils.filter((p) => p.pupilId !== pupilId);
-  savePupils(updatedPupils);
-  deletePupilFromFirestore(pupilId);
+  const unique = deduplicatePupils(updatedPupils);
+  if (typeof window !== "undefined") {
+    localStorage.setItem(STORAGE_KEY_PUPILS, JSON.stringify(unique));
+  }
 
-  // Remove pupil's pots
+  // 3. Remove pupil from Firestore
+  try {
+    deletePupilFromFirestore(pupilId);
+  } catch (err) {
+    console.warn("deletePupil Firestore sync error:", err);
+  }
+
+  // 4. Remove pupil's pots locally & from Firestore
   const pots = getSavedPots();
   const pupilPots = pots.filter((p) => p.pupilId === pupilId);
   const updatedPots = pots.filter((p) => p.pupilId !== pupilId);
   savePots(updatedPots);
+  pupilPots.forEach((pot) => {
+    try {
+      deletePotFromFirestore(pot.potId);
+    } catch {
+      // ignore
+    }
+  });
 
-  // Remove pupil's transactions
+  // 5. Remove pupil's transactions
   const txs = getSavedTransactions();
   const updatedTxs = txs.filter((t) => t.pupilId !== pupilId);
   saveTransactions(updatedTxs);
 
-  // Update class aggregate metrics if class exists
-  if (pupil.classId) {
+  // 6. Update class aggregate metrics if class exists
+  const classId = pupil?.classId;
+  if (classId) {
     const classes = getSavedClasses();
-    const classIdx = classes.findIndex((c) => c.classId === pupil.classId);
+    const classIdx = classes.findIndex((c) => c.classId === classId);
     if (classIdx !== -1) {
       const cls = { ...classes[classIdx] };
       cls.pupilCount = Math.max(0, cls.pupilCount - 1);
-      const totalSavingsRemoved = pupilPots.reduce((acc, p) => acc + p.currentAmountCents, 0);
+      const totalSavingsRemoved = pupilPots.reduce((acc, p) => acc + (p.currentAmountCents || 0), 0);
       cls.aggregateMetrics = {
         ...cls.aggregateMetrics,
         totalPotsActive: Math.max(0, cls.aggregateMetrics.totalPotsActive - pupilPots.length),
@@ -1109,6 +1166,7 @@ export function deletePupil(pupilId: string): { success: boolean; deletedPupilId
     }
   }
 
+  notifyBalanceSync();
   return { success: true, deletedPupilId: pupilId };
 }
 

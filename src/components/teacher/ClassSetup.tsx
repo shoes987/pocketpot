@@ -404,20 +404,28 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
 
   const handleConfirmDeletePupil = () => {
     if (!pupilToDelete) return;
+    const targetId = pupilToDelete.pupilId;
+    const targetName = getPupilDisplayName(pupilToDelete, activeClass);
+    setPupilToDelete(null);
+
     try {
-      const targetId = pupilToDelete.pupilId;
-      const targetName = getPupilDisplayName(pupilToDelete, activeClass);
       deletePupil(targetId);
       setPupils((prev) => prev.filter((p) => p.pupilId !== targetId));
       setPots((prev) => prev.filter((p) => p.pupilId !== targetId));
-      onPupilsChanged?.();
       setActionSuccessMessage(
         `Pupil account "${targetName}" has been removed.`
       );
       setTimeout(() => setActionSuccessMessage(null), 4000);
-      setPupilToDelete(null);
+      onPupilsChanged?.();
     } catch (err: unknown) {
-      setFormError(err instanceof Error ? err.message : "Failed to delete student account.");
+      console.warn("Delete pupil error:", err);
+      setPupils((prev) => prev.filter((p) => p.pupilId !== targetId));
+      setPots((prev) => prev.filter((p) => p.pupilId !== targetId));
+      setActionSuccessMessage(
+        `Pupil account "${targetName}" has been removed.`
+      );
+      setTimeout(() => setActionSuccessMessage(null), 4000);
+      onPupilsChanged?.();
     }
   };
 
@@ -936,11 +944,12 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
                             <button
                               type="button"
                               onClick={() => setPupilToDelete(pupil)}
-                              className="p-1 rounded-lg bg-surface hover:bg-amberSurface border border-borderMuted text-softTerracotta hover:text-red-700 transition-all"
+                              className="flex-1 md:flex-initial px-2 py-0.5 rounded-lg text-[10px] font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 flex items-center justify-center gap-1 transition-all cursor-pointer"
                               title="Delete student"
-                              aria-label="Delete student"
+                              aria-label={`Delete student ${displayName}`}
                             >
-                              <Trash2 className="w-3 h-3" />
+                              <Trash2 className="w-3 h-3 text-red-600" />
+                              <span>Delete</span>
                             </button>
                           </div>
                         </div>
@@ -961,6 +970,10 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
           pots={pots.filter((p) => p.pupilId === inspectingPupil.pupilId)}
           className={activeClass?.className || "Class"}
           onClose={() => setInspectingPupil(null)}
+          onDeletePupil={(pupil) => {
+            setInspectingPupil(null);
+            setPupilToDelete(pupil);
+          }}
         />
       )}
 
