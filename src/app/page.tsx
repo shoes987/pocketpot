@@ -31,10 +31,10 @@ export default function RootGatewayPage() {
           <div className="p-6 rounded-pot bg-surface border-2 border-brandSecondary/40 shadow-islandCard flex flex-col justify-between space-y-5 hover:border-brandSecondary transition-all group">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <div className="w-12 h-12 rounded-2xl bg-indigoSurface flex items-center justify-center text-2xl shadow-xs">
+                <div className="w-12 h-12 rounded-2xl bg-amberSurface flex items-center justify-center text-2xl shadow-xs">
                   👑
                 </div>
-                <span className="text-[11px] px-2.5 py-1 rounded-full bg-indigoSurface text-focusIndicator font-bold border border-focusIndicator/30 uppercase">
+                <span className="text-[11px] px-2.5 py-1 rounded-full bg-amberSurface text-brandSecondary font-bold border border-brandSecondary/30 uppercase">
                   Level 1: Admin
                 </span>
               </div>
@@ -46,14 +46,14 @@ export default function RootGatewayPage() {
               </div>
 
               {/* Character Mascot */}
-              <div className="py-4 flex items-center justify-center">
-                <CoinBuddyMascot size="md" className="mx-auto drop-shadow-md transition-transform group-hover:scale-105" />
+              <div className="h-32 flex items-center justify-center">
+                <CoinBuddyMascot size={135} className="mx-auto drop-shadow-md transition-transform group-hover:scale-105" />
               </div>
             </div>
 
             <Link
               href="/login"
-              className="w-full py-3 px-4 rounded-xl bg-focusIndicator hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all"
+              className="w-full py-3 px-4 rounded-xl bg-brandSecondary hover:bg-amber-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all"
             >
               <span>Sign In as School Admin</span>
               <ArrowRight className="w-4 h-4" />
@@ -79,8 +79,8 @@ export default function RootGatewayPage() {
               </div>
 
               {/* Character Mascot */}
-              <div className="py-4 flex items-center justify-center">
-                <PocketPotMascot size="lg" className="mx-auto drop-shadow-md transition-transform group-hover:scale-105" />
+              <div className="h-32 flex items-center justify-center">
+                <PocketPotMascot size={88} className="mx-auto drop-shadow-md transition-transform group-hover:scale-105" />
               </div>
             </div>
 
@@ -94,32 +94,32 @@ export default function RootGatewayPage() {
           </div>
 
           {/* LEVEL 3: PUPIL */}
-          <div className="p-6 rounded-pot bg-surface border-2 border-positiveState/40 shadow-islandCard flex flex-col justify-between space-y-5 hover:border-positiveState transition-all group">
+          <div className="p-6 rounded-pot bg-surface border-2 border-[#C2410C]/40 shadow-islandCard flex flex-col justify-between space-y-5 hover:border-[#C2410C] transition-all group">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <div className="w-12 h-12 rounded-2xl bg-amberSurface flex items-center justify-center text-2xl shadow-xs">
+                <div className="w-12 h-12 rounded-2xl bg-terracottaSurface flex items-center justify-center text-2xl shadow-xs">
                   🎓
                 </div>
-                <span className="text-[11px] px-2.5 py-1 rounded-full bg-amberSurface text-brandSecondary font-bold border border-brandSecondary/30 uppercase">
+                <span className="text-[11px] px-2.5 py-1 rounded-full bg-terracottaSurface text-[#C2410C] font-bold border border-[#C2410C]/30 uppercase">
                   Level 3: Pupil
                 </span>
               </div>
 
               <div>
-                <h3 className="text-xl font-bold text-primaryText group-hover:text-positiveState transition-colors">
+                <h3 className="text-xl font-bold text-primaryText group-hover:text-[#C2410C] transition-colors">
                   Pupil Card Portal
                 </h3>
               </div>
 
               {/* Character Mascot */}
-              <div className="py-4 flex items-center justify-center">
-                <TerracottaPotMascot size="md" className="mx-auto drop-shadow-md transition-transform group-hover:scale-105" />
+              <div className="h-32 flex items-center justify-center">
+                <TerracottaPotMascot size={110} className="mx-auto drop-shadow-md transition-transform group-hover:scale-105" />
               </div>
             </div>
 
             <Link
               href="/pupil/"
-              className="w-full py-3 px-4 rounded-xl bg-positiveState hover:bg-green-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all"
+              className="w-full py-3 px-4 rounded-xl bg-[#C2410C] hover:bg-[#A33408] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all"
             >
               <span>Enter Pupil Portal</span>
               <ArrowRight className="w-4 h-4" />
