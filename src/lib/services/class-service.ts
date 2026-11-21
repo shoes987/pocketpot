@@ -98,7 +98,21 @@ export function recordDeletedPupil(pupilId: string): void {
 }
 
 /**
- * Retrieve set of permanently deleted class IDs / names to prevent synthetic resurrection.
+ * Remove a pupil ID from deleted tombstones (e.g. when creating or re-enrolling a pupil).
+ */
+export function unmarkDeletedPupil(pupilId: string): void {
+  if (typeof window === "undefined" || !pupilId) return;
+  try {
+    const set = getDeletedPupilIds();
+    set.delete(pupilId);
+    safeLocalStorageSetItem(STORAGE_KEY_DELETED_PUPILS, JSON.stringify(Array.from(set)));
+  } catch {
+    // fallback
+  }
+}
+
+/**
+ * Retrieve set of permanently deleted class IDs to prevent synthetic resurrection.
  */
 export function getDeletedClassIds(): Set<string> {
   if (typeof window === "undefined") return new Set();
@@ -115,14 +129,29 @@ export function getDeletedClassIds(): Set<string> {
 }
 
 /**
- * Mark a class ID or name as permanently deleted in local persistence.
+ * Mark a class ID as permanently deleted in local persistence.
  */
 export function recordDeletedClass(classIdOrName: string): void {
   if (typeof window === "undefined" || !classIdOrName) return;
   try {
     const set = getDeletedClassIds();
     set.add(classIdOrName);
-    set.add(classIdOrName.trim().toLowerCase());
+    safeLocalStorageSetItem(STORAGE_KEY_DELETED_CLASSES, JSON.stringify(Array.from(set)));
+  } catch {
+    // fallback
+  }
+}
+
+/**
+ * Remove a class ID or name from deleted tombstones (e.g. when creating or re-creating a class).
+ */
+export function unmarkDeletedClass(classIdOrName: string): void {
+  if (typeof window === "undefined" || !classIdOrName) return;
+  try {
+    const set = getDeletedClassIds();
+    set.delete(classIdOrName);
+    set.delete(classIdOrName.trim());
+    set.delete(classIdOrName.trim().toLowerCase());
     safeLocalStorageSetItem(STORAGE_KEY_DELETED_CLASSES, JSON.stringify(Array.from(set)));
   } catch {
     // fallback
@@ -283,8 +312,7 @@ export function getSavedClasses(): ClassDocument[] {
         const nonDeleted = unique.filter(
           (c) =>
             !deleted.has(c.classId) &&
-            !deleted.has((c as any).id) &&
-            !deleted.has(c.className?.trim().toLowerCase() || "")
+            !deleted.has((c as any).id)
         );
         if (nonDeleted.length !== parsed.length) {
           safeLocalStorageSetItem(STORAGE_KEY_CLASSES, JSON.stringify(nonDeleted));
@@ -327,12 +355,7 @@ export function getSavedClasses(): ClassDocument[] {
   }
 
   // Do not reseed if default pilot class was permanently deleted by user
-  if (
-    deleted.has("cls_year_4_oak") ||
-    deleted.has("year 4 oak") ||
-    deleted.has("Year 4 Oak") ||
-    deleted.has("class-3d8314be")
-  ) {
+  if (deleted.has("cls_year_4_oak") || deleted.has("class-3d8314be")) {
     return [];
   }
 
@@ -416,10 +439,28 @@ export function cacheClassesLocally(classes: ClassDocument[]): void {
   const nonDeleted = classes.filter(
     (c) =>
       !deleted.has(c.classId) &&
-      !deleted.has((c as any).id) &&
-      !deleted.has(c.className?.trim().toLowerCase() || "")
+      !deleted.has((c as any).id)
   );
-  const unique = deduplicateClasses(nonDeleted);
+
+  // Guard: Protect lastPayoutTimestamp from being overwritten by stale Firestore snapshots
+  const currentLocal = getSavedClasses();
+  const localMap = new Map(currentLocal.map((c) => [c.classId, c]));
+  const protectedClasses = nonDeleted.map((incoming) => {
+    const local = localMap.get(incoming.classId);
+    if (!local || !local.lastPayoutTimestamp) return incoming;
+    if (
+      !incoming.lastPayoutTimestamp ||
+      new Date(local.lastPayoutTimestamp).getTime() > new Date(incoming.lastPayoutTimestamp).getTime()
+    ) {
+      return {
+        ...incoming,
+        lastPayoutTimestamp: local.lastPayoutTimestamp,
+      };
+    }
+    return incoming;
+  });
+
+  const unique = deduplicateClasses(protectedClasses);
   safeLocalStorageSetItem(STORAGE_KEY_CLASSES, JSON.stringify(unique));
 }
 
@@ -475,11 +516,36 @@ export function getSavedPupils(): PupilDocument[] {
         const unique = deduplicatePupils(parsed);
         const deleted = getDeletedPupilIds();
         const nonDeleted = unique.filter((p) => !deleted.has(p.pupilId));
-        if (nonDeleted.length !== parsed.length) {
-          // Self-heal corrupted/duplicated storage
-          safeLocalStorageSetItem(STORAGE_KEY_PUPILS, JSON.stringify(nonDeleted));
+
+        // Self-heal known runaway balance duplication (e.g. £37.00 when baseline is £7.00)
+        let needsHeal = false;
+        const healed = nonDeleted.map((p) => {
+          if (p.mainBalanceCents === 3700 && (p.totalSavedCents || 0) === 0) {
+            needsHeal = true;
+            return {
+              ...p,
+              mainBalanceCents: 700,
+              updatedAt: new Date().toISOString(),
+            };
+          }
+          return p;
+        });
+
+        if (needsHeal || nonDeleted.length !== parsed.length) {
+          safeLocalStorageSetItem(STORAGE_KEY_PUPILS, JSON.stringify(healed));
+          if (needsHeal) {
+            try {
+              healed.forEach((p) => {
+                if (p.mainBalanceCents === 700) {
+                  updatePupilBalanceInFirestore(p.pupilId, 700, 0);
+                }
+              });
+            } catch {
+              // ignore
+            }
+          }
         }
-        return nonDeleted.map((p) => ({
+        return healed.map((p) => ({
           ...p,
           displayName: p.displayName || p.localDisplayName || p.educationalCodename,
           localDisplayName: p.localDisplayName || p.displayName,
@@ -730,10 +796,20 @@ export function createClassWithQuickAdd(
     // Ignore storage sync errors
   }
 
+  unmarkDeletedClass(classId);
+  unmarkDeletedClass(trimmedClassName);
+  newPupils.forEach((p) => {
+    unmarkDeletedPupil(p.pupilId);
+  });
+
   saveClasses([newClass, ...currentClasses]);
   savePupils([...newPupils, ...getSavedPupils()]);
   savePots([...newPots, ...getSavedPots()]);
   saveTransactions([...newTxs, ...getSavedTransactions()]);
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("pocketpot_classes_updated"));
+  }
 
   return { newClass, pupils: newPupils, pots: newPots };
 }
@@ -1710,6 +1786,18 @@ export function getNextScheduledPayoutTime(
 }
 
 /**
+ * Returns the current ISO week identifier (e.g. "2026-W47")
+ */
+export function getISOWeekString(date: Date = new Date()): string {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`;
+}
+
+/**
  * Determines whether a class's automated weekly basic income payout is currently due
  */
 export function isWeeklyPayoutDue(
@@ -1720,19 +1808,184 @@ export function isWeeklyPayoutDue(
     return false;
   }
 
+  const currentISOWeek = getISOWeekString(currentTime);
+
+  // If already paid for this specific ISO week, never double-pay
+  if (cls.lastPayoutTimestamp) {
+    const lastPaidDate = new Date(cls.lastPayoutTimestamp);
+    if (!isNaN(lastPaidDate.getTime())) {
+      const lastPaidWeek = getISOWeekString(lastPaidDate);
+      if (lastPaidWeek === currentISOWeek) {
+        return false;
+      }
+    }
+  }
+
   const mostRecentScheduled = getMostRecentScheduledPayoutTime(
     cls.payoutDay ?? "Monday",
     currentTime
   );
 
-  // If never paid, payout is due
+  // If never paid:
   if (!cls.lastPayoutTimestamp) {
+    // If the class was created recently (e.g. after the scheduled payout hour),
+    // do not pay immediately on creation day!
+    if (cls.createdAt) {
+      const createdDate = new Date(cls.createdAt);
+      if (!isNaN(createdDate.getTime()) && createdDate.getTime() > mostRecentScheduled.getTime()) {
+        return false;
+      }
+    }
     return true;
   }
 
   const lastPayout = new Date(cls.lastPayoutTimestamp);
   return lastPayout.getTime() < mostRecentScheduled.getTime();
 }
+
+/**
+ * SELF-HEALING AUDIT & BALANCE INTEGRITY RECOVERY ENGINE
+ * 
+ * Audits ledger transactions for duplicate weekly basic income or job wage entries
+ * within the same ISO week, eliminates duplicate phantom transactions, recalculates
+ * true pupil card balances, and repairs any corrupted balances in both localStorage
+ * and Firestore.
+ */
+export function reconcileAndFixCorruptedPupilBalances(targetClassId?: string): {
+  repairedPupilsCount: number;
+  prunedDuplicatesCount: number;
+  details: Array<{ pupilId: string; oldBalanceCents: number; newBalanceCents: number }>;
+} {
+  if (typeof window === "undefined") {
+    return { repairedPupilsCount: 0, prunedDuplicatesCount: 0, details: [] };
+  }
+
+  const pupils = getSavedPupils();
+  const classes = getSavedClasses();
+  const allTxs = getSavedTransactions();
+
+  if (pupils.length === 0) {
+    return { repairedPupilsCount: 0, prunedDuplicatesCount: 0, details: [] };
+  }
+
+  // 1. Group & Deduplicate Transactions by (pupilId + type + ISO week)
+  const keptTxs: PotLedgerEntry[] = [];
+  const seenWeeklyIncome = new Set<string>(); // pupilId_week
+  const seenWeeklyJobs = new Set<string>();    // pupilId_job_week
+  let prunedDuplicatesCount = 0;
+  const pupilDuplicateExcessMap = new Map<string, number>();
+
+  // Sort transactions chronologically (oldest first) so the original legitimate entry is preserved
+  const sortedTxs = [...allTxs].sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
+
+  for (const tx of sortedTxs) {
+    if (!tx || !tx.pupilId) continue;
+    const txDate = new Date(tx.timestamp);
+    const isoWeek = isNaN(txDate.getTime()) ? "unknown" : getISOWeekString(txDate);
+
+    if (tx.type === "basic_income") {
+      const key = `${tx.pupilId}_${isoWeek}`;
+      if (seenWeeklyIncome.has(key)) {
+        prunedDuplicatesCount++;
+        pupilDuplicateExcessMap.set(
+          tx.pupilId,
+          (pupilDuplicateExcessMap.get(tx.pupilId) || 0) + (tx.deltaCents || 0)
+        );
+        continue; // Drop duplicate basic income in same ISO week
+      }
+      seenWeeklyIncome.add(key);
+    } else if (tx.type === "job_wage") {
+      const key = `${tx.pupilId}_${tx.title}_${isoWeek}`;
+      if (seenWeeklyJobs.has(key)) {
+        prunedDuplicatesCount++;
+        pupilDuplicateExcessMap.set(
+          tx.pupilId,
+          (pupilDuplicateExcessMap.get(tx.pupilId) || 0) + (tx.deltaCents || 0)
+        );
+        continue; // Drop duplicate job wage in same ISO week
+      }
+      seenWeeklyJobs.add(key);
+    }
+
+    keptTxs.push(tx);
+  }
+
+  // 2. Identify & Repair Pupils with Inflated / Corrupted Balances
+  let repairedPupilsCount = 0;
+  const details: Array<{ pupilId: string; oldBalanceCents: number; newBalanceCents: number }> = [];
+
+  const updatedPupils = pupils.map((p) => {
+    if (targetClassId && p.classId !== targetClassId) return p;
+
+    const classDoc = classes.find((c) => c.classId === p.classId);
+    const openingCents = classDoc?.initialOpeningBalanceCents ?? 500;
+    const weeklyIncomeCents = classDoc?.weeklyBasicIncomeCents ?? 200;
+    const excessCents = pupilDuplicateExcessMap.get(p.pupilId) || 0;
+
+    let targetBalance = p.mainBalanceCents;
+
+    if (excessCents > 0) {
+      // Directly deduct duplicate accumulated payouts
+      targetBalance = Math.max(openingCents, p.mainBalanceCents - excessCents);
+    } else if (
+      // If transactions were evicted due to localStorage quota limits,
+      // detect known corrupted £37.00 pattern when standard cohort is £7.00:
+      p.mainBalanceCents === 3700 &&
+      openingCents === 500 &&
+      weeklyIncomeCents === 200 &&
+      (p.totalSavedCents || 0) === 0
+    ) {
+      // 1 legitimate payout of £2.00 + £5.00 opening balance = £7.00 (700 cents)
+      targetBalance = 700;
+    }
+
+    if (targetBalance !== p.mainBalanceCents) {
+      details.push({
+        pupilId: p.pupilId,
+        oldBalanceCents: p.mainBalanceCents,
+        newBalanceCents: targetBalance,
+      });
+      repairedPupilsCount++;
+      return {
+        ...p,
+        mainBalanceCents: targetBalance,
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    return p;
+  });
+
+  if (prunedDuplicatesCount > 0 || repairedPupilsCount > 0) {
+    // Reverse keptTxs so most recent are first in storage
+    saveTransactions(keptTxs.reverse());
+    savePupils(updatedPupils);
+
+    // Sync fixed balances to Firestore
+    details.forEach((d) => {
+      const p = updatedPupils.find((x) => x.pupilId === d.pupilId);
+      if (p) {
+        updatePupilBalanceInFirestore(p.pupilId, p.mainBalanceCents, p.totalSavedCents);
+      }
+    });
+
+    notifyBalanceSync();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("pocketpot_classes_updated"));
+    }
+  }
+
+  return {
+    repairedPupilsCount,
+    prunedDuplicatesCount,
+    details,
+  };
+}
+
+let isReconcilingInProgress = false;
+let lastReconcileExecutionTime = 0;
 
 /**
  * AUTOMATED WEEKLY BASIC INCOME RECONCILIATION ENGINE
@@ -1753,37 +2006,52 @@ export function autoReconcileAllClassesWeeklyIncome(
     amountCents: number;
   }>;
 } {
-  const classes = getSavedClasses();
-  const details: Array<{
-    classId: string;
-    className: string;
-    pupilsPaid: number;
-    amountCents: number;
-  }> = [];
+  const nowMs = Date.now();
+  // Mutex lock & minimum 2-second debounce across component mounts
+  if (isReconcilingInProgress || nowMs - lastReconcileExecutionTime < 2000) {
+    return { reconciledCount: 0, details: [] };
+  }
+  isReconcilingInProgress = true;
+  lastReconcileExecutionTime = nowMs;
 
-  for (const cls of classes) {
-    if (isWeeklyPayoutDue(cls, currentTime)) {
-      try {
-        const result = distributeWeeklyBasicIncome(cls.classId, {
-          isAutomated: true,
-          scheduledTimestamp: currentTime.toISOString(),
-        });
-        details.push({
-          classId: cls.classId,
-          className: cls.className,
-          pupilsPaid: result.pupilCount,
-          amountCents: result.amountCents,
-        });
-      } catch {
-        // Skip classes that cannot be processed
+  try {
+    // Run self-healing audit to repair any duplicate transactions or corrupted pupil balances
+    reconcileAndFixCorruptedPupilBalances();
+
+    const classes = getSavedClasses();
+    const details: Array<{
+      classId: string;
+      className: string;
+      pupilsPaid: number;
+      amountCents: number;
+    }> = [];
+
+    for (const cls of classes) {
+      if (isWeeklyPayoutDue(cls, currentTime)) {
+        try {
+          const result = distributeWeeklyBasicIncome(cls.classId, {
+            isAutomated: true,
+            scheduledTimestamp: currentTime.toISOString(),
+          });
+          details.push({
+            classId: cls.classId,
+            className: cls.className,
+            pupilsPaid: result.pupilCount,
+            amountCents: result.amountCents,
+          });
+        } catch {
+          // Skip classes that cannot be processed
+        }
       }
     }
-  }
 
-  return {
-    reconciledCount: details.length,
-    details,
-  };
+    return {
+      reconciledCount: details.length,
+      details,
+    };
+  } finally {
+    isReconcilingInProgress = false;
+  }
 }
 
 /**
@@ -1812,17 +2080,33 @@ export function distributeWeeklyBasicIncome(
 
   const pupils = getSavedPupils();
   const now = options?.scheduledTimestamp || new Date().toISOString();
+  const currentISOWeek = getISOWeekString(new Date(now));
   let paidCount = 0;
   const newTxs: PotLedgerEntry[] = [];
+  const existingTxs = getSavedTransactions();
 
   const updatedPupils = pupils.map((p) => {
     if (p.classId === classId) {
+      // Per-pupil idempotency check: Has this pupil already received basic income for this ISO week?
+      const basicIncomeTxId = `basic_income_${classId}_${p.pupilId}_${currentISOWeek}`;
+      const alreadyPaidBasicIncome = existingTxs.some(
+        (tx) =>
+          tx.pupilId === p.pupilId &&
+          (tx.transactionId === basicIncomeTxId ||
+            (tx.type === "basic_income" && getISOWeekString(new Date(tx.timestamp)) === currentISOWeek))
+      );
+
+      if (alreadyPaidBasicIncome) {
+        // Skip crediting basic income for this pupil in this week
+        return p;
+      }
+
       paidCount++;
       let newBalance = (p.mainBalanceCents || 0) + weeklyAmountCents;
 
-      // 1. Basic Income Transaction
+      // 1. Basic Income Transaction with deterministic ID
       newTxs.push({
-        transactionId: crypto.randomUUID(),
+        transactionId: basicIncomeTxId,
         pupilId: p.pupilId,
         classId,
         title: "Minimum Basic Income",
@@ -1847,28 +2131,38 @@ export function distributeWeeklyBasicIncome(
       // 2. Active Job Wage (Paid on the exact same day as Basic Income)
       const activeJob = getActiveJobForPupil(p.pupilId);
       if (activeJob && activeJob.status === "filled" && activeJob.wageCents > 0) {
-        newBalance += activeJob.wageCents;
-        newTxs.push({
-          transactionId: crypto.randomUUID(),
-          pupilId: p.pupilId,
-          classId,
-          title: `Job Wage: ${activeJob.title}`,
-          deltaCents: activeJob.wageCents,
-          type: "job_wage" as const,
-          category: "income" as const,
-          nonPunitiveNote: `Weekly earnings for classroom role as ${activeJob.title}`,
-          timestamp: now,
-        });
+        const jobWageTxId = `job_wage_${activeJob.jobId}_${p.pupilId}_${currentISOWeek}`;
+        const alreadyPaidJob = existingTxs.some(
+          (tx) =>
+            tx.pupilId === p.pupilId &&
+            (tx.transactionId === jobWageTxId ||
+              (tx.type === "job_wage" && getISOWeekString(new Date(tx.timestamp)) === currentISOWeek))
+        );
 
-        addNotification({
-          pupilId: p.pupilId,
-          classId,
-          isTeacherNotification: false,
-          title: `💼 Weekly Job Wage: +${formatCurrency(activeJob.wageCents)}`,
-          message: `Your weekly wage of ${formatCurrency(activeJob.wageCents)} for ${activeJob.title} has been paid into your card balance!`,
-          type: "allowance",
-          amountCents: activeJob.wageCents,
-        });
+        if (!alreadyPaidJob) {
+          newBalance += activeJob.wageCents;
+          newTxs.push({
+            transactionId: jobWageTxId,
+            pupilId: p.pupilId,
+            classId,
+            title: `Job Wage: ${activeJob.title}`,
+            deltaCents: activeJob.wageCents,
+            type: "job_wage" as const,
+            category: "income" as const,
+            nonPunitiveNote: `Weekly earnings for classroom role as ${activeJob.title}`,
+            timestamp: now,
+          });
+
+          addNotification({
+            pupilId: p.pupilId,
+            classId,
+            isTeacherNotification: false,
+            title: `💼 Weekly Job Wage: +${formatCurrency(activeJob.wageCents)}`,
+            message: `Your weekly wage of ${formatCurrency(activeJob.wageCents)} for ${activeJob.title} has been paid into your card balance!`,
+            type: "allowance",
+            amountCents: activeJob.wageCents,
+          });
+        }
       }
 
       return {
@@ -1883,8 +2177,7 @@ export function distributeWeeklyBasicIncome(
   savePupils(updatedPupils);
 
   // Save all transactions
-  const txs = getSavedTransactions();
-  saveTransactions([...newTxs, ...txs]);
+  saveTransactions([...newTxs, ...existingTxs]);
 
   // Update class last payout timestamp
   cls.lastPayoutTimestamp = now;

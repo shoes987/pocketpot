@@ -334,6 +334,7 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
       }
       setCreatedClass(result.newClass);
       setCreatedPupils(result.pupils);
+      onComplete(result.newClass, result.pupils, false);
       setStep(6); // Go to Launchpad
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to set up class.";
@@ -384,6 +385,7 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
 
       setCreatedClass(result.newClass);
       setCreatedPupils(result.pupils);
+      onComplete(result.newClass, result.pupils, false);
       setStep(6);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Quick setup encountered an issue.";

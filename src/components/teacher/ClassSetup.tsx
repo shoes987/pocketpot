@@ -126,15 +126,15 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
       setClasses(propsClasses);
       if (propsClasses.length === 0) {
         setSelectedClassId("");
-      } else if (!propsClasses.some((c) => c.classId === selectedClassId)) {
-        setSelectedClassId(
-          activeClassId && propsClasses.some((c) => c.classId === activeClassId)
-            ? activeClassId
-            : propsClasses[0].classId
-        );
+      } else {
+        setSelectedClassId((prev) => {
+          if (prev && propsClasses.some((c) => c.classId === prev)) return prev;
+          if (activeClassId && propsClasses.some((c) => c.classId === activeClassId)) return activeClassId;
+          return propsClasses[0].classId;
+        });
       }
     }
-  }, [propsClasses, activeClassId, selectedClassId]);
+  }, [propsClasses, activeClassId]);
 
   useEffect(() => {
     if (propsPupils !== undefined) {
@@ -295,6 +295,7 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
 
     window.addEventListener("storage", handleSync);
     window.addEventListener(BALANCE_SYNC_EVENT, handleSync);
+    window.addEventListener("pocketpot_classes_updated", handleSync);
 
     return () => {
       unsubClasses();
@@ -302,6 +303,7 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
       unsubPots();
       window.removeEventListener("storage", handleSync);
       window.removeEventListener(BALANCE_SYNC_EVENT, handleSync);
+      window.removeEventListener("pocketpot_classes_updated", handleSync);
     };
   }, [isAdmin, activeClassId, propsClasses !== undefined, propsPupils !== undefined, propsPots !== undefined]);
 

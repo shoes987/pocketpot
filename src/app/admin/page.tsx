@@ -25,6 +25,7 @@ import {
   getSavedPots,
   getDeletedPupilIds,
   getDeletedClassIds,
+  unmarkDeletedClass,
   purgeLegacyMockStorage,
   autoReconcileAllClassesWeeklyIncome,
   BALANCE_SYNC_EVENT,
@@ -173,6 +174,7 @@ export default function AdminPortalPage() {
     const handleSync = () => refreshState();
     window.addEventListener("storage", handleSync);
     window.addEventListener(BALANCE_SYNC_EVENT, handleSync);
+    window.addEventListener("pocketpot_classes_updated", handleSync);
 
     return () => {
       unsubAuth();
@@ -181,16 +183,23 @@ export default function AdminPortalPage() {
       unsubPots();
       window.removeEventListener("storage", handleSync);
       window.removeEventListener(BALANCE_SYNC_EVENT, handleSync);
+      window.removeEventListener("pocketpot_classes_updated", handleSync);
     };
   }, []);
 
   const handleWizardComplete = (newClass: ClassDocument) => {
-    refreshState();
+    unmarkDeletedClass(newClass.classId);
+    if (newClass.className) unmarkDeletedClass(newClass.className);
+    setClasses((prev) => [newClass, ...prev.filter((c) => c.classId !== newClass.classId)]);
     setActiveClassId(newClass.classId);
+    refreshState();
     setActiveTab("class-setup");
   };
 
   const handleClassCreated = (newClass: ClassDocument) => {
+    unmarkDeletedClass(newClass.classId);
+    if (newClass.className) unmarkDeletedClass(newClass.className);
+    setClasses((prev) => [newClass, ...prev.filter((c) => c.classId !== newClass.classId)]);
     setActiveClassId(newClass.classId);
     refreshState();
   };
