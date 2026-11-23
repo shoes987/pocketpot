@@ -142,20 +142,11 @@ export default function TeacherPortalPage() {
         (c) =>
           !deletedClassIds.has(c.classId) &&
           !deletedClassIds.has((c as any).id) &&
-          !deletedClassIds.has(c.className?.trim().toLowerCase() || "")
+          !deletedClassIds.has(c.className?.trim().toLowerCase() || "") &&
+          !deletedClassIds.has(c.className?.trim() || "")
       );
-      if (activeClasses && activeClasses.length > 0) {
-        setClasses(activeClasses);
-        cacheClassesLocally(activeClasses);
-      } else {
-        const local = getSavedClasses().filter(
-          (c) =>
-            !deletedClassIds.has(c.classId) &&
-            !deletedClassIds.has((c as any).id) &&
-            !deletedClassIds.has(c.className?.trim().toLowerCase() || "")
-        );
-        if (local.length > 0) setClasses(local);
-      }
+      setClasses(activeClasses);
+      cacheClassesLocally(activeClasses);
     });
 
     const unsubPupils = subscribeToPupils((livePupils) => {
@@ -186,6 +177,7 @@ export default function TeacherPortalPage() {
     window.addEventListener("storage", handleSync);
     window.addEventListener(BALANCE_SYNC_EVENT, handleSync);
     window.addEventListener("pocketpot_classes_updated", handleSync);
+    window.addEventListener("pocketpot_staff_updated", handleSync);
 
     return () => {
       unsubAuth();
@@ -195,6 +187,7 @@ export default function TeacherPortalPage() {
       window.removeEventListener("storage", handleSync);
       window.removeEventListener(BALANCE_SYNC_EVENT, handleSync);
       window.removeEventListener("pocketpot_classes_updated", handleSync);
+      window.removeEventListener("pocketpot_staff_updated", handleSync);
     };
   }, []);
 
@@ -231,12 +224,22 @@ export default function TeacherPortalPage() {
 
   // Strictly filter classes to those assigned to this educator
   const allowedClasses = currentTeacher
-    ? getSavedClassesForUser(currentTeacher, classes.length > 0 ? classes : undefined)
+    ? getSavedClassesForUser(currentTeacher, classes)
     : [];
   const activeClass =
     allowedClasses.length > 0
       ? allowedClasses.find((c) => c.classId === activeClassId) || allowedClasses[0]
       : null;
+
+  useEffect(() => {
+    if (allowedClasses.length > 0) {
+      if (!activeClassId || !allowedClasses.some((c) => c.classId === activeClassId)) {
+        setActiveClassId(allowedClasses[0].classId);
+      }
+    } else {
+      setActiveClassId("");
+    }
+  }, [allowedClasses, activeClassId]);
 
   // Filter metrics strictly to active classroom
   const rawClassPupils = activeClass ? pupils.filter((p) => p.classId === activeClass.classId) : [];

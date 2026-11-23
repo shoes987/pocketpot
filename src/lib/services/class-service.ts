@@ -313,7 +313,9 @@ export function getSavedClasses(): ClassDocument[] {
         const nonDeleted = unique.filter(
           (c) =>
             !deleted.has(c.classId) &&
-            !deleted.has((c as any).id)
+            !deleted.has((c as any).id) &&
+            !deleted.has(c.className?.trim().toLowerCase() || "") &&
+            !deleted.has(c.className?.trim() || "")
         );
         if (nonDeleted.length !== parsed.length) {
           safeLocalStorageSetItem(STORAGE_KEY_CLASSES, JSON.stringify(nonDeleted));
@@ -331,18 +333,18 @@ export function getSavedClasses(): ClassDocument[] {
               ? c.leadTeacherId
               : c.teacherId && c.teacherId !== "teacher-oak-lead"
               ? c.teacherId
-              : "b5qdSySAWSOvnhYCdf8OLTDZFFo1";
+              : "";
           const validAssigned =
             c.assignedTeacherIds && c.assignedTeacherIds.length > 0 && !c.assignedTeacherIds.every((id) => id === "teacher-oak-lead")
               ? c.assignedTeacherIds.filter((id) => id !== "teacher-oak-lead")
-              : [validLead];
+              : validLead ? [validLead] : [];
           return {
             ...c,
             tenantId: c.tenantId || "sch_local_pilot",
             schoolId: c.schoolId || "sch_local_pilot",
             teacherId: validLead,
             leadTeacherId: validLead,
-            assignedTeacherIds: validAssigned.length > 0 ? validAssigned : [validLead],
+            assignedTeacherIds: validAssigned,
             initialOpeningBalanceCents: c.initialOpeningBalanceCents ?? 500,
             weeklyBasicIncomeCents: c.weeklyBasicIncomeCents ?? 200,
             payoutDay: c.payoutDay ?? "Monday",
@@ -398,15 +400,37 @@ export function getSavedClassesForUser(
   user?: { role: string; userId: string; assignedClassIds?: string[] },
   classList?: ClassDocument[]
 ): ClassDocument[] {
-  const all = classList !== undefined ? classList : getSavedClasses();
-  if (!user || user.role === "admin") return all;
-
-  return all.filter((cls) => {
-    const isLead = cls.leadTeacherId === user.userId;
-    const isAssigned = cls.assignedTeacherIds && cls.assignedTeacherIds.includes(user.userId);
-    const userHasClassId = user.assignedClassIds && user.assignedClassIds.includes(cls.classId);
-    return isLead || isAssigned || userHasClassId;
+  const deleted = getDeletedClassIds();
+  const rawList = classList !== undefined ? classList : getSavedClasses();
+  const nonDeleted = (rawList || []).filter((cls) => {
+    if (!cls || !cls.classId) return false;
+    if (deleted.has(cls.classId)) return false;
+    if ((cls as any).id && deleted.has((cls as any).id)) return false;
+    if (cls.className && (deleted.has(cls.className.trim().toLowerCase()) || deleted.has(cls.className.trim()))) {
+      return false;
+    }
+    return true;
   });
+
+  if (!user || user.role === "admin") return deduplicateClasses(nonDeleted);
+
+  // If assignedClassIds is specified: teacher strictly only sees classes explicitly assigned
+  if (Array.isArray(user.assignedClassIds)) {
+    if (user.assignedClassIds.includes("*")) {
+      return deduplicateClasses(nonDeleted);
+    }
+    const assignedSet = new Set(user.assignedClassIds);
+    return deduplicateClasses(nonDeleted.filter((cls) => assignedSet.has(cls.classId)));
+  }
+
+  // Fallback ONLY if assignedClassIds was never set
+  return deduplicateClasses(
+    nonDeleted.filter((cls) => {
+      const isLead = cls.leadTeacherId === user.userId;
+      const isAssigned = cls.assignedTeacherIds && cls.assignedTeacherIds.includes(user.userId);
+      return isLead || isAssigned;
+    })
+  );
 }
 
 /**
@@ -437,10 +461,12 @@ export function assignTeachersToClass(
 export function cacheClassesLocally(classes: ClassDocument[]): void {
   if (typeof window === "undefined") return;
   const deleted = getDeletedClassIds();
-  const nonDeleted = classes.filter(
+  const nonDeleted = (classes || []).filter(
     (c) =>
       !deleted.has(c.classId) &&
-      !deleted.has((c as any).id)
+      !deleted.has((c as any).id) &&
+      !deleted.has(c.className?.trim().toLowerCase() || "") &&
+      !deleted.has(c.className?.trim() || "")
   );
 
   // Guard: Protect lastPayoutTimestamp from being overwritten by stale Firestore snapshots
@@ -1607,12 +1633,19 @@ export function deleteClass(
   const normId = classIdentifier.trim();
   const normLower = normId.toLowerCase();
 
-  // 1. Record tombstones immediately so snapshot listeners and local sync never resurrect this class
-  recordDeletedClass(normId);
-  recordDeletedClass(normLower);
+  // 1. Read existing classes from storage BEFORE tombstoning
+  let rawStored: ClassDocument[] = [];
+  try {
+    const raw = safeLocalStorageGetItem(STORAGE_KEY_CLASSES);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) rawStored = parsed;
+    }
+  } catch {}
 
-  const classes = getSavedClasses();
-  const candidates = classList && classList.length > 0 ? [...classes, ...classList] : classes;
+  const candidates = classList && classList.length > 0
+    ? [...rawStored, ...classList]
+    : rawStored;
 
   // Find all matching class records (by classId, id, className, or classJoinCode)
   const matches = candidates.filter(
@@ -1624,20 +1657,32 @@ export function deleteClass(
   );
 
   const matchedIds = new Set<string>();
+  const matchedNames = new Set<string>();
+
+  matchedIds.add(normId);
+  matchedIds.add(normLower);
+
   matches.forEach((m) => {
     if (m.classId) matchedIds.add(m.classId);
     if ((m as any).id) matchedIds.add((m as any).id);
     if (m.className) {
-      recordDeletedClass(m.className.trim().toLowerCase());
-      recordDeletedClass(m.className.trim());
-      deleteClassByNameFromFirestore(m.className.trim()).catch(() => {});
+      matchedNames.add(m.className.trim());
+      matchedNames.add(m.className.trim().toLowerCase());
     }
   });
-  matchedIds.add(normId);
 
-  // Tombstone all matched IDs and delete from Firestore
+  // If the identifier itself matches a class name
+  if (candidates.some((c) => c.className && c.className.trim().toLowerCase() === normLower)) {
+    matchedNames.add(normId);
+    matchedNames.add(normLower);
+  }
+
+  // 2. Tombstone all matched IDs and class names
+  matchedIds.forEach((id) => recordDeletedClass(id));
+  matchedNames.forEach((name) => recordDeletedClass(name));
+
+  // 3. Delete from Firestore by ID and by Name
   matchedIds.forEach((id) => {
-    recordDeletedClass(id);
     try {
       deleteClassFromFirestore(id);
     } catch (err) {
@@ -1645,12 +1690,20 @@ export function deleteClass(
     }
   });
 
+  matchedNames.forEach((name) => {
+    try {
+      deleteClassByNameFromFirestore(name);
+    } catch (err) {
+      console.warn("deleteClassByNameFromFirestore warning:", err);
+    }
+  });
+
   // Remove matching classes from local storage
-  const updatedClasses = classes.filter(
+  const updatedClasses = rawStored.filter(
     (c) =>
       !matchedIds.has(c.classId) &&
       !matchedIds.has((c as any).id) &&
-      (!c.className || c.className.trim().toLowerCase() !== normLower)
+      (!c.className || (!matchedNames.has(c.className.trim()) && !matchedNames.has(c.className.trim().toLowerCase())))
   );
   saveClasses(updatedClasses);
 
@@ -1719,6 +1772,33 @@ export function deleteClass(
       // ignore
     }
   });
+
+  // Remove deleted class from all teachers' assignedClassIds
+  try {
+    const staff = getStaffUsers();
+    let staffModified = false;
+    const updatedStaff = staff.map((s) => {
+      const existing = s.assignedClassIds || [];
+      const filtered = existing.filter((cid) => !matchedIds.has(cid));
+      if (filtered.length !== existing.length) {
+        staffModified = true;
+        return {
+          ...s,
+          assignedClassIds: filtered,
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      return s;
+    });
+    if (staffModified) {
+      saveStaffUsers(updatedStaff);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("pocketpot_staff_updated"));
+      }
+    }
+  } catch (err) {
+    console.warn("deleteClass staff cleanup error:", err);
+  }
 
   notifyBalanceSync();
   if (typeof window !== "undefined") {

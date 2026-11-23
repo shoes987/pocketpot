@@ -57,6 +57,7 @@ import {
   purgeLegacyMockStorage,
   updateClassSettings,
   deleteClass,
+  saveClasses,
 } from "@/lib/services/class-service";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -226,6 +227,7 @@ export function SchoolOverviewDashboard({
       showToast(`Class "${deletingClass.className}" has been permanently deleted.`);
       setDeletingClass(null);
       setIsDeleting(false);
+      reloadStaff();
       onClassesChanged?.();
     } catch (err: unknown) {
       setDeleteError(err instanceof Error ? err.message : "Failed to delete class.");
@@ -398,6 +400,46 @@ export function SchoolOverviewDashboard({
 
     try {
       updateStaffUser(userId, { assignedClassIds: nextClassIds });
+
+      // Sync classes: if teacher was unassigned from this class, remove them from class lead/assigned lists
+      if (!nextClassIds.includes(classId) && !nextClassIds.includes("*")) {
+        const targetClass = classes.find((c) => c.classId === classId);
+        if (targetClass && (targetClass.leadTeacherId === userId || targetClass.assignedTeacherIds?.includes(userId))) {
+          const updated = classes.map((c) => {
+            if (c.classId === classId) {
+              return {
+                ...c,
+                leadTeacherId: c.leadTeacherId === userId ? "" : c.leadTeacherId,
+                teacherId: c.teacherId === userId ? "" : c.teacherId,
+                assignedTeacherIds: (c.assignedTeacherIds || []).filter((id) => id !== userId),
+                updatedAt: new Date().toISOString(),
+              };
+            }
+            return c;
+          });
+          saveClasses(updated);
+        }
+      } else if (nextClassIds.includes(classId)) {
+        // Teacher was assigned to class, ensure class lists them
+        const targetClass = classes.find((c) => c.classId === classId);
+        if (targetClass && !targetClass.assignedTeacherIds?.includes(userId)) {
+          const updated = classes.map((c) => {
+            if (c.classId === classId) {
+              const currentAssigned = c.assignedTeacherIds || [];
+              return {
+                ...c,
+                leadTeacherId: c.leadTeacherId || userId,
+                teacherId: c.teacherId || userId,
+                assignedTeacherIds: [...currentAssigned, userId],
+                updatedAt: new Date().toISOString(),
+              };
+            }
+            return c;
+          });
+          saveClasses(updated);
+        }
+      }
+
       reloadStaff();
       showToast("Updated assigned classes");
     } catch (err: unknown) {
@@ -409,6 +451,19 @@ export function SchoolOverviewDashboard({
   const handleClearClasses = (userId: string) => {
     try {
       updateStaffUser(userId, { assignedClassIds: [] });
+      const updated = classes.map((c) => {
+        if (c.leadTeacherId === userId || c.assignedTeacherIds?.includes(userId)) {
+          return {
+            ...c,
+            leadTeacherId: c.leadTeacherId === userId ? "" : c.leadTeacherId,
+            teacherId: c.teacherId === userId ? "" : c.teacherId,
+            assignedTeacherIds: (c.assignedTeacherIds || []).filter((id) => id !== userId),
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return c;
+      });
+      saveClasses(updated);
       reloadStaff();
       showToast("Classes reset to Unassigned");
     } catch (err: unknown) {
