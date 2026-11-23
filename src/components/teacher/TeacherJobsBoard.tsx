@@ -132,20 +132,22 @@ export const TeacherJobsBoard: React.FC<TeacherJobsBoardProps> = ({
     setApplications(loadedApps);
   };
 
+  const targetClassId = selectedClassId || activeClassId || "";
+
   useEffect(() => {
     loadData();
+  }, [activeClassId, selectedClassId]);
 
-    const targetClassId = selectedClassId || activeClassId;
-
+  useEffect(() => {
     const unsubJobs = subscribeToJobs((liveJobs) => {
       cacheJobsLocally(liveJobs);
       setJobs(targetClassId ? liveJobs.filter((j) => j.classId === targetClassId) : liveJobs);
-    }, targetClassId);
+    }, targetClassId || undefined);
 
     const unsubApps = subscribeToApplications((liveApps) => {
       cacheApplicationsLocally(liveApps);
       setApplications(targetClassId ? liveApps.filter((a) => a.classId === targetClassId) : liveApps);
-    }, targetClassId);
+    }, targetClassId || undefined);
 
     const handleSync = () => {
       loadData();
@@ -159,7 +161,7 @@ export const TeacherJobsBoard: React.FC<TeacherJobsBoardProps> = ({
       window.removeEventListener(APPLICATIONS_SYNC_EVENT, handleSync);
       window.removeEventListener(JOBS_SYNC_EVENT, handleSync);
     };
-  }, [propsClasses, activeClassId, selectedClassId]);
+  }, [targetClassId]);
 
   const showToast = (msg: string) => {
     setSuccessToast(msg);

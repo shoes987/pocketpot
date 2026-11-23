@@ -196,10 +196,14 @@ export function TeacherBonusesDashboard({
     setRecentAwards(getSavedBonusAwards(classId, 10));
   };
 
+  const targetClassId = selectedClassId || activeClassId || "";
+
   useEffect(() => {
     loadData();
+  }, [activeClassId, selectedClassId]);
 
-    // Real-time Firestore pupil listener for Whiteboard Mode
+  useEffect(() => {
+    // Real-time Firestore pupil listener for Whiteboard Mode scoped with query limit
     const unsubPupils = subscribeToPupils((livePupils) => {
       const deletedPupils = getDeletedPupilIds();
       const deletedClasses = getDeletedClassIds();
@@ -228,14 +232,14 @@ export function TeacherBonusesDashboard({
       });
       const merged = Array.from(map.values());
       setPupils(merged);
-    });
+    }, targetClassId || undefined);
 
     const unsubBehaviours = subscribeToBehaviours((liveBehaviours) => {
       if (liveBehaviours && liveBehaviours.length > 0) {
         cacheBehavioursLocally(liveBehaviours);
-        setBehaviours(getSavedBehaviours(selectedClassId));
+        setBehaviours(getSavedBehaviours(targetClassId));
       }
-    });
+    }, targetClassId || undefined);
 
     const handleSync = () => loadData();
     window.addEventListener("storage", handleSync);
@@ -245,7 +249,7 @@ export function TeacherBonusesDashboard({
       unsubBehaviours();
       window.removeEventListener("storage", handleSync);
     };
-  }, [propsClasses, activeClassId, selectedClassId]);
+  }, [targetClassId]);
 
   // Audio Synthesizer Chime (Web Audio API - 100% reliable, zero network latency)
   const playCelebrationChime = () => {

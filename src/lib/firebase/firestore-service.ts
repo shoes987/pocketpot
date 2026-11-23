@@ -12,6 +12,7 @@ import {
   getDoc,
   query,
   where,
+  limit,
   Unsubscribe,
   writeBatch,
   increment,
@@ -127,8 +128,9 @@ export function subscribeToStaff(
   if (!db) return () => {};
   try {
     const staffColRef = collection(db, "tenants", tenantId, "staff");
+    const q = query(staffColRef, limit(50));
     return onSnapshot(
-      staffColRef,
+      q,
       (snap) => {
         const staffList: UserDocument[] = [];
         snap.forEach((docSnap) => {
@@ -193,7 +195,7 @@ export async function deleteClassByNameFromFirestore(className: string): Promise
   if (!db || !className) return;
   try {
     const targetNorm = className.trim().toLowerCase();
-    const snap = await getDocs(collection(db, "classes"));
+    const snap = await getDocs(query(collection(db, "classes"), limit(50)));
     const promises: Promise<void>[] = [];
     snap.forEach((d) => {
       const data = d.data();
@@ -216,7 +218,9 @@ export function subscribeToClasses(
 ): Unsubscribe {
   if (!db) return () => {};
   const classesCol = collection(db, "classes");
-  const q = tenantId ? query(classesCol, where("tenantId", "==", tenantId)) : classesCol;
+  const q = tenantId
+    ? query(classesCol, where("tenantId", "==", tenantId), limit(50))
+    : query(classesCol, limit(50));
 
   return onSnapshot(
     q,
@@ -331,7 +335,9 @@ export function subscribeToPupils(
 ): Unsubscribe {
   if (!db) return () => {};
   const pupilsCol = collection(db, "pupils");
-  const q = classId ? query(pupilsCol, where("classId", "==", classId)) : pupilsCol;
+  const q = classId
+    ? query(pupilsCol, where("classId", "==", classId), limit(50))
+    : query(pupilsCol, limit(50));
 
   return onSnapshot(
     q,
@@ -458,12 +464,12 @@ export function subscribeToPots(
 ): Unsubscribe {
   if (!db) return () => {};
   const potsCol = collection(db, "pots");
-  let q = query(potsCol);
+  let q = query(potsCol, limit(50));
 
   if (pupilId) {
-    q = query(potsCol, where("pupilId", "==", pupilId));
+    q = query(potsCol, where("pupilId", "==", pupilId), limit(50));
   } else if (classId) {
-    q = query(potsCol, where("classId", "==", classId));
+    q = query(potsCol, where("classId", "==", classId), limit(50));
   }
 
   return onSnapshot(
@@ -526,7 +532,9 @@ export function subscribeToJobs(
 ): Unsubscribe {
   if (!db) return () => {};
   const jobsCol = collection(db, "jobs");
-  const q = classId ? query(jobsCol, where("classId", "==", classId)) : jobsCol;
+  const q = classId
+    ? query(jobsCol, where("classId", "==", classId), limit(50))
+    : query(jobsCol, limit(50));
 
   return onSnapshot(
     q,
@@ -597,13 +605,13 @@ export function subscribeToApplications(
 ): Unsubscribe {
   if (!db) return () => {};
   const appsCol = collection(db, "job_applications");
-  let q = query(appsCol);
+  let q = query(appsCol, limit(50));
   if (classId && pupilId) {
-    q = query(appsCol, where("classId", "==", classId), where("pupilId", "==", pupilId));
+    q = query(appsCol, where("classId", "==", classId), where("pupilId", "==", pupilId), limit(50));
   } else if (classId) {
-    q = query(appsCol, where("classId", "==", classId));
+    q = query(appsCol, where("classId", "==", classId), limit(50));
   } else if (pupilId) {
-    q = query(appsCol, where("pupilId", "==", pupilId));
+    q = query(appsCol, where("pupilId", "==", pupilId), limit(50));
   }
 
   return onSnapshot(
@@ -637,13 +645,13 @@ export async function deleteJobsAndApplicationsForClassInFirestore(classId: stri
   if (!db || !classId) return;
   try {
     // Delete jobs for this class
-    const jobsSnap = await getDocs(query(collection(db, "jobs"), where("classId", "==", classId)));
+    const jobsSnap = await getDocs(query(collection(db, "jobs"), where("classId", "==", classId), limit(50)));
     const batch = writeBatch(db);
     jobsSnap.forEach((d) => {
       batch.delete(d.ref);
     });
     // Delete applications for this class
-    const appsSnap = await getDocs(query(collection(db, "job_applications"), where("classId", "==", classId)));
+    const appsSnap = await getDocs(query(collection(db, "job_applications"), where("classId", "==", classId), limit(50)));
     appsSnap.forEach((d) => {
       batch.delete(d.ref);
     });
@@ -656,7 +664,7 @@ export async function deleteJobsAndApplicationsForClassInFirestore(classId: stri
 export async function deletePupilsForClassInFirestore(classId: string): Promise<void> {
   if (!db || !classId) return;
   try {
-    const snap = await getDocs(query(collection(db, "pupils"), where("classId", "==", classId)));
+    const snap = await getDocs(query(collection(db, "pupils"), where("classId", "==", classId), limit(50)));
     if (snap.empty) return;
     const batch = writeBatch(db);
     snap.forEach((d) => batch.delete(d.ref));
@@ -669,7 +677,7 @@ export async function deletePupilsForClassInFirestore(classId: string): Promise<
 export async function deletePotsForClassInFirestore(classId: string): Promise<void> {
   if (!db || !classId) return;
   try {
-    const snap = await getDocs(query(collection(db, "pots"), where("classId", "==", classId)));
+    const snap = await getDocs(query(collection(db, "pots"), where("classId", "==", classId), limit(50)));
     if (snap.empty) return;
     const batch = writeBatch(db);
     snap.forEach((d) => batch.delete(d.ref));
@@ -749,7 +757,9 @@ export function subscribeToRewards(
 ): Unsubscribe {
   if (!db) return () => {};
   const col = collection(db, "marketplace");
-  const q = classId ? query(col, where("classId", "==", classId)) : col;
+  const q = classId
+    ? query(col, where("classId", "==", classId), limit(50))
+    : query(col, limit(50));
 
   return onSnapshot(
     q,
@@ -828,7 +838,7 @@ export function subscribeToTransactions(
 ): Unsubscribe {
   if (!db || !pupilId) return () => {};
   const txCol = collection(db, "transactions");
-  const q = query(txCol, where("pupilId", "==", pupilId));
+  const q = query(txCol, where("pupilId", "==", pupilId), limit(50));
 
   return onSnapshot(
     q,
@@ -898,27 +908,30 @@ export async function markAllNotificationsReadInFirestore(
   if (!db) return;
   try {
     const notifCol = collection(db, "notifications");
-    let q = query(notifCol, where("read", "==", false));
+    let q = query(notifCol, where("read", "==", false), limit(50));
     if (forTeacher) {
       if (classId) {
         q = query(
           notifCol,
           where("isTeacherNotification", "==", true),
           where("classId", "==", classId),
-          where("read", "==", false)
+          where("read", "==", false),
+          limit(50)
         );
       } else {
         q = query(
           notifCol,
           where("isTeacherNotification", "==", true),
-          where("read", "==", false)
+          where("read", "==", false),
+          limit(50)
         );
       }
     } else if (pupilId) {
       q = query(
         notifCol,
         where("pupilId", "==", pupilId),
-        where("read", "==", false)
+        where("read", "==", false),
+        limit(50)
       );
     }
     const snap = await getDocs(q);
@@ -944,28 +957,29 @@ export function subscribeToNotifications(
 ): Unsubscribe {
   if (!db) return () => {};
   const notifCol = collection(db, "notifications");
-  let q;
+  let q = query(notifCol, limit(50));
 
   if (forTeacher) {
     if (classId) {
       q = query(
         notifCol,
         where("classId", "==", classId),
-        where("isTeacherNotification", "==", true)
+        where("isTeacherNotification", "==", true),
+        limit(50)
       );
     } else {
       q = query(
         notifCol,
-        where("isTeacherNotification", "==", true)
+        where("isTeacherNotification", "==", true),
+        limit(50)
       );
     }
   } else if (pupilId) {
     q = query(
       notifCol,
-      where("pupilId", "==", pupilId)
+      where("pupilId", "==", pupilId),
+      limit(50)
     );
-  } else {
-    q = query(notifCol);
   }
 
   return onSnapshot(
@@ -1042,7 +1056,9 @@ export function subscribeToBehaviours(
 ): Unsubscribe {
   if (!db) return () => {};
   const col = collection(db, "behaviours");
-  const q = classId ? query(col, where("classId", "==", classId)) : col;
+  const q = classId
+    ? query(col, where("classId", "==", classId), limit(50))
+    : query(col, limit(50));
 
   return onSnapshot(
     q,
