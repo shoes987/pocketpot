@@ -11,14 +11,18 @@ import {
 } from "@/lib/firebase/types";
 import {
   getSavedJobs,
+  cacheJobsLocally,
   createJob,
   getSavedApplications,
+  cacheApplicationsLocally,
   hireApplicantForJob,
   finalizeJobTermWithReference,
   getActiveJobForPupil,
   getCompletedJobsForPupil,
   PRESET_JOB_QUALITIES,
   PRESET_REFERENCES,
+  APPLICATIONS_SYNC_EVENT,
+  JOBS_SYNC_EVENT,
 } from "@/lib/services/jobs-service";
 import {
   getSavedClasses,
@@ -27,7 +31,10 @@ import {
 } from "@/lib/services/class-service";
 import { getCurrentTeacherUser, isUserAdmin } from "@/lib/services/auth-service";
 import { formatCurrency, getPupilDisplayName } from "@/lib/firebase/zero-pii";
-import { subscribeToJobs } from "@/lib/firebase/firestore-service";
+import {
+  subscribeToJobs,
+  subscribeToApplications,
+} from "@/lib/firebase/firestore-service";
 import {
   Briefcase,
   Plus,
@@ -98,8 +105,6 @@ export const TeacherJobsBoard: React.FC<TeacherJobsBoardProps> = ({
   const [postTermChoice, setPostTermChoice] = useState<"re-advertise" | "archive">("re-advertise");
 
   const loadData = () => {
-    const loadedJobs = getSavedJobs();
-    const loadedApps = getSavedApplications();
     const currentTeacher = getCurrentTeacherUser();
     const loadedClasses =
       propsClasses !== undefined
@@ -111,13 +116,18 @@ export const TeacherJobsBoard: React.FC<TeacherJobsBoardProps> = ({
     const loadedPupils = getSavedPupils();
     setClasses(loadedClasses);
     setPupils(loadedPupils);
+    let currentSelected = selectedClassId;
     if (loadedClasses.length > 0) {
       if (activeClassId && loadedClasses.some((c) => c.classId === activeClassId)) {
+        currentSelected = activeClassId;
         setSelectedClassId(activeClassId);
       } else if (!selectedClassId || !loadedClasses.some((c) => c.classId === selectedClassId)) {
+        currentSelected = loadedClasses[0].classId;
         setSelectedClassId(loadedClasses[0].classId);
       }
     }
+    const loadedJobs = getSavedJobs(currentSelected);
+    const loadedApps = getSavedApplications(undefined, currentSelected);
     setJobs(loadedJobs);
     setApplications(loadedApps);
   };
@@ -125,12 +135,29 @@ export const TeacherJobsBoard: React.FC<TeacherJobsBoardProps> = ({
   useEffect(() => {
     loadData();
 
+    const targetClassId = selectedClassId || activeClassId;
+
     const unsubJobs = subscribeToJobs((liveJobs) => {
-      setJobs(liveJobs);
-    }, selectedClassId || activeClassId);
+      cacheJobsLocally(liveJobs);
+      setJobs(targetClassId ? liveJobs.filter((j) => j.classId === targetClassId) : liveJobs);
+    }, targetClassId);
+
+    const unsubApps = subscribeToApplications((liveApps) => {
+      cacheApplicationsLocally(liveApps);
+      setApplications(targetClassId ? liveApps.filter((a) => a.classId === targetClassId) : liveApps);
+    }, targetClassId);
+
+    const handleSync = () => {
+      loadData();
+    };
+    window.addEventListener(APPLICATIONS_SYNC_EVENT, handleSync);
+    window.addEventListener(JOBS_SYNC_EVENT, handleSync);
 
     return () => {
       unsubJobs();
+      unsubApps();
+      window.removeEventListener(APPLICATIONS_SYNC_EVENT, handleSync);
+      window.removeEventListener(JOBS_SYNC_EVENT, handleSync);
     };
   }, [propsClasses, activeClassId, selectedClassId]);
 
@@ -228,13 +255,15 @@ export const TeacherJobsBoard: React.FC<TeacherJobsBoardProps> = ({
   };
 
   // Filtered Jobs
-  const filteredJobs = jobs.filter((j) => {
-    if (filterTab === "all") return j.status !== "archived";
-    if (filterTab === "open") return j.status === "open";
-    if (filterTab === "filled") return j.status === "filled";
-    if (filterTab === "completed") return j.status === "completed";
-    return true;
-  });
+  const filteredJobs = jobs
+    .filter((j) => !selectedClassId || j.classId === selectedClassId)
+    .filter((j) => {
+      if (filterTab === "all") return j.status !== "archived";
+      if (filterTab === "open") return j.status === "open";
+      if (filterTab === "filled") return j.status === "filled";
+      if (filterTab === "completed") return j.status === "completed";
+      return true;
+    });
 
   // Employment Roster Calculations
   const currentClassPupils = selectedClassId

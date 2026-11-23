@@ -27,6 +27,7 @@ import {
   saveJobs,
   createJob,
   addNotification,
+  deleteJobsAndApplicationsForClass,
 } from "./jobs-service";
 import { saveBehaviours } from "./bonus-service";
 import { seedDefaultRewardsForClass } from "./marketplace-service";
@@ -1709,6 +1710,15 @@ export function deleteClass(
       !classPupilIds.has(t.pupilId)
   );
   saveTransactions(updatedTxs);
+
+  // Cascade clean up jobs and applications for this class
+  matchedIds.forEach((id) => {
+    try {
+      deleteJobsAndApplicationsForClass(id);
+    } catch {
+      // ignore
+    }
+  });
 
   notifyBalanceSync();
   if (typeof window !== "undefined") {

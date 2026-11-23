@@ -22,6 +22,7 @@ import {
   PupilDocument,
   SavingsPotDocument,
   JobPostingDocument,
+  JobApplicationDocument,
   MarketplaceRewardDocument,
   MarketplacePurchaseDocument,
   BonusAwardDocument,
@@ -537,6 +538,113 @@ export function subscribeToJobs(
       console.warn("subscribeToJobs error:", err);
     }
   );
+}
+
+export async function deleteJobFromFirestore(jobId: string): Promise<void> {
+  if (!db || !jobId) return;
+  try {
+    await deleteDoc(doc(db, "jobs", jobId));
+  } catch (err) {
+    console.warn("deleteJobFromFirestore warning:", err);
+  }
+}
+
+export async function saveApplicationToFirestore(app: JobApplicationDocument): Promise<void> {
+  if (!db || !app.applicationId) return;
+  try {
+    const copy = { ...app };
+    delete (copy as any).pupilName; // Zero-PII strict requirement
+    await setDoc(doc(db, "job_applications", app.applicationId), {
+      ...copy,
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+  } catch (err) {
+    console.warn("saveApplicationToFirestore warning:", err);
+  }
+}
+
+export async function saveApplicationsBatchToFirestore(apps: JobApplicationDocument[]): Promise<void> {
+  if (!db || apps.length === 0) return;
+  try {
+    const batch = writeBatch(db);
+    for (const app of apps) {
+      if (!app.applicationId) continue;
+      const copy = { ...app };
+      delete (copy as any).pupilName;
+      const ref = doc(db, "job_applications", app.applicationId);
+      batch.set(ref, {
+        ...copy,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+    }
+    await batch.commit();
+  } catch (err) {
+    console.warn("saveApplicationsBatchToFirestore warning:", err);
+    await Promise.allSettled(apps.map((a) => saveApplicationToFirestore(a)));
+  }
+}
+
+export function subscribeToApplications(
+  callback: (apps: JobApplicationDocument[]) => void,
+  classId?: string,
+  pupilId?: string
+): Unsubscribe {
+  if (!db) return () => {};
+  const appsCol = collection(db, "job_applications");
+  let q = query(appsCol);
+  if (classId && pupilId) {
+    q = query(appsCol, where("classId", "==", classId), where("pupilId", "==", pupilId));
+  } else if (classId) {
+    q = query(appsCol, where("classId", "==", classId));
+  } else if (pupilId) {
+    q = query(appsCol, where("pupilId", "==", pupilId));
+  }
+
+  return onSnapshot(
+    q,
+    (snap) => {
+      const list: JobApplicationDocument[] = [];
+      snap.forEach((d) => {
+        list.push({
+          ...(d.data() as JobApplicationDocument),
+          applicationId: d.id,
+        });
+      });
+      callback(list);
+    },
+    (err) => {
+      console.warn("subscribeToApplications error:", err);
+    }
+  );
+}
+
+export async function deleteApplicationFromFirestore(applicationId: string): Promise<void> {
+  if (!db || !applicationId) return;
+  try {
+    await deleteDoc(doc(db, "job_applications", applicationId));
+  } catch (err) {
+    console.warn("deleteApplicationFromFirestore warning:", err);
+  }
+}
+
+export async function deleteJobsAndApplicationsForClassInFirestore(classId: string): Promise<void> {
+  if (!db || !classId) return;
+  try {
+    // Delete jobs for this class
+    const jobsSnap = await getDocs(query(collection(db, "jobs"), where("classId", "==", classId)));
+    const batch = writeBatch(db);
+    jobsSnap.forEach((d) => {
+      batch.delete(d.ref);
+    });
+    // Delete applications for this class
+    const appsSnap = await getDocs(query(collection(db, "job_applications"), where("classId", "==", classId)));
+    appsSnap.forEach((d) => {
+      batch.delete(d.ref);
+    });
+    await batch.commit();
+  } catch (err) {
+    console.warn("deleteJobsAndApplicationsForClassInFirestore warning:", err);
+  }
 }
 
 /**

@@ -19,7 +19,13 @@ import {
 } from "../firebase/types";
 import { formatCurrency, assertZeroPII } from "../firebase/zero-pii";
 import {
+  saveJobToFirestore,
   saveJobsBatchToFirestore,
+  deleteJobFromFirestore,
+  saveApplicationToFirestore,
+  saveApplicationsBatchToFirestore,
+  deleteApplicationFromFirestore,
+  deleteJobsAndApplicationsForClassInFirestore,
   saveNotificationToFirestore,
   markNotificationReadInFirestore,
   markAllNotificationsReadInFirestore,
@@ -33,6 +39,26 @@ const STORAGE_KEY_JOBS = "pocketpot_jobs_v1";
 const STORAGE_KEY_APPLICATIONS = "pocketpot_job_applications_v1";
 const STORAGE_KEY_NOTIFICATIONS = "pocketpot_notifications_v1";
 const STORAGE_KEY_COMPLETED_JOBS = "pocketpot_completed_jobs_v1";
+const STORAGE_KEY_DELETED_CLASSES = "pocketpot_deleted_classes_v1";
+
+export const APPLICATIONS_SYNC_EVENT = "pocketpot_applications_updated";
+export const JOBS_SYNC_EVENT = "pocketpot_jobs_updated";
+
+const memoryJobsCache = new Map<string, JobPostingDocument>();
+
+function getDeletedClassIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = safeLocalStorageGetItem(STORAGE_KEY_DELETED_CLASSES);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return new Set(parsed);
+    }
+  } catch {
+    // fallback
+  }
+  return new Set();
+}
 
 export const PRESET_JOB_QUALITIES = [
   "Reliable",
@@ -60,15 +86,18 @@ export const PRESET_REFERENCES = [
  */
 export function getSavedJobs(classId?: string): JobPostingDocument[] {
   if (typeof window === "undefined") return [];
+  const deleted = getDeletedClassIds();
   const stored = safeLocalStorageGetItem(STORAGE_KEY_JOBS);
   if (stored) {
     try {
       const parsed: JobPostingDocument[] = JSON.parse(stored);
       if (Array.isArray(parsed)) {
+        const nonDeleted = parsed.filter((j) => !deleted.has(j.classId));
+        nonDeleted.forEach((j) => memoryJobsCache.set(j.jobId, j));
         if (classId) {
-          return parsed.filter((j) => j.classId === classId);
+          return nonDeleted.filter((j) => j.classId === classId);
         }
-        return parsed;
+        return nonDeleted;
       }
     } catch {
       // Fallback
@@ -78,11 +107,31 @@ export function getSavedJobs(classId?: string): JobPostingDocument[] {
   return [];
 }
 
+export function cacheJobsLocally(incomingJobs: JobPostingDocument[]): void {
+  if (typeof window === "undefined" || !incomingJobs || incomingJobs.length === 0) return;
+  const deleted = getDeletedClassIds();
+  const validIncoming = incomingJobs.filter((j) => !deleted.has(j.classId));
+  validIncoming.forEach((j) => memoryJobsCache.set(j.jobId, j));
+
+  const localJobs = getSavedJobs();
+  const jobMap = new Map(localJobs.map((j) => [j.jobId, j]));
+  validIncoming.forEach((j) => {
+    jobMap.set(j.jobId, { ...jobMap.get(j.jobId), ...j });
+  });
+  const merged = Array.from(jobMap.values()).filter((j) => !deleted.has(j.classId));
+  safeLocalStorageSetItem(STORAGE_KEY_JOBS, JSON.stringify(merged));
+  window.dispatchEvent(new Event(JOBS_SYNC_EVENT));
+}
+
 export function saveJobs(jobs: JobPostingDocument[]): void {
   if (typeof window === "undefined") return;
-  safeLocalStorageSetItem(STORAGE_KEY_JOBS, JSON.stringify(jobs));
+  const deleted = getDeletedClassIds();
+  const nonDeleted = jobs.filter((j) => !deleted.has(j.classId));
+  nonDeleted.forEach((j) => memoryJobsCache.set(j.jobId, j));
+  safeLocalStorageSetItem(STORAGE_KEY_JOBS, JSON.stringify(nonDeleted));
+  window.dispatchEvent(new Event(JOBS_SYNC_EVENT));
   try {
-    saveJobsBatchToFirestore(jobs);
+    saveJobsBatchToFirestore(nonDeleted);
   } catch (err) {
     console.warn("Firestore saveJobs warning:", err);
   }
@@ -125,37 +174,58 @@ export function createJob(payload: {
 }
 
 export function getJobById(jobId: string): JobPostingDocument | null {
+  if (!jobId) return null;
   const jobs = getSavedJobs();
-  return jobs.find((j) => j.jobId === jobId) || null;
+  const found = jobs.find((j) => j.jobId === jobId);
+  if (found) return found;
+  if (memoryJobsCache.has(jobId)) {
+    return memoryJobsCache.get(jobId)!;
+  }
+  return null;
 }
 
 /**
  * APPLICATIONS STORE & MANAGEMENT
  */
-export function getSavedApplications(jobId?: string): JobApplicationDocument[] {
+export function getSavedApplications(
+  jobId?: string,
+  classId?: string,
+  pupilId?: string
+): JobApplicationDocument[] {
   if (typeof window === "undefined") return [];
-  const stored = localStorage.getItem(STORAGE_KEY_APPLICATIONS);
+  const deleted = getDeletedClassIds();
+  const stored = safeLocalStorageGetItem(STORAGE_KEY_APPLICATIONS);
   if (stored) {
     try {
       const parsed: Record<string, unknown>[] = JSON.parse(stored);
       // Migrate and strictly purge any legacy pupilName to uphold Zero-PII compliance
-      const normalized: JobApplicationDocument[] = parsed.map((a) => {
-        const copy = { ...a };
-        const applicantDisplayName =
-          (copy.applicantDisplayName as string) ||
-          (copy.pupilName as string) ||
-          (copy.pupilCodename as string) ||
-          "Student";
-        delete copy.pupilName; // Purge forbidden PII key from storage
-        return {
-          ...copy,
-          applicantDisplayName,
-        } as unknown as JobApplicationDocument;
-      });
+      const normalized: JobApplicationDocument[] = parsed
+        .filter((a) => !deleted.has(a.classId as string))
+        .map((a) => {
+          const copy = { ...a };
+          const applicantDisplayName =
+            (copy.applicantDisplayName as string) ||
+            (copy.pupilName as string) ||
+            (copy.pupilCodename as string) ||
+            "Student";
+          delete copy.pupilName; // Purge forbidden PII key from storage
+          return {
+            ...copy,
+            applicantDisplayName,
+          } as unknown as JobApplicationDocument;
+        });
+
+      let res = normalized;
       if (jobId) {
-        return normalized.filter((a) => a.jobId === jobId);
+        res = res.filter((a) => a.jobId === jobId);
       }
-      return normalized;
+      if (classId) {
+        res = res.filter((a) => a.classId === classId);
+      }
+      if (pupilId) {
+        res = res.filter((a) => a.pupilId === pupilId);
+      }
+      return res;
     } catch {
       // Fallback
     }
@@ -163,15 +233,38 @@ export function getSavedApplications(jobId?: string): JobApplicationDocument[] {
   return [];
 }
 
+export function cacheApplicationsLocally(incomingApps: JobApplicationDocument[]): void {
+  if (typeof window === "undefined" || !incomingApps || incomingApps.length === 0) return;
+  const deleted = getDeletedClassIds();
+  const valid = incomingApps.filter((a) => !deleted.has(a.classId));
+  const localApps = getSavedApplications();
+  const appMap = new Map(localApps.map((a) => [a.applicationId, a]));
+  valid.forEach((a) => {
+    appMap.set(a.applicationId, { ...appMap.get(a.applicationId), ...a });
+  });
+  const merged = Array.from(appMap.values()).filter((a) => !deleted.has(a.classId));
+  safeLocalStorageSetItem(STORAGE_KEY_APPLICATIONS, JSON.stringify(merged));
+  window.dispatchEvent(new Event(APPLICATIONS_SYNC_EVENT));
+}
+
 export function saveApplications(apps: JobApplicationDocument[]): void {
   if (typeof window === "undefined") return;
+  const deleted = getDeletedClassIds();
   // Ensure legacy forbidden "pupilName" key is never persisted in storage
-  const sanitized = apps.map((app) => {
-    const copy = { ...(app as unknown as Record<string, unknown>) };
-    delete copy.pupilName;
-    return copy as unknown as JobApplicationDocument;
-  });
+  const sanitized = apps
+    .filter((a) => !deleted.has(a.classId))
+    .map((app) => {
+      const copy = { ...(app as unknown as Record<string, unknown>) };
+      delete copy.pupilName;
+      return copy as unknown as JobApplicationDocument;
+    });
   safeLocalStorageSetItem(STORAGE_KEY_APPLICATIONS, JSON.stringify(sanitized));
+  window.dispatchEvent(new Event(APPLICATIONS_SYNC_EVENT));
+  try {
+    saveApplicationsBatchToFirestore(sanitized);
+  } catch (err) {
+    console.warn("saveApplicationsBatchToFirestore warning:", err);
+  }
 }
 
 /**
@@ -295,15 +388,28 @@ export function submitJobApplication(payload: {
   pupilCodename: string;
   cvStatement: string;
   qualitiesHighlight: string[];
+  jobFallback?: JobPostingDocument;
 }): JobApplicationDocument {
-  const job = getJobById(payload.jobId);
-  if (!job) throw new Error("Job not found");
-  if (job.status !== "open") throw new Error("This job is no longer accepting applications.");
+  let job = getJobById(payload.jobId);
+  if (!job && payload.jobFallback) {
+    job = payload.jobFallback;
+    memoryJobsCache.set(job.jobId, job);
+  }
+  if (!job) {
+    throw new Error("Job not found. It may have been closed or updated by your teacher.");
+  }
+  if (job.status !== "open") {
+    throw new Error("This role is no longer accepting new applications.");
+  }
 
-  // Check if pupil already applied
+  // Check if pupil already applied with active pending or accepted application
   const existingApps = getSavedApplications(payload.jobId);
-  const alreadyApplied = existingApps.some((a) => a.pupilId === payload.pupilId);
-  if (alreadyApplied) throw new Error("You have already submitted an application for this role.");
+  const alreadyApplied = existingApps.some(
+    (a) => a.pupilId === payload.pupilId && (a.status === "pending" || a.status === "accepted")
+  );
+  if (alreadyApplied) {
+    throw new Error("You have already submitted an application for this role.");
+  }
 
   // Auto-attach completed jobs and teacher references
   const priorCompleted = getCompletedJobsForPupil(payload.pupilId);
@@ -312,7 +418,7 @@ export function submitJobApplication(payload: {
   const newApp: JobApplicationDocument = {
     applicationId: crypto.randomUUID(),
     jobId: payload.jobId,
-    classId: payload.classId,
+    classId: payload.classId || job.classId,
     pupilId: payload.pupilId,
     applicantDisplayName: displayName,
     pupilCodename: payload.pupilCodename,
@@ -328,7 +434,7 @@ export function submitJobApplication(payload: {
 
   // Create Notification for Teacher (Bell Icon)
   addNotification({
-    classId: payload.classId,
+    classId: newApp.classId,
     isTeacherNotification: true,
     title: "New Job Application Submitted",
     message: `${displayName} submitted an application for "${job.title}".`,
@@ -431,11 +537,33 @@ export function hireApplicantForJob(
     jobTitle: updatedJob.title,
   });
 
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("pocketpot_balance_updated"));
+  }
+
   return {
     hiredJob: updatedJob,
     hiredApp: { ...targetApp, status: "accepted" },
     rejectionsSentCount: rejectionsCount,
   };
+}
+
+/**
+ * Permanently cleans up all jobs and applications associated with a deleted class
+ */
+export function deleteJobsAndApplicationsForClass(classId: string): void {
+  if (typeof window === "undefined" || !classId) return;
+  const jobs = getSavedJobs().filter((j) => j.classId !== classId);
+  safeLocalStorageSetItem(STORAGE_KEY_JOBS, JSON.stringify(jobs));
+  const apps = getSavedApplications().filter((a) => a.classId !== classId);
+  safeLocalStorageSetItem(STORAGE_KEY_APPLICATIONS, JSON.stringify(apps));
+  window.dispatchEvent(new Event(JOBS_SYNC_EVENT));
+  window.dispatchEvent(new Event(APPLICATIONS_SYNC_EVENT));
+  try {
+    deleteJobsAndApplicationsForClassInFirestore(classId);
+  } catch (err) {
+    console.warn("deleteJobsAndApplicationsForClassInFirestore warning:", err);
+  }
 }
 
 /**

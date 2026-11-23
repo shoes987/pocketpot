@@ -11,11 +11,15 @@ import {
 import {
   getSavedJobs,
   getSavedApplications,
+  cacheJobsLocally,
+  cacheApplicationsLocally,
   submitJobApplication,
   getActiveJobForPupil,
   getCompletedJobsForPupil,
   getSavedNotifications,
   markNotificationRead,
+  APPLICATIONS_SYNC_EVENT,
+  JOBS_SYNC_EVENT,
 } from "@/lib/services/jobs-service";
 import {
   PupilDocument,
@@ -26,6 +30,7 @@ import {
 } from "@/lib/firebase/types";
 import {
   subscribeToJobs,
+  subscribeToApplications,
   subscribeToPupil,
 } from "@/lib/firebase/firestore-service";
 import {
@@ -94,8 +99,9 @@ function PupilJobsContent() {
     autoReconcileAllClassesWeeklyIncome();
 
     const foundPupil = getPupilById(targetId);
-    const loadedJobs = getSavedJobs();
-    const loadedApps = getSavedApplications();
+    const targetClassId = foundPupil?.classId;
+    const loadedJobs = targetClassId ? getSavedJobs(targetClassId) : getSavedJobs();
+    const loadedApps = getSavedApplications(undefined, targetClassId, targetId);
     const loadedCompleted = getCompletedJobsForPupil(targetId);
     const loadedNotifs = getSavedNotifications(targetId);
 
@@ -117,12 +123,22 @@ function PupilJobsContent() {
     if (foundPupil) {
       targetRealId = foundPupil.pupilId;
     }
+    const targetClassId = foundPupil?.classId;
 
     loadAll(targetRealId);
 
     const unsubJobs = subscribeToJobs((liveJobs) => {
-      setJobs(liveJobs);
-    });
+      cacheJobsLocally(liveJobs);
+      const filtered = targetClassId
+        ? liveJobs.filter((j) => j.classId === targetClassId)
+        : liveJobs;
+      setJobs(filtered);
+    }, targetClassId);
+
+    const unsubApps = subscribeToApplications((liveApps) => {
+      cacheApplicationsLocally(liveApps);
+      setApplications(liveApps.filter((a) => a.pupilId === targetRealId));
+    }, targetClassId, targetRealId);
 
     const unsubPupil = subscribeToPupil(targetRealId, (livePupil) => {
       if (livePupil) {
@@ -131,14 +147,27 @@ function PupilJobsContent() {
       setLoading(false);
     });
 
+    const handleSync = () => {
+      loadAll(targetRealId);
+    };
+    window.addEventListener(APPLICATIONS_SYNC_EVENT, handleSync);
+    window.addEventListener(JOBS_SYNC_EVENT, handleSync);
+
     return () => {
       unsubJobs();
+      unsubApps();
       unsubPupil();
+      window.removeEventListener(APPLICATIONS_SYNC_EVENT, handleSync);
+      window.removeEventListener(JOBS_SYNC_EVENT, handleSync);
     };
   }, [activeId]);
 
   const activeJob = pupil ? getActiveJobForPupil(pupil.pupilId) : null;
-  const availableJobs = jobs.filter((j) => j.status === "open");
+  const availableJobs = jobs.filter((j) => {
+    if (j.status !== "open") return false;
+    if (pupil && j.classId && j.classId !== pupil.classId) return false;
+    return true;
+  });
 
   // Open apply modal
   const handleOpenApplyModal = (job: JobPostingDocument) => {
@@ -168,6 +197,7 @@ function PupilJobsContent() {
         pupilCodename: pupil.educationalCodename,
         cvStatement: cvStatement.trim(),
         qualitiesHighlight: selectedMyQualities,
+        jobFallback: applyingJob,
       });
 
       setApplyingJob(null);
@@ -183,6 +213,8 @@ function PupilJobsContent() {
         setFormError("You have already submitted an application for this role.");
       } else if (rawMsg.includes("no longer accepting")) {
         setFormError("This role is no longer accepting new applications.");
+      } else if (rawMsg) {
+        setFormError(rawMsg);
       } else {
         setFormError("We couldn't submit your application right now. Please try again in a moment or ask your teacher!");
       }
