@@ -14,6 +14,7 @@ import { PupilMarketplace } from "@/components/pupil/PupilMarketplace";
 import { PupilBottomNav } from "@/components/ui/PupilBottomNav";
 import { PupilNotificationBell } from "@/components/pupil/PupilNotificationBell";
 import { AppTopHeader } from "@/components/ui/AppTopHeader";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { Sparkles } from "lucide-react";
 
 function PupilMarketplaceContent() {
@@ -143,17 +144,22 @@ function PupilMarketplaceContent() {
 
 export default function PupilMarketplacePage() {
   return (
-    <Suspense
-      fallback={
-        <main className="min-h-screen bg-canvas text-primaryText p-8 flex items-center justify-center font-lexend text-left">
-          <div className="bg-surface rounded-pot p-8 border border-borderMuted shadow-islandCard space-y-3 text-left">
-            <Sparkles className="w-8 h-8 text-brandPrimary animate-spin" />
-            <h2 className="text-xl font-bold text-primaryText">Opening Classroom Market...</h2>
-          </div>
-        </main>
-      }
+    <ErrorBoundary
+      fallbackTitle="Opening Classroom Market"
+      fallbackMessage="We encountered a quick hiccup loading your marketplace. Tap below to reload."
     >
-      <PupilMarketplaceContent />
-    </Suspense>
+      <Suspense
+        fallback={
+          <main className="min-h-screen bg-canvas text-primaryText p-8 flex items-center justify-center font-lexend text-left">
+            <div className="bg-surface rounded-pot p-8 border border-borderMuted shadow-islandCard space-y-3 text-left">
+              <Sparkles className="w-8 h-8 text-brandPrimary animate-spin" />
+              <h2 className="text-xl font-bold text-primaryText">Opening Classroom Market...</h2>
+            </div>
+          </main>
+        }
+      >
+        <PupilMarketplaceContent />
+      </Suspense>
+    </ErrorBoundary>
   );
 }

@@ -658,11 +658,24 @@ export async function deleteJobsAndApplicationsForClassInFirestore(classId: stri
  * CLASSROOM MARKETPLACE & REWARDS (/marketplace)
  * ----------------------------------------------------
  */
+
+/** Helper to strip undefined values so Firestore WriteBatch and setDoc never throw */
+function sanitizeForFirestore<T extends Record<string, any>>(obj: T): Partial<T> {
+  const clean: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      clean[key] = value;
+    }
+  }
+  return clean as Partial<T>;
+}
+
 export async function saveRewardToFirestore(reward: MarketplaceRewardDocument): Promise<void> {
   if (!db || !reward.rewardId) return;
   try {
+    const cleanReward = sanitizeForFirestore(reward);
     await setDoc(doc(db, "marketplace", reward.rewardId), {
-      ...reward,
+      ...cleanReward,
       updatedAt: new Date().toISOString(),
     }, { merge: true });
   } catch (err) {
@@ -677,10 +690,11 @@ export async function saveRewardsBatchToFirestore(
   try {
     const batch = writeBatch(db);
     for (const reward of rewards) {
-      if (!reward.rewardId) continue;
+      if (!reward || !reward.rewardId) continue;
+      const cleanReward = sanitizeForFirestore(reward);
       const ref = doc(db, "marketplace", reward.rewardId);
       batch.set(ref, {
-        ...reward,
+        ...cleanReward,
         updatedAt: new Date().toISOString(),
       }, { merge: true });
     }
@@ -696,7 +710,8 @@ export async function savePurchaseToFirestore(
 ): Promise<void> {
   if (!db || !purchase.purchaseId) return;
   try {
-    await setDoc(doc(db, "purchases", purchase.purchaseId), purchase, { merge: true });
+    const cleanPurchase = sanitizeForFirestore(purchase);
+    await setDoc(doc(db, "purchases", purchase.purchaseId), cleanPurchase, { merge: true });
   } catch (err) {
     console.warn("savePurchaseToFirestore warning:", err);
   }
@@ -715,9 +730,25 @@ export function subscribeToRewards(
     (snap) => {
       const list: MarketplaceRewardDocument[] = [];
       snap.forEach((d) => {
+        const raw = d.data();
+        if (!raw) return;
         list.push({
-          ...(d.data() as MarketplaceRewardDocument),
           rewardId: d.id,
+          classId: raw.classId || classId || "class-year-4-teal",
+          title: raw.title || "Classroom Privilege",
+          description: raw.description || "",
+          pricePence: typeof raw.pricePence === "number" && !isNaN(raw.pricePence)
+            ? raw.pricePence
+            : typeof raw.priceCoins === "number" && !isNaN(raw.priceCoins)
+            ? raw.priceCoins
+            : 150,
+          icon: raw.icon || "🚀",
+          tier: raw.tier === "long_term" ? "long_term" : "short_term",
+          isAvailable: raw.isAvailable !== false,
+          purchasesCount: typeof raw.purchasesCount === "number" ? raw.purchasesCount : 0,
+          stockQuantity: typeof raw.stockQuantity === "number" ? raw.stockQuantity : undefined,
+          createdAt: raw.createdAt || new Date().toISOString(),
+          updatedAt: raw.updatedAt || new Date().toISOString(),
         });
       });
       callback(list);

@@ -8,6 +8,7 @@ import { ClassSetup } from "@/components/teacher/ClassSetup";
 import { TeacherJobsBoard } from "@/components/teacher/TeacherJobsBoard";
 import { TeacherBonusesDashboard } from "@/components/teacher/TeacherBonusesDashboard";
 import { TeacherMarketplace } from "@/components/teacher/TeacherMarketplace";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { TeacherFaqs } from "@/components/teacher/TeacherFaqs";
 import { TeacherNotificationBell } from "@/components/teacher/TeacherNotificationBell";
 import { SetupWizardModal } from "@/components/teacher/SetupWizardModal";
@@ -490,7 +491,12 @@ export default function TeacherPortalPage() {
         ) : activeTab === "bonuses" ? (
           <TeacherBonusesDashboard classes={allowedClasses} activeClassId={activeClass?.classId} />
         ) : activeTab === "marketplace" ? (
-          <TeacherMarketplace classId={activeClass?.classId} />
+          <ErrorBoundary
+            fallbackTitle="Classroom Marketplace"
+            fallbackMessage="We encountered an issue displaying the rewards catalog. Click below to refresh."
+          >
+            <TeacherMarketplace classId={activeClass?.classId} />
+          </ErrorBoundary>
         ) : (
           <TeacherFaqs />
         )}

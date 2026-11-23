@@ -8,6 +8,7 @@ import {
 } from "@/lib/firebase/types";
 import {
   getSavedRewards,
+  cacheRewardsLocally,
   createReward,
   updateReward,
   deleteReward,
@@ -52,19 +53,20 @@ export const TeacherMarketplace: React.FC<TeacherMarketplaceProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingReward, setEditingReward] = useState<MarketplaceRewardDocument | null>(null);
 
-  // Form State (Price in cents/pence internally, shown in £/p)
+  // Form State
   const [formTitle, setFormTitle] = useState("");
   const [formDescription, setFormDescription] = useState("");
-  const [formPriceCents, setFormPriceCents] = useState<number>(150); // Default £1.50
+  const [formPriceInput, setFormPriceInput] = useState("1.50"); // Price in £ string for natural typing
   const [formIcon, setFormIcon] = useState("🚀");
   const [formTier, setFormTier] = useState<RewardTier>("short_term");
+  const [formIsAvailable, setFormIsAvailable] = useState<boolean>(true); // Active and live by default!
 
   // Notification Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
+    setTimeout(() => setToastMessage(null), 4000);
   };
 
   const loadData = () => {
@@ -77,9 +79,12 @@ export const TeacherMarketplace: React.FC<TeacherMarketplaceProps> = ({
   useEffect(() => {
     loadData();
 
-    // Listen to real-time Firestore rewards
+    // Listen to real-time Firestore rewards and cache without wiping local state
     const unsubRewards = subscribeToRewards((liveRewards) => {
-      setRewards(liveRewards);
+      if (liveRewards && liveRewards.length > 0) {
+        cacheRewardsLocally(liveRewards);
+      }
+      loadData();
     }, normalizedClassId);
 
     // Listen to real-time marketplace events and storage changes
@@ -98,19 +103,21 @@ export const TeacherMarketplace: React.FC<TeacherMarketplaceProps> = ({
     setEditingReward(null);
     setFormTitle("");
     setFormDescription("");
-    setFormPriceCents(150); // £1.50
+    setFormPriceInput("1.50");
     setFormIcon("🚀");
     setFormTier("short_term");
+    setFormIsAvailable(true); // Active on app by default!
     setIsModalOpen(true);
   };
 
   const handleOpenEditModal = (reward: MarketplaceRewardDocument) => {
     setEditingReward(reward);
-    setFormTitle(reward.title);
-    setFormDescription(reward.description);
-    setFormPriceCents(reward.pricePence);
-    setFormIcon(reward.icon);
-    setFormTier(reward.tier);
+    setFormTitle(reward.title || "");
+    setFormDescription(reward.description || "");
+    setFormPriceInput(((reward.pricePence || 150) / 100).toFixed(2));
+    setFormIcon(reward.icon || "🚀");
+    setFormTier(reward.tier || "short_term");
+    setFormIsAvailable(reward.isAvailable !== false);
     setIsModalOpen(true);
   };
 
@@ -118,29 +125,34 @@ export const TeacherMarketplace: React.FC<TeacherMarketplaceProps> = ({
     e.preventDefault();
     if (!formTitle.trim()) return;
 
+    const parsedFloat = parseFloat(formPriceInput);
+    const pricePence = Math.max(10, Math.round((!isNaN(parsedFloat) ? parsedFloat : 1.5) * 100));
+
     if (editingReward) {
       updateReward(editingReward.rewardId, {
         title: formTitle.trim(),
         description: formDescription.trim(),
-        pricePence: Number(formPriceCents),
+        pricePence,
         icon: formIcon,
         tier: formTier,
-        stockQuantity: undefined,
+        isAvailable: formIsAvailable,
       });
-      showToast(`Updated reward "${formTitle}"!`);
+      showToast(`Updated "${formTitle.trim()}"!`);
     } else {
-      // Inactive by default until teacher explicitly activates it
       createReward({
         classId: normalizedClassId,
         title: formTitle.trim(),
         description: formDescription.trim(),
-        pricePence: Number(formPriceCents),
+        pricePence,
         icon: formIcon,
         tier: formTier,
-        stockQuantity: undefined,
-        isAvailable: false, // Default inactive
+        isAvailable: formIsAvailable, // Live by default!
       });
-      showToast(`Added "${formTitle}" (Inactive by default - click Activate when ready)`);
+      showToast(
+        formIsAvailable
+          ? `Added "${formTitle.trim()}" — now LIVE on pupil accounts!`
+          : `Saved "${formTitle.trim()}" as a draft (hidden from pupils).`
+      );
     }
 
     setIsModalOpen(false);
@@ -606,15 +618,12 @@ export const TeacherMarketplace: React.FC<TeacherMarketplaceProps> = ({
                   <div className="relative">
                     <span className="absolute left-3 top-2.5 text-xs font-bold text-primaryText/60">£</span>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
                       required
-                      min={0.10}
-                      step={0.05}
-                      value={(formPriceCents / 100).toFixed(2)}
-                      onChange={(e) => {
-                        const val = parseFloat(e.target.value);
-                        if (!isNaN(val)) setFormPriceCents(Math.round(val * 100));
-                      }}
+                      value={formPriceInput}
+                      onChange={(e) => setFormPriceInput(e.target.value)}
+                      placeholder="1.50"
                       className="w-full pl-7 pr-3 py-2 rounded-xl bg-canvas border border-borderMuted text-primaryText text-xs font-bold focus:outline-brandPrimary"
                     />
                   </div>
@@ -624,9 +633,9 @@ export const TeacherMarketplace: React.FC<TeacherMarketplaceProps> = ({
                       <button
                         key={cents}
                         type="button"
-                        onClick={() => setFormPriceCents(cents)}
+                        onClick={() => setFormPriceInput((cents / 100).toFixed(2))}
                         className={`text-[10px] px-1.5 py-0.5 rounded font-bold border transition-colors ${
-                          formPriceCents === cents
+                          formPriceInput === (cents / 100).toFixed(2)
                             ? "bg-tealSurface text-brandPrimary border-brandPrimary"
                             : "bg-canvas text-primaryText/60 border-borderMuted hover:bg-borderMuted"
                         }`}
@@ -669,8 +678,25 @@ export const TeacherMarketplace: React.FC<TeacherMarketplaceProps> = ({
                 />
               </div>
 
-              <div className="p-3 rounded-xl bg-tealSurface/50 border border-brandPrimary/20 text-xs text-primaryText/70">
-                ℹ️ <strong>Note:</strong> Newly created rewards start as <strong>Inactive</strong> by default. You can activate them whenever you are ready for pupils to see and buy them.
+              {/* Immediate Publishing Toggle */}
+              <div className="p-3.5 rounded-2xl bg-tealSurface/60 border border-brandPrimary/30 flex items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <span className="text-xs font-extrabold text-primaryText block">
+                    Publish to Pupil Marketplace
+                  </span>
+                  <span className="text-[11px] text-primaryText/70 block leading-tight">
+                    When active, children can immediately see and buy this privilege on classroom tablets.
+                  </span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={formIsAvailable}
+                    onChange={(e) => setFormIsAvailable(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-10 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brandPrimary"></div>
+                </label>
               </div>
 
               {/* Modal Actions */}
@@ -696,9 +722,9 @@ export const TeacherMarketplace: React.FC<TeacherMarketplaceProps> = ({
 
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-primaryText text-white px-4 py-3 rounded-2xl shadow-xl border border-white/10 text-xs font-bold flex items-center gap-2 animate-in fade-in">
-          <Sparkles className="w-4 h-4 text-brandSecondary" />
-          <span>{toastMessage}</span>
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl border border-white/20 text-xs font-extrabold flex items-center gap-2.5 animate-in fade-in">
+          <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+          <span className="text-white">{toastMessage}</span>
         </div>
       )}
     </div>

@@ -341,8 +341,12 @@ export function assertZeroPII(data: Record<string, unknown>): void {
 /**
  * Format currency in GBP format with left-alignment standard.
  * e.g., 1450 pence -> "£14.50"
+ * Safely handles null, undefined, or NaN inputs without throwing or producing "£NaN".
  */
-export function formatCurrency(amountCents: number): string {
+export function formatCurrency(amountCents: number | undefined | null): string {
+  if (typeof amountCents !== "number" || isNaN(amountCents)) {
+    return "£0.00";
+  }
   const isNegative = amountCents < 0;
   const absPounds = (Math.abs(amountCents) / 100).toFixed(2);
   return `${isNegative ? "-" : ""}£${absPounds}`;

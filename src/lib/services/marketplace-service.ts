@@ -119,7 +119,7 @@ export const DEFAULT_MARKETPLACE_REWARDS: Omit<
 
 /**
  * Returns saved rewards for a given class or globally.
- * Seeds defaults on first run (all inactive by default).
+ * Uses flexible class matching and sanitizes all reward documents.
  */
 export function getSavedRewards(classId?: string): MarketplaceRewardDocument[] {
   if (typeof window === "undefined") return [];
@@ -129,22 +129,74 @@ export function getSavedRewards(classId?: string): MarketplaceRewardDocument[] {
   if (stored) {
     try {
       const parsed = JSON.parse(stored);
-      rewards = Array.isArray(parsed)
-        ? parsed.map((item) => ({
+      if (Array.isArray(parsed)) {
+        rewards = parsed
+          .filter((item) => item && typeof item === "object" && typeof item.rewardId === "string" && item.rewardId.trim() !== "")
+          .map((item) => ({
             ...item,
-            pricePence: (item as any).pricePence ?? (item as any).priceCoins ?? 0,
-          }))
-        : [];
+            title: item.title?.trim() || "Classroom Privilege",
+            description: item.description?.trim() || "",
+            icon: item.icon || "🚀",
+            tier: item.tier === "long_term" ? "long_term" : "short_term",
+            isAvailable: item.isAvailable !== false,
+            pricePence: typeof item.pricePence === "number" && !isNaN(item.pricePence)
+              ? item.pricePence
+              : typeof (item as any).priceCoins === "number" && !isNaN((item as any).priceCoins)
+              ? (item as any).priceCoins
+              : 150,
+            purchasesCount: typeof item.purchasesCount === "number" ? item.purchasesCount : 0,
+          }));
+      }
     } catch {
       rewards = [];
     }
   }
 
   if (classId) {
-    const target = normalizeClassId(classId);
-    return rewards.filter((r) => normalizeClassId(r.classId) === target);
+    const target = classId.trim().toLowerCase();
+    const normalizedTarget = normalizeClassId(classId);
+    return rewards.filter((r) => {
+      if (!r.classId || r.classId === "*") return true;
+      const rClass = r.classId.trim().toLowerCase();
+      const rNorm = normalizeClassId(r.classId);
+      return (
+        rClass === target ||
+        rNorm === normalizedTarget ||
+        rClass === normalizedTarget ||
+        rNorm === target
+      );
+    });
   }
   return rewards;
+}
+
+/**
+ * Cache rewards from Firestore snapshot without wiping out locally created rewards.
+ */
+export function cacheRewardsLocally(incomingRewards: MarketplaceRewardDocument[]): void {
+  if (typeof window === "undefined" || !incomingRewards || incomingRewards.length === 0) return;
+  const localRewards = getSavedRewards();
+  const rewardMap = new Map<string, MarketplaceRewardDocument>();
+
+  localRewards.forEach((r) => {
+    if (r && r.rewardId) rewardMap.set(r.rewardId, r);
+  });
+
+  incomingRewards.forEach((r) => {
+    if (r && r.rewardId) {
+      const existing = rewardMap.get(r.rewardId);
+      rewardMap.set(r.rewardId, {
+        ...(existing || {}),
+        ...r,
+        // Preserve local availability if already set
+        isAvailable: r.isAvailable !== undefined ? r.isAvailable : existing?.isAvailable ?? true,
+      });
+    }
+  });
+
+  const merged = Array.from(rewardMap.values());
+  safeLocalStorageSetItem(STORAGE_KEY_REWARDS, JSON.stringify(merged));
+  window.dispatchEvent(new CustomEvent("pocketpot_marketplace_updated"));
 }
 
 /**
@@ -182,10 +234,11 @@ export function seedDefaultRewardsForClass(classId: string): MarketplaceRewardDo
  */
 export function saveRewards(rewards: MarketplaceRewardDocument[]): void {
   if (typeof window === "undefined") return;
-  safeLocalStorageSetItem(STORAGE_KEY_REWARDS, JSON.stringify(rewards));
+  const validRewards = rewards.filter((r) => r && typeof r === "object" && typeof r.rewardId === "string");
+  safeLocalStorageSetItem(STORAGE_KEY_REWARDS, JSON.stringify(validRewards));
   window.dispatchEvent(new CustomEvent("pocketpot_marketplace_updated"));
   try {
-    saveRewardsBatchToFirestore(rewards);
+    saveRewardsBatchToFirestore(validRewards);
   } catch (err) {
     console.warn("Firestore saveRewards warning:", err);
   }
@@ -193,7 +246,7 @@ export function saveRewards(rewards: MarketplaceRewardDocument[]): void {
 
 /**
  * Creates a new teacher-configured marketplace reward.
- * Inactive by default until teacher toggles it on.
+ * Available and live on pupil accounts by default!
  */
 export function createReward(
   rewardData: Omit<
@@ -203,14 +256,22 @@ export function createReward(
 ): MarketplaceRewardDocument {
   const existing = getSavedRewards();
   const now = new Date().toISOString();
-  const normalizedClassId = normalizeClassId(rewardData.classId);
+  const rawClassId = rewardData.classId || "class-year-4-teal";
+  const normalizedClassId = normalizeClassId(rawClassId);
+  const cleanDocClassId = normalizedClassId.replace(/[^a-zA-Z0-9_-]/g, "_");
 
   const newReward: MarketplaceRewardDocument = {
-    ...rewardData,
-    classId: normalizedClassId,
-    rewardId: `rew-${normalizedClassId}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    classId: rawClassId,
+    title: rewardData.title?.trim() || "New Privilege",
+    description: rewardData.description?.trim() || "",
+    pricePence: typeof rewardData.pricePence === "number" && !isNaN(rewardData.pricePence)
+      ? Math.max(10, Math.round(rewardData.pricePence))
+      : 150,
+    icon: rewardData.icon || "🚀",
+    tier: rewardData.tier === "long_term" ? "long_term" : "short_term",
+    rewardId: `rew-${cleanDocClassId}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     purchasesCount: 0,
-    isAvailable: rewardData.isAvailable ?? false, // Inactive by default
+    isAvailable: rewardData.isAvailable ?? true, // Active and live by default!
     createdAt: now,
     updatedAt: now,
   };
@@ -552,8 +613,14 @@ export function createPotForReward(
   const potTitle = `Goal: ${reward.title}`;
 
   // If pupil already has an active pot for this reward, return it directly
+  const safePotTitle = potTitle.trim().toLowerCase();
   const existing = pots.find(
-    (p) => p.pupilId === pupilId && p.title.toLowerCase() === potTitle.toLowerCase() && p.status !== "taking_a_pause"
+    (p) =>
+      p &&
+      p.pupilId === pupilId &&
+      typeof p.title === "string" &&
+      p.title.trim().toLowerCase() === safePotTitle &&
+      p.status !== "taking_a_pause"
   );
   if (existing) {
     return existing;

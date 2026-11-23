@@ -10,6 +10,7 @@ import {
 } from "@/lib/firebase/types";
 import {
   getSavedRewards,
+  cacheRewardsLocally,
   getSavedPurchases,
   purchaseReward,
   createPotForReward,
@@ -93,7 +94,10 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
 
     // Real-time Firestore listeners
     const unsubRewards = subscribeToRewards((liveRewards) => {
-      setRewards(liveRewards.filter((r) => r.isAvailable));
+      if (liveRewards && liveRewards.length > 0) {
+        cacheRewardsLocally(liveRewards);
+      }
+      loadData();
     }, targetClassId || undefined);
 
     const unsubPupil = subscribeToPupil(targetRealId, (livePupil) => {
@@ -286,15 +290,28 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {rewards.map((reward) => {
-              const isAffordable = cardBalance >= reward.pricePence;
+              if (!reward || !reward.rewardId) return null;
+              const safePrice = typeof reward.pricePence === "number" && !isNaN(reward.pricePence)
+                ? Math.max(10, Math.round(reward.pricePence))
+                : 150;
+              const isAffordable = cardBalance >= safePrice;
               const isShortTerm = reward.tier === "short_term";
-              const neededCents = reward.pricePence - cardBalance;
+              const neededCents = Math.max(0, safePrice - cardBalance);
 
-              // Check if pupil already has a pot for this goal
-              const potTitle = `Goal: ${reward.title}`;
+              // Check if pupil already has an active savings pot for this goal safely
+              const rewardTitle = (reward.title || "Classroom Privilege").trim();
+              const potGoalTitle = `Goal: ${rewardTitle}`.toLowerCase();
               const existingPot = myPots.find(
-                (p) => p.title.toLowerCase() === potTitle.toLowerCase() && p.status !== "taking_a_pause"
+                (p) =>
+                  p &&
+                  typeof p.title === "string" &&
+                  p.title.trim().toLowerCase() === potGoalTitle &&
+                  p.status !== "taking_a_pause"
               );
+              const existingPotCurrent = existingPot ? (existingPot.currentAmountCents || 0) : 0;
+              const potProgress = safePrice > 0
+                ? Math.min(100, Math.round((existingPotCurrent / safePrice) * 100))
+                : 0;
 
               return (
                 <div
@@ -311,10 +328,10 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="w-8 h-8 rounded-xl bg-white/20 border border-white/25 flex items-center justify-center flex-shrink-0 text-lg">
-                        {reward.icon}
+                        {reward.icon || "🚀"}
                       </div>
                       <h3 className="text-base sm:text-lg font-extrabold text-white leading-tight truncate">
-                        {reward.title}
+                        {rewardTitle}
                       </h3>
                     </div>
 
@@ -338,7 +355,7 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
                           }`}
                         >
                           <Coins className="w-3.5 h-3.5" />
-                          <span>{formatCurrency(reward.pricePence)}</span>
+                          <span>{formatCurrency(safePrice)}</span>
                         </span>
 
                         {/* Goal Type Pill */}
@@ -382,7 +399,7 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
                           Privilege Details
                         </span>
                         <p className="text-sm text-primaryText/85 leading-relaxed font-normal">
-                          {reward.description}
+                          {reward.description || "Classroom privilege awarded by your teacher."}
                         </p>
                       </div>
 
@@ -395,18 +412,13 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
                               <span>Active Savings Pot</span>
                             </span>
                             <span>
-                              {formatCurrency(existingPot.currentAmountCents || 0)} / {formatCurrency(reward.pricePence)}
+                              {formatCurrency(existingPotCurrent)} / {formatCurrency(safePrice)}
                             </span>
                           </div>
                           <div className="w-full h-2 rounded-full bg-canvas overflow-hidden border border-borderMuted/40">
                             <div
                               className="h-full bg-brandPrimary rounded-full transition-all"
-                              style={{
-                                width: `${Math.min(
-                                  100,
-                                  Math.round(((existingPot.currentAmountCents || 0) / reward.pricePence) * 100)
-                                )}%`,
-                              }}
+                              style={{ width: `${potProgress}%` }}
                             />
                           </div>
                         </div>
@@ -423,7 +435,7 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
                             className="w-full py-2.5 px-4 rounded-xl bg-brandPrimary hover:bg-teal-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
                           >
                             <Sparkles className="w-4 h-4 text-white" />
-                            <span>Buy Reward ({formatCurrency(reward.pricePence)})</span>
+                            <span>Buy Reward ({formatCurrency(safePrice)})</span>
                           </button>
                           <span className="text-[10px] text-positiveState font-semibold block text-center">
                             ✓ Ready to unlock from card balance
@@ -438,7 +450,7 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
                             >
                               <Layers className="w-4 h-4 text-brandSecondary" />
                               <span>
-                                View Savings Pot ({formatCurrency(existingPot.currentAmountCents || 0)})
+                                View Savings Pot ({formatCurrency(existingPotCurrent)})
                               </span>
                             </Link>
                           ) : (
