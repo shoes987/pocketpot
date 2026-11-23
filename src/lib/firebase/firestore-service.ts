@@ -767,8 +767,9 @@ export function subscribeToRewards(
 export async function recordBonusAwardInFirestore(award: BonusAwardDocument): Promise<void> {
   if (!db) return;
   try {
+    const cleanAward = sanitizeForFirestore(award);
     await addDoc(collection(db, "bonus_awards"), {
-      ...award,
+      ...cleanAward,
       awardedAt: award.awardedAt || new Date().toISOString(),
     });
   } catch (err) {
@@ -780,10 +781,11 @@ export async function recordTransactionInFirestore(tx: PotLedgerEntry): Promise<
   if (!db) return;
   try {
     const txId = tx.transactionId || crypto.randomUUID();
+    const cleanTx = sanitizeForFirestore(tx);
     await setDoc(
       doc(db, "transactions", txId),
       {
-        ...tx,
+        ...cleanTx,
         transactionId: txId,
         timestamp: tx.timestamp || new Date().toISOString(),
       },
@@ -967,8 +969,9 @@ export async function saveBehaviourToFirestore(
 ): Promise<void> {
   if (!db || !behaviour.behaviourId) return;
   try {
+    const cleanBehaviour = sanitizeForFirestore(behaviour);
     await setDoc(doc(db, "behaviours", behaviour.behaviourId), {
-      ...behaviour,
+      ...cleanBehaviour,
       updatedAt: new Date().toISOString(),
     }, { merge: true });
   } catch (err) {
@@ -984,9 +987,10 @@ export async function saveBehavioursBatchToFirestore(
     const batch = writeBatch(db);
     for (const b of behaviours) {
       if (!b.behaviourId) continue;
+      const cleanB = sanitizeForFirestore(b);
       const ref = doc(db, "behaviours", b.behaviourId);
       batch.set(ref, {
-        ...b,
+        ...cleanB,
         updatedAt: new Date().toISOString(),
       }, { merge: true });
     }

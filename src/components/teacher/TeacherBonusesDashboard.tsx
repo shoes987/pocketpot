@@ -14,6 +14,7 @@ import {
   awardBonusToPupils,
   getSavedBonusAwards,
   DEFAULT_POSITIVE_BEHAVIOURS,
+  cacheBehavioursLocally,
 } from "@/lib/services/bonus-service";
 import {
   getSavedPupils,
@@ -198,12 +199,23 @@ export function TeacherBonusesDashboard({
 
     // Real-time Firestore pupil listener for Whiteboard Mode
     const unsubPupils = subscribeToPupils((livePupils) => {
-      setPupils(livePupils);
+      if (livePupils && livePupils.length > 0) {
+        const localPupils = getSavedPupils();
+        const map = new Map<string, PupilDocument>();
+        localPupils.forEach((p) => map.set(p.pupilId, p));
+        livePupils.forEach((p) => {
+          const existing = map.get(p.pupilId);
+          map.set(p.pupilId, existing ? { ...existing, ...p } : p);
+        });
+        const merged = Array.from(map.values());
+        setPupils(merged);
+      }
     });
 
     const unsubBehaviours = subscribeToBehaviours((liveBehaviours) => {
-      if (liveBehaviours.length > 0) {
-        setBehaviours(liveBehaviours);
+      if (liveBehaviours && liveBehaviours.length > 0) {
+        cacheBehavioursLocally(liveBehaviours);
+        setBehaviours(getSavedBehaviours(selectedClassId));
       }
     });
 
@@ -215,7 +227,7 @@ export function TeacherBonusesDashboard({
       unsubBehaviours();
       window.removeEventListener("storage", handleSync);
     };
-  }, [propsClasses, activeClassId]);
+  }, [propsClasses, activeClassId, selectedClassId]);
 
   // Audio Synthesizer Chime (Web Audio API - 100% reliable, zero network latency)
   const playCelebrationChime = () => {
@@ -367,8 +379,10 @@ export function TeacherBonusesDashboard({
     try {
       const result = awardBonusToPupils({
         behaviourId: awardingBehaviour.behaviourId,
+        behaviour: awardingBehaviour,
         pupilIds: selectedPupilIds,
         classId: selectedClassId,
+        pupils,
       });
 
       // Play Sound & Trigger Confetti!
@@ -476,7 +490,19 @@ export function TeacherBonusesDashboard({
     }
   };
 
-  const filteredPupils = pupils.filter((p) => {
+  const classPupils = selectedClassId
+    ? pupils.filter(
+        (p) =>
+          !p.classId ||
+          p.classId === selectedClassId ||
+          p.classId.trim().toLowerCase() === selectedClassId.trim().toLowerCase() ||
+          p.classId.replace(/[^a-z0-9]/gi, "").toLowerCase() === selectedClassId.replace(/[^a-z0-9]/gi, "").toLowerCase()
+      )
+    : pupils;
+
+  const effectivePupils = classPupils.length > 0 ? classPupils : pupils;
+
+  const filteredPupils = effectivePupils.filter((p) => {
     const name = getPupilDisplayName(p).toLowerCase();
     const badge = String(p.deskBadgeNumber);
     return name.includes(pupilSearch.toLowerCase()) || badge.includes(pupilSearch);

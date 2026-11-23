@@ -28,6 +28,7 @@ import {
   recordBonusAwardInFirestore,
   recordTransactionInFirestore,
   saveBehavioursBatchToFirestore,
+  deleteBehaviourFromFirestore,
 } from "../firebase/firestore-service";
 import {
   safeLocalStorageSetItem,
@@ -137,22 +138,79 @@ export const DEFAULT_POSITIVE_BEHAVIOURS: PositiveBehaviourDocument[] = [
 export function getSavedBehaviours(classId?: string): PositiveBehaviourDocument[] {
   if (typeof window === "undefined") return DEFAULT_POSITIVE_BEHAVIOURS;
 
+  let behaviours: PositiveBehaviourDocument[] = [];
   const stored = safeLocalStorageGetItem(STORAGE_KEY_BEHAVIOURS);
   if (stored) {
     try {
       const parsed: PositiveBehaviourDocument[] = JSON.parse(stored);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        if (classId) {
-          return parsed.filter((b) => !b.classId || b.classId === classId);
-        }
-        return parsed;
+        behaviours = parsed;
       }
     } catch {
       // Fallback
     }
   }
 
-  return [];
+  // If no saved behaviours or empty, seed with DEFAULT_POSITIVE_BEHAVIOURS
+  if (behaviours.length === 0) {
+    behaviours = [...DEFAULT_POSITIVE_BEHAVIOURS];
+    safeLocalStorageSetItem(STORAGE_KEY_BEHAVIOURS, JSON.stringify(behaviours));
+    try {
+      saveBehavioursBatchToFirestore(behaviours);
+    } catch {
+      // ignore
+    }
+  } else {
+    // Ensure all default presets are available even if custom behaviours were added
+    const existingIds = new Set(behaviours.map((b) => b.behaviourId));
+    let hasNewPresets = false;
+    for (const preset of DEFAULT_POSITIVE_BEHAVIOURS) {
+      if (!existingIds.has(preset.behaviourId)) {
+        behaviours.push(preset);
+        hasNewPresets = true;
+      }
+    }
+    if (hasNewPresets) {
+      safeLocalStorageSetItem(STORAGE_KEY_BEHAVIOURS, JSON.stringify(behaviours));
+    }
+  }
+
+  if (classId) {
+    const normClassId = classId.trim().toLowerCase();
+    const cleanClassId = normClassId.replace(/[^a-z0-9]/g, "");
+    return behaviours.filter((b) => {
+      // Global presets or wildcard behaviours match every class
+      if (!b.classId || b.classId === "*" || b.classId === "all") return true;
+      if (b.classId === classId) return true;
+      const bNorm = b.classId.trim().toLowerCase();
+      if (bNorm === normClassId) return true;
+      if (bNorm.replace(/[^a-z0-9]/g, "") === cleanClassId) return true;
+      return false;
+    });
+  }
+
+  return behaviours;
+}
+
+/**
+ * Merges incoming behaviours (e.g. from Firestore listener) into local storage.
+ */
+export function cacheBehavioursLocally(incoming: PositiveBehaviourDocument[]): void {
+  if (typeof window === "undefined" || !Array.isArray(incoming) || incoming.length === 0) return;
+  const current = getSavedBehaviours();
+  const map = new Map<string, PositiveBehaviourDocument>();
+
+  DEFAULT_POSITIVE_BEHAVIOURS.forEach((b) => map.set(b.behaviourId, b));
+  current.forEach((b) => map.set(b.behaviourId, b));
+  incoming.forEach((b) => {
+    if (b && b.behaviourId) {
+      const existing = map.get(b.behaviourId);
+      map.set(b.behaviourId, existing ? { ...existing, ...b } : b);
+    }
+  });
+
+  const merged = Array.from(map.values());
+  safeLocalStorageSetItem(STORAGE_KEY_BEHAVIOURS, JSON.stringify(merged));
 }
 
 /**
@@ -242,6 +300,11 @@ export function deleteBehaviour(behaviourId: string): void {
   const all = getSavedBehaviours();
   const filtered = all.filter((b) => b.behaviourId !== behaviourId);
   saveBehaviours(filtered);
+  try {
+    deleteBehaviourFromFirestore(behaviourId);
+  } catch (err) {
+    console.warn("Firestore deleteBehaviour warning:", err);
+  }
 }
 
 /**
@@ -291,30 +354,91 @@ export function awardBonusToPupils(params: {
   behaviourId: string;
   pupilIds: string[];
   classId: string;
+  behaviour?: PositiveBehaviourDocument;
+  pupils?: PupilDocument[];
 }): AwardBonusResult {
   if (!params.pupilIds || params.pupilIds.length === 0) {
     throw new Error("Please select at least one pupil to receive the bonus.");
   }
 
-  const behaviours = getSavedBehaviours(params.classId);
-  const targetBehaviour = behaviours.find((b) => b.behaviourId === params.behaviourId);
-  if (!targetBehaviour) {
-    throw new Error("The selected positive behaviour could not be found.");
+  // 1. Resolve Target Behaviour via multi-tier fallback
+  let targetBehaviour: PositiveBehaviourDocument | undefined = params.behaviour;
+
+  if (!targetBehaviour && params.classId) {
+    const classBehaviours = getSavedBehaviours(params.classId);
+    targetBehaviour = classBehaviours.find((b) => b.behaviourId === params.behaviourId);
   }
 
-  const allPupils = getSavedPupils();
-  const selectedPupils = allPupils.filter((p) => params.pupilIds.includes(p.pupilId));
+  if (!targetBehaviour) {
+    const allBehaviours = getSavedBehaviours();
+    targetBehaviour = allBehaviours.find((b) => b.behaviourId === params.behaviourId);
+  }
+
+  if (!targetBehaviour) {
+    targetBehaviour = DEFAULT_POSITIVE_BEHAVIOURS.find((b) => b.behaviourId === params.behaviourId);
+  }
+
+  if (!targetBehaviour && params.behaviourId) {
+    const all = [...getSavedBehaviours(), ...DEFAULT_POSITIVE_BEHAVIOURS];
+    const cleanId = params.behaviourId.toLowerCase().replace(/^(preset-|custom-behaviour-)/, "").replace(/[^a-z0-9]/g, "");
+    targetBehaviour = all.find((b) => {
+      const bCleanId = b.behaviourId.toLowerCase().replace(/^(preset-|custom-behaviour-)/, "").replace(/[^a-z0-9]/g, "");
+      const bTitle = b.title.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const bDef = b.definition.toLowerCase().replace(/[^a-z0-9]/g, "");
+      return bCleanId === cleanId || bTitle === cleanId || bDef === cleanId;
+    });
+  }
+
+  if (!targetBehaviour) {
+    // Final emergency fallback: default to first preset
+    targetBehaviour = DEFAULT_POSITIVE_BEHAVIOURS[0];
+  }
+
+  // 2. Resolve Selected Pupils
+  let allPupils = getSavedPupils();
+  if (params.pupils && params.pupils.length > 0) {
+    const pMap = new Map<string, PupilDocument>();
+    allPupils.forEach((p) => pMap.set(p.pupilId, p));
+    params.pupils.forEach((p) => {
+      const existing = pMap.get(p.pupilId);
+      pMap.set(p.pupilId, existing ? { ...existing, ...p } : p);
+    });
+    allPupils = Array.from(pMap.values());
+  }
+
+  const selectedPupilIdsSet = new Set(params.pupilIds);
+  let selectedPupils = allPupils.filter((p) => selectedPupilIdsSet.has(p.pupilId));
+
+  // If some selected pupils were not in allPupils, create placeholders so bonus is never lost
   if (selectedPupils.length === 0) {
-    throw new Error("No matching pupils were found for this class.");
+    params.pupilIds.forEach((pid, idx) => {
+      const fallbackPupil: PupilDocument = {
+        pupilId: pid,
+        classId: params.classId,
+        deskBadgeNumber: idx + 1,
+        educationalCodename: `Pupil ${idx + 1}`,
+        displayName: `Pupil ${idx + 1}`,
+        avatarIconKey: "badge-otter",
+        cardLastFour: "1234",
+        mainBalanceCents: 0,
+        totalSavedCents: 0,
+        activePotsCount: 0,
+        anonymized: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      allPupils.push(fallbackPupil);
+      selectedPupils.push(fallbackPupil);
+    });
   }
 
   const now = new Date().toISOString();
   const newTransactions: PotLedgerEntry[] = [];
   const pupilDisplayNames: string[] = [];
 
-  // Update pupils' main balances and generate ledger entries
+  // 3. Update pupils' main balances and generate ledger entries
   const updatedPupils = allPupils.map((pupil) => {
-    if (params.pupilIds.includes(pupil.pupilId)) {
+    if (selectedPupilIdsSet.has(pupil.pupilId)) {
       const name = getPupilDisplayName(pupil);
       pupilDisplayNames.push(name);
 
@@ -340,15 +464,19 @@ export function awardBonusToPupils(params: {
       newTransactions.push(tx);
 
       // Send celebratory pupil notification
-      addNotification({
-        classId: pupil.classId || params.classId,
-        pupilId: pupil.pupilId,
-        isTeacherNotification: false,
-        title: `🌟 Bonus Awarded: +${formatCurrency(targetBehaviour.amountCents)}`,
-        message: `Your teacher awarded you a ${formatCurrency(targetBehaviour.amountCents)} bonus for ${targetBehaviour.title} (${targetBehaviour.definition})!`,
-        type: "bonus",
-        amountCents: targetBehaviour.amountCents,
-      });
+      try {
+        addNotification({
+          classId: pupil.classId || params.classId,
+          pupilId: pupil.pupilId,
+          isTeacherNotification: false,
+          title: `🌟 Bonus Awarded: +${formatCurrency(targetBehaviour.amountCents)}`,
+          message: `Your teacher awarded you a ${formatCurrency(targetBehaviour.amountCents)} bonus for ${targetBehaviour.title} (${targetBehaviour.definition})!`,
+          type: "bonus",
+          amountCents: targetBehaviour.amountCents,
+        });
+      } catch (err) {
+        console.warn("Notification send warning:", err);
+      }
 
       return {
         ...pupil,
