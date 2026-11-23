@@ -44,6 +44,8 @@ import {
   savePotsBatchToFirestore,
   updatePotBalanceInFirestore,
   deletePotFromFirestore,
+  deletePupilsForClassInFirestore,
+  deletePotsForClassInFirestore,
   recordTransactionInFirestore,
 } from "../firebase/firestore-service";
 import {
@@ -216,9 +218,65 @@ export function purgeLegacyMockStorage(): void {
       localStorage.removeItem("pocketpot_marketplace_rewards_v1");
       localStorage.removeItem("pocketpot_jobs_v1");
     }
+    purgeOrphanedPupilsAndClasses();
     localStorage.setItem(PURGE_FLAG, "true");
   } catch (err) {
     console.warn("purgeLegacyMockStorage warning:", err);
+  }
+}
+
+/**
+ * Automatically purges orphaned pupils and pots whose classes were deleted
+ * or no longer exist in the system, maintaining strict synchronization.
+ */
+export function purgeOrphanedPupilsAndClasses(): void {
+  if (typeof window === "undefined") return;
+  try {
+    const deletedClasses = getDeletedClassIds();
+    const deletedPupils = getDeletedPupilIds();
+    const activeClasses = getSavedClasses().filter(
+      (c) => !deletedClasses.has(c.classId) && !deletedClasses.has(c.className?.trim().toLowerCase() || "")
+    );
+    const activeClassIds = new Set(activeClasses.map((c) => c.classId));
+
+    // Clean pupils in localStorage
+    const rawPupils = safeLocalStorageGetItem(STORAGE_KEY_PUPILS);
+    if (rawPupils) {
+      const parsedPupils: PupilDocument[] = JSON.parse(rawPupils);
+      if (Array.isArray(parsedPupils)) {
+        const cleanPupils = parsedPupils.filter((p) => {
+          if (!p || !p.pupilId) return false;
+          if (deletedPupils.has(p.pupilId)) return false;
+          if (!p.classId) return false;
+          if (deletedClasses.has(p.classId) || deletedClasses.has(p.classId.trim().toLowerCase())) return false;
+          if (activeClassIds.size > 0 && !activeClassIds.has(p.classId)) return false;
+          return true;
+        });
+        if (cleanPupils.length !== parsedPupils.length) {
+          safeLocalStorageSetItem(STORAGE_KEY_PUPILS, JSON.stringify(cleanPupils));
+        }
+      }
+    }
+
+    // Clean pots in localStorage
+    const rawPots = safeLocalStorageGetItem(STORAGE_KEY_POTS);
+    if (rawPots) {
+      const parsedPots: SavingsPotDocument[] = JSON.parse(rawPots);
+      if (Array.isArray(parsedPots)) {
+        const cleanPots = parsedPots.filter((p) => {
+          if (!p || !p.potId) return false;
+          if (p.pupilId && deletedPupils.has(p.pupilId)) return false;
+          if (p.classId && (deletedClasses.has(p.classId) || deletedClasses.has(p.classId.trim().toLowerCase()))) return false;
+          if (activeClassIds.size > 0 && p.classId && !activeClassIds.has(p.classId)) return false;
+          return true;
+        });
+        if (cleanPots.length !== parsedPots.length) {
+          safeLocalStorageSetItem(STORAGE_KEY_POTS, JSON.stringify(cleanPots));
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("purgeOrphanedPupilsAndClasses warning:", err);
   }
 }
 
@@ -414,21 +472,22 @@ export function getSavedClassesForUser(
 
   if (!user || user.role === "admin") return deduplicateClasses(nonDeleted);
 
-  // If assignedClassIds is specified: teacher strictly only sees classes explicitly assigned
-  if (Array.isArray(user.assignedClassIds)) {
-    if (user.assignedClassIds.includes("*")) {
-      return deduplicateClasses(nonDeleted);
-    }
-    const assignedSet = new Set(user.assignedClassIds);
-    return deduplicateClasses(nonDeleted.filter((cls) => assignedSet.has(cls.classId)));
+  // If user has wildcard '*', they see all non-deleted classes
+  if (Array.isArray(user.assignedClassIds) && user.assignedClassIds.includes("*")) {
+    return deduplicateClasses(nonDeleted);
   }
 
-  // Fallback ONLY if assignedClassIds was never set
+  const assignedSet = new Set(Array.isArray(user.assignedClassIds) ? user.assignedClassIds : []);
+
   return deduplicateClasses(
     nonDeleted.filter((cls) => {
-      const isLead = cls.leadTeacherId === user.userId;
-      const isAssigned = cls.assignedTeacherIds && cls.assignedTeacherIds.includes(user.userId);
-      return isLead || isAssigned;
+      // 1. Explicitly in user's assignedClassIds
+      if (assignedSet.has(cls.classId)) return true;
+      // 2. Teacher is lead teacher or teacher on the class
+      if (user.userId && (cls.leadTeacherId === user.userId || cls.teacherId === user.userId)) return true;
+      // 3. Teacher is in assignedTeacherIds on the class
+      if (user.userId && Array.isArray(cls.assignedTeacherIds) && cls.assignedTeacherIds.includes(user.userId)) return true;
+      return false;
     })
   );
 }
@@ -493,15 +552,46 @@ export function cacheClassesLocally(classes: ClassDocument[]): void {
 
 export function cachePupilsLocally(pupils: PupilDocument[]): void {
   if (typeof window === "undefined") return;
-  const deleted = getDeletedPupilIds();
-  const nonDeleted = pupils.filter((p) => !deleted.has(p.pupilId));
+  const deletedPupilIds = getDeletedPupilIds();
+  const deletedClasses = getDeletedClassIds();
+  const activeClasses = getSavedClasses();
+  const activeClassIds = new Set(
+    activeClasses
+      .filter((c) => !deletedClasses.has(c.classId) && !deletedClasses.has(c.className?.trim().toLowerCase() || ""))
+      .map((c) => c.classId)
+  );
+
+  const nonDeleted = pupils.filter((p) => {
+    if (!p || !p.pupilId) return false;
+    if (deletedPupilIds.has(p.pupilId)) return false;
+    if (!p.classId) return false;
+    if (deletedClasses.has(p.classId) || deletedClasses.has(p.classId.trim().toLowerCase())) return false;
+    if (activeClassIds.size > 0 && !activeClassIds.has(p.classId)) return false;
+    return true;
+  });
   const unique = deduplicatePupils(nonDeleted);
   safeLocalStorageSetItem(STORAGE_KEY_PUPILS, JSON.stringify(unique));
 }
 
 export function cachePotsLocally(pots: SavingsPotDocument[]): void {
   if (typeof window === "undefined") return;
-  const unique = deduplicatePots(pots);
+  const deletedPupilIds = getDeletedPupilIds();
+  const deletedClasses = getDeletedClassIds();
+  const activeClasses = getSavedClasses();
+  const activeClassIds = new Set(
+    activeClasses
+      .filter((c) => !deletedClasses.has(c.classId) && !deletedClasses.has(c.className?.trim().toLowerCase() || ""))
+      .map((c) => c.classId)
+  );
+
+  const nonDeleted = pots.filter((p) => {
+    if (!p || !p.potId) return false;
+    if (p.pupilId && deletedPupilIds.has(p.pupilId)) return false;
+    if (p.classId && (deletedClasses.has(p.classId) || deletedClasses.has(p.classId.trim().toLowerCase()))) return false;
+    if (activeClassIds.size > 0 && p.classId && !activeClassIds.has(p.classId)) return false;
+    return true;
+  });
+  const unique = deduplicatePots(nonDeleted);
   safeLocalStorageSetItem(STORAGE_KEY_POTS, JSON.stringify(unique));
 }
 
@@ -541,8 +631,23 @@ export function getSavedPupils(): PupilDocument[] {
         }
 
         const unique = deduplicatePupils(parsed);
-        const deleted = getDeletedPupilIds();
-        const nonDeleted = unique.filter((p) => !deleted.has(p.pupilId));
+        const deletedPupilIds = getDeletedPupilIds();
+        const deletedClasses = getDeletedClassIds();
+        const activeClasses = getSavedClasses();
+        const activeClassIds = new Set(
+          activeClasses
+            .filter((c) => !deletedClasses.has(c.classId) && !deletedClasses.has(c.className?.trim().toLowerCase() || ""))
+            .map((c) => c.classId)
+        );
+
+        const nonDeleted = unique.filter((p) => {
+          if (!p || !p.pupilId) return false;
+          if (deletedPupilIds.has(p.pupilId)) return false;
+          if (!p.classId) return false;
+          if (deletedClasses.has(p.classId) || deletedClasses.has(p.classId.trim().toLowerCase())) return false;
+          if (activeClassIds.size > 0 && !activeClassIds.has(p.classId)) return false;
+          return true;
+        });
 
         // Self-heal known runaway balance duplication (e.g. £37.00 when baseline is £7.00)
         let needsHeal = false;
@@ -619,10 +724,27 @@ export function getSavedPots(): SavingsPotDocument[] {
         }
 
         const unique = deduplicatePots(parsed);
-        if (unique.length !== parsed.length) {
-          safeLocalStorageSetItem(STORAGE_KEY_POTS, JSON.stringify(unique));
+        const deletedPupilIds = getDeletedPupilIds();
+        const deletedClasses = getDeletedClassIds();
+        const activeClasses = getSavedClasses();
+        const activeClassIds = new Set(
+          activeClasses
+            .filter((c) => !deletedClasses.has(c.classId) && !deletedClasses.has(c.className?.trim().toLowerCase() || ""))
+            .map((c) => c.classId)
+        );
+
+        const validPots = unique.filter((p) => {
+          if (!p || !p.potId) return false;
+          if (p.pupilId && deletedPupilIds.has(p.pupilId)) return false;
+          if (p.classId && (deletedClasses.has(p.classId) || deletedClasses.has(p.classId.trim().toLowerCase()))) return false;
+          if (activeClassIds.size > 0 && p.classId && !activeClassIds.has(p.classId)) return false;
+          return true;
+        });
+
+        if (validPots.length !== parsed.length) {
+          safeLocalStorageSetItem(STORAGE_KEY_POTS, JSON.stringify(validPots));
         }
-        return unique;
+        return validPots;
       }
     } catch {
       // Fallback
@@ -1721,6 +1843,16 @@ export function deleteClass(
     recordDeletedPupil(p.pupilId);
     try {
       deletePupilFromFirestore(p.pupilId);
+    } catch {
+      // ignore
+    }
+  });
+
+  // Purge any remaining pupils or pots for these classes in Firestore
+  matchedIds.forEach((cid) => {
+    try {
+      deletePupilsForClassInFirestore(cid);
+      deletePotsForClassInFirestore(cid);
     } catch {
       // ignore
     }

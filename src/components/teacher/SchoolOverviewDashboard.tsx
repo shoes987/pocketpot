@@ -144,8 +144,11 @@ export function SchoolOverviewDashboard({
   const [isHandoffModalOpen, setIsHandoffModalOpen] = useState(false);
   const [copiedAnnouncement, setCopiedAnnouncement] = useState(false);
 
-  const totalSchoolSavings = pots.reduce((sum, p) => sum + (p.currentAmountCents || 0), 0);
-  const totalEnrolledPupils = pupils.length;
+  const activeClassIds = new Set(classes.map((c) => c.classId));
+  const validPupils = pupils.filter((p) => p.classId && activeClassIds.has(p.classId));
+  const validPots = pots.filter((p) => p.classId && activeClassIds.has(p.classId));
+  const totalSchoolSavings = validPots.reduce((sum, p) => sum + (p.currentAmountCents || 0), 0);
+  const totalEnrolledPupils = validPupils.length;
   const currentTeacherCount = staffList.filter((s) => s.role === "teacher").length;
 
   const showToast = (msg: string) => {

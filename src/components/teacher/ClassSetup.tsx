@@ -19,6 +19,7 @@ import {
   getSavedClassesForUser,
   resetPupilPin,
   getDeletedClassIds,
+  getDeletedPupilIds,
   BALANCE_SYNC_EVENT,
 } from "@/lib/services/class-service";
 import { getCurrentTeacherUser } from "@/lib/services/auth-service";
@@ -278,7 +279,25 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
     let unsubPupils = () => {};
     if (propsPupils === undefined) {
       unsubPupils = subscribeToPupils((livePupils) => {
-        setPupils(livePupils);
+        const deletedPupils = getDeletedPupilIds();
+        const deletedClasses = getDeletedClassIds();
+        const currentClasses = getSavedClasses();
+        const activeClassIds = new Set(
+          currentClasses
+            .filter((c) => !deletedClasses.has(c.classId) && !deletedClasses.has(c.className?.trim().toLowerCase() || ""))
+            .map((c) => c.classId)
+        );
+
+        const activePupils = (livePupils || []).filter((p) => {
+          if (!p || !p.pupilId) return false;
+          if (deletedPupils.has(p.pupilId)) return false;
+          if (!p.classId) return false;
+          if (deletedClasses.has(p.classId) || deletedClasses.has(p.classId.trim().toLowerCase())) return false;
+          if (activeClassIds.size > 0 && !activeClassIds.has(p.classId)) return false;
+          return true;
+        });
+
+        setPupils(activePupils);
       });
     }
 

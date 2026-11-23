@@ -267,8 +267,13 @@ export const TeacherJobsBoard: React.FC<TeacherJobsBoardProps> = ({
 
   // Employment Roster Calculations
   const currentClassPupils = selectedClassId
-    ? pupils.filter((p) => p.classId === selectedClassId)
-    : pupils;
+    ? pupils.filter(
+        (p) =>
+          p.classId === selectedClassId ||
+          p.classId?.trim().toLowerCase() === selectedClassId.trim().toLowerCase() ||
+          p.classId?.replace(/[^a-z0-9]/gi, "").toLowerCase() === selectedClassId.replace(/[^a-z0-9]/gi, "").toLowerCase()
+      )
+    : [];
 
   const pupilsWithStatus = currentClassPupils.map((pupil) => {
     const activeJob = getActiveJobForPupil(pupil.pupilId);

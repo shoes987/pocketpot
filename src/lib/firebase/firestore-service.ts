@@ -653,6 +653,32 @@ export async function deleteJobsAndApplicationsForClassInFirestore(classId: stri
   }
 }
 
+export async function deletePupilsForClassInFirestore(classId: string): Promise<void> {
+  if (!db || !classId) return;
+  try {
+    const snap = await getDocs(query(collection(db, "pupils"), where("classId", "==", classId)));
+    if (snap.empty) return;
+    const batch = writeBatch(db);
+    snap.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  } catch (err) {
+    console.warn("deletePupilsForClassInFirestore warning:", err);
+  }
+}
+
+export async function deletePotsForClassInFirestore(classId: string): Promise<void> {
+  if (!db || !classId) return;
+  try {
+    const snap = await getDocs(query(collection(db, "pots"), where("classId", "==", classId)));
+    if (snap.empty) return;
+    const batch = writeBatch(db);
+    snap.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  } catch (err) {
+    console.warn("deletePotsForClassInFirestore warning:", err);
+  }
+}
+
 /**
  * ----------------------------------------------------
  * CLASSROOM MARKETPLACE & REWARDS (/marketplace)

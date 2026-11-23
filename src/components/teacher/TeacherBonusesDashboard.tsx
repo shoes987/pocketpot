@@ -20,6 +20,8 @@ import {
   getSavedPupils,
   getSavedClasses,
   getSavedClassesForUser,
+  getDeletedPupilIds,
+  getDeletedClassIds,
 } from "@/lib/services/class-service";
 import { getCurrentTeacherUser, isUserAdmin } from "@/lib/services/auth-service";
 import { subscribeToPupils, subscribeToBehaviours } from "@/lib/firebase/firestore-service";
@@ -186,7 +188,7 @@ export function TeacherBonusesDashboard({
     const activeClass =
       (activeClassId && loadedClasses.find((c) => c.classId === activeClassId)) ||
       loadedClasses[0];
-    const classId = activeClass ? activeClass.classId : "class-year4-teal";
+    const classId = activeClass ? activeClass.classId : "";
     setSelectedClassId(classId);
 
     setBehaviours(getSavedBehaviours(classId));
@@ -199,17 +201,33 @@ export function TeacherBonusesDashboard({
 
     // Real-time Firestore pupil listener for Whiteboard Mode
     const unsubPupils = subscribeToPupils((livePupils) => {
-      if (livePupils && livePupils.length > 0) {
-        const localPupils = getSavedPupils();
-        const map = new Map<string, PupilDocument>();
-        localPupils.forEach((p) => map.set(p.pupilId, p));
-        livePupils.forEach((p) => {
-          const existing = map.get(p.pupilId);
-          map.set(p.pupilId, existing ? { ...existing, ...p } : p);
-        });
-        const merged = Array.from(map.values());
-        setPupils(merged);
-      }
+      const deletedPupils = getDeletedPupilIds();
+      const deletedClasses = getDeletedClassIds();
+      const currentClasses = getSavedClasses();
+      const activeClassIds = new Set(
+        currentClasses
+          .filter((c) => !deletedClasses.has(c.classId) && !deletedClasses.has(c.className?.trim().toLowerCase() || ""))
+          .map((c) => c.classId)
+      );
+
+      const validLive = (livePupils || []).filter((p) => {
+        if (!p || !p.pupilId) return false;
+        if (deletedPupils.has(p.pupilId)) return false;
+        if (!p.classId) return false;
+        if (deletedClasses.has(p.classId) || deletedClasses.has(p.classId.trim().toLowerCase())) return false;
+        if (activeClassIds.size > 0 && !activeClassIds.has(p.classId)) return false;
+        return true;
+      });
+
+      const localPupils = getSavedPupils();
+      const map = new Map<string, PupilDocument>();
+      localPupils.forEach((p) => map.set(p.pupilId, p));
+      validLive.forEach((p) => {
+        const existing = map.get(p.pupilId);
+        map.set(p.pupilId, existing ? { ...existing, ...p } : p);
+      });
+      const merged = Array.from(map.values());
+      setPupils(merged);
     });
 
     const unsubBehaviours = subscribeToBehaviours((liveBehaviours) => {
@@ -493,14 +511,13 @@ export function TeacherBonusesDashboard({
   const classPupils = selectedClassId
     ? pupils.filter(
         (p) =>
-          !p.classId ||
           p.classId === selectedClassId ||
-          p.classId.trim().toLowerCase() === selectedClassId.trim().toLowerCase() ||
-          p.classId.replace(/[^a-z0-9]/gi, "").toLowerCase() === selectedClassId.replace(/[^a-z0-9]/gi, "").toLowerCase()
+          p.classId?.trim().toLowerCase() === selectedClassId.trim().toLowerCase() ||
+          p.classId?.replace(/[^a-z0-9]/gi, "").toLowerCase() === selectedClassId.replace(/[^a-z0-9]/gi, "").toLowerCase()
       )
-    : pupils;
+    : [];
 
-  const effectivePupils = classPupils.length > 0 ? classPupils : pupils;
+  const effectivePupils = classPupils;
 
   const filteredPupils = effectivePupils.filter((p) => {
     const name = getPupilDisplayName(p).toLowerCase();
@@ -881,7 +898,7 @@ export function TeacherBonusesDashboard({
                 </button>
 
                 <span className="text-xs text-primaryText/70 font-medium">
-                  Selected: <strong className="text-positiveState font-bold">{selectedPupilIds.length}</strong> of {pupils.length} pupils
+                  Selected: <strong className="text-positiveState font-bold">{selectedPupilIds.length}</strong> of {filteredPupils.length} pupils
                 </span>
               </div>
 

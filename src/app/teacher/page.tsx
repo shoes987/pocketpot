@@ -151,27 +151,48 @@ export default function TeacherPortalPage() {
     });
 
     const unsubPupils = subscribeToPupils((livePupils) => {
-      const deleted = getDeletedPupilIds();
-      const activePupils = livePupils.filter((p) => !deleted.has(p.pupilId));
-      if (activePupils && activePupils.length > 0) {
-        setPupils(activePupils);
-        cachePupilsLocally(activePupils);
-      } else {
-        const local = getSavedPupils();
-        if (local.length > 0) setPupils(local);
-      }
+      const deletedPupils = getDeletedPupilIds();
+      const deletedClasses = getDeletedClassIds();
+      const currentClasses = getSavedClasses();
+      const activeClassIds = new Set(
+        currentClasses
+          .filter((c) => !deletedClasses.has(c.classId) && !deletedClasses.has(c.className?.trim().toLowerCase() || ""))
+          .map((c) => c.classId)
+      );
+
+      const activePupils = (livePupils || []).filter((p) => {
+        if (!p || !p.pupilId) return false;
+        if (deletedPupils.has(p.pupilId)) return false;
+        if (!p.classId) return false;
+        if (deletedClasses.has(p.classId) || deletedClasses.has(p.classId.trim().toLowerCase())) return false;
+        if (activeClassIds.size > 0 && !activeClassIds.has(p.classId)) return false;
+        return true;
+      });
+
+      setPupils(activePupils);
+      cachePupilsLocally(activePupils);
     });
 
     const unsubPots = subscribeToPots((livePots) => {
-      const deleted = getDeletedPupilIds();
-      const activePots = livePots.filter((p) => !deleted.has(p.pupilId));
-      if (activePots && activePots.length > 0) {
-        setPots(activePots);
-        cachePotsLocally(activePots);
-      } else {
-        const local = getSavedPots();
-        if (local.length > 0) setPots(local);
-      }
+      const deletedPupils = getDeletedPupilIds();
+      const deletedClasses = getDeletedClassIds();
+      const currentClasses = getSavedClasses();
+      const activeClassIds = new Set(
+        currentClasses
+          .filter((c) => !deletedClasses.has(c.classId) && !deletedClasses.has(c.className?.trim().toLowerCase() || ""))
+          .map((c) => c.classId)
+      );
+
+      const activePots = (livePots || []).filter((p) => {
+        if (!p || !p.potId) return false;
+        if (p.pupilId && deletedPupils.has(p.pupilId)) return false;
+        if (p.classId && (deletedClasses.has(p.classId) || deletedClasses.has(p.classId.trim().toLowerCase()))) return false;
+        if (activeClassIds.size > 0 && p.classId && !activeClassIds.has(p.classId)) return false;
+        return true;
+      });
+
+      setPots(activePots);
+      cachePotsLocally(activePots);
     });
 
     const handleSync = () => refreshState();
