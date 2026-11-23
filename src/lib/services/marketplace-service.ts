@@ -42,7 +42,7 @@ const STORAGE_KEY_PURCHASES = "pocketpot_marketplace_purchases_v2";
  * teacher and pupil accounts (e.g. "class-year4-teal" vs "class-year-4-teal").
  */
 export function normalizeClassId(id?: string): string {
-  if (!id) return "class-year-4-teal";
+  if (!id) return "";
   return id.replace(/^class-year(\d+)/i, "class-year-$1").toLowerCase();
 }
 
@@ -256,7 +256,7 @@ export function createReward(
 ): MarketplaceRewardDocument {
   const existing = getSavedRewards();
   const now = new Date().toISOString();
-  const rawClassId = rewardData.classId || "class-year-4-teal";
+  const rawClassId = rewardData.classId || "";
   const normalizedClassId = normalizeClassId(rawClassId);
   const cleanDocClassId = normalizedClassId.replace(/[^a-zA-Z0-9_-]/g, "_");
 

@@ -41,6 +41,7 @@ import {
   subscribeToPots,
 } from "@/lib/firebase/firestore-service";
 import { PupilDocument, ClassDocument, SavingsPotDocument, UserDocument } from "@/lib/firebase/types";
+import { DEFAULT_TENANT_ID } from "@/lib/services/tenant-service";
 import {
   School,
   CheckCircle2,
@@ -136,7 +137,7 @@ export default function TeacherPortalPage() {
       });
     }
 
-    // Real-time Firestore onSnapshot listeners with local offline/quota fallback
+    // Real-time Firestore onSnapshot listeners scoped to active tenant
     const unsubClasses = subscribeToClasses((liveClasses) => {
       const deletedClassIds = getDeletedClassIds();
       const activeClasses = (liveClasses || []).filter(
@@ -148,7 +149,7 @@ export default function TeacherPortalPage() {
       );
       setClasses(activeClasses);
       cacheClassesLocally(activeClasses);
-    });
+    }, DEFAULT_TENANT_ID);
 
     const unsubPupils = subscribeToPupils((livePupils) => {
       const deletedPupils = getDeletedPupilIds();

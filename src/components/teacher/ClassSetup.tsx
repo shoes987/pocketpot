@@ -23,6 +23,7 @@ import {
   BALANCE_SYNC_EVENT,
 } from "@/lib/services/class-service";
 import { getCurrentTeacherUser } from "@/lib/services/auth-service";
+import { DEFAULT_TENANT_ID } from "@/lib/services/tenant-service";
 import { formatCurrency, getPupilDisplayName } from "@/lib/firebase/zero-pii";
 import {
   subscribeToClasses,
@@ -273,7 +274,7 @@ export const ClassSetup: React.FC<ClassSetupProps> = ({
         } else if (!filtered.some((c) => c.classId === selectedClassId)) {
           setSelectedClassId(filtered[0].classId);
         }
-      });
+      }, DEFAULT_TENANT_ID);
     }
 
     let unsubPupils = () => {};

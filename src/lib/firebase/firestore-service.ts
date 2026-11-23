@@ -770,7 +770,7 @@ export function subscribeToRewards(
         if (!raw) return;
         list.push({
           rewardId: d.id,
-          classId: raw.classId || classId || "class-year-4-teal",
+          classId: raw.classId || classId || "",
           title: raw.title || "Classroom Privilege",
           description: raw.description || "",
           pricePence: typeof raw.pricePence === "number" && !isNaN(raw.pricePence)

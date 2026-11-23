@@ -16,7 +16,6 @@ import {
 import { PupilDocument, SavingsPotDocument, PotAccentTheme, ClassDocument } from "@/lib/firebase/types";
 import {
   formatCurrency,
-  createAnonymousPupilProfile,
   getPupilDisplayName,
 } from "@/lib/firebase/zero-pii";
 import { getSimplifiedFraction } from "@/lib/utils/money-breakdown";

@@ -16,9 +16,8 @@ import { PupilDocument, PotLedgerEntry, SavingsPotDocument, ClassDocument } from
 import {
   formatCurrency,
   getPupilDisplayName,
-  createAnonymousPupilProfile,
-  createStarterTransactions,
 } from "@/lib/firebase/zero-pii";
+import { DEFAULT_TENANT_ID } from "@/lib/services/tenant-service";
 import { ChildBankCard } from "@/components/ui/ChildBankCard";
 import { TerracottaPotMascot } from "@/components/ui/TerracottaPotMascot";
 import { PupilBottomNav } from "@/components/ui/PupilBottomNav";
@@ -112,7 +111,7 @@ function PupilCardContent() {
 
     const unsubClasses = subscribeToClasses((liveClasses) => {
       setClasses(liveClasses);
-    });
+    }, DEFAULT_TENANT_ID);
 
     const unsubTransactions = subscribeToTransactions(targetRealId, (liveTxs) => {
       if (liveTxs && liveTxs.length > 0) {

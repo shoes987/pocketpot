@@ -30,7 +30,6 @@ import {
   deleteJobsAndApplicationsForClass,
 } from "./jobs-service";
 import { saveBehaviours } from "./bonus-service";
-import { seedDefaultRewardsForClass } from "./marketplace-service";
 import { getStaffUsers, saveStaffUsers, createStaffUser, getCurrentTeacherUser } from "./auth-service";
 import { recordClassTeacherInvitation } from "./tenant-service";
 import {
@@ -185,7 +184,7 @@ export function notifyBalanceSync(): void {
 export function purgeLegacyMockStorage(): void {
   if (typeof window === "undefined") return;
   try {
-    const PURGE_FLAG = "pocketpot_mock_purged_v7";
+    const PURGE_FLAG = "pocketpot_mock_purged_v8";
     const hasLegacyMarkers = () => {
       const staff = localStorage.getItem("pocketpot_staff_users_v1") || "";
       const classes = localStorage.getItem("pocketpot_classes_v1") || "";
@@ -198,13 +197,15 @@ export function purgeLegacyMockStorage(): void {
         classes.includes("Hazel") ||
         classes.includes("st-marys") ||
         classes.includes("class-year-3") ||
+        classes.includes("cls_year_4_oak") ||
+        classes.includes("Year 4 Oak") ||
         pupils.includes("st-marys") ||
         pupils.includes("hazel") ||
         tenant.includes("St Mary")
       );
     };
 
-    if (hasLegacyMarkers()) {
+    if (hasLegacyMarkers() || !localStorage.getItem(PURGE_FLAG)) {
       localStorage.removeItem("pocketpot_classes_v1");
       localStorage.removeItem("pocketpot_pupils_v1");
       localStorage.removeItem("pocketpot_pots_v1");
@@ -216,6 +217,7 @@ export function purgeLegacyMockStorage(): void {
       localStorage.removeItem("pocketpot_tenant_invites_v1");
       localStorage.removeItem("pocketpot_behaviours_v1");
       localStorage.removeItem("pocketpot_marketplace_rewards_v1");
+      localStorage.removeItem("pocketpot_marketplace_rewards_v2");
       localStorage.removeItem("pocketpot_jobs_v1");
     }
     purgeOrphanedPupilsAndClasses();
@@ -415,38 +417,7 @@ export function getSavedClasses(): ClassDocument[] {
     }
   }
 
-  // Do not reseed if default pilot class was permanently deleted by user
-  if (deleted.has("cls_year_4_oak") || deleted.has("class-3d8314be")) {
-    return [];
-  }
-
-  const defaultPilotClasses: ClassDocument[] = [
-    {
-      classId: "cls_year_4_oak",
-      className: "Year 4 Oak",
-      yearGroup: "Year 4",
-      classJoinCode: "512222",
-      tenantId: "sch_local_pilot",
-      schoolId: "sch_local_pilot",
-      teacherId: "b5qdSySAWSOvnhYCdf8OLTDZFFo1",
-      leadTeacherId: "b5qdSySAWSOvnhYCdf8OLTDZFFo1",
-      assignedTeacherIds: ["b5qdSySAWSOvnhYCdf8OLTDZFFo1"],
-      pupilCount: 0,
-      initialOpeningBalanceCents: 500,
-      weeklyBasicIncomeCents: 200,
-      payoutDay: "Monday",
-      anonymizeNames: true,
-      aggregateMetrics: {
-        totalPotsActive: 0,
-        totalSavingsCents: 0,
-        pausedPotsCount: 0,
-      },
-      createdAt: "2026-11-20T00:00:00.000Z",
-      updatedAt: "2026-11-20T00:00:00.000Z",
-    },
-  ];
-  safeLocalStorageSetItem(STORAGE_KEY_CLASSES, JSON.stringify(defaultPilotClasses));
-  return defaultPilotClasses;
+  return [];
 }
 
 /**
@@ -996,11 +967,6 @@ export function getPupilById(pupilId: string): PupilDocument | null {
       (p.localDisplayName && p.localDisplayName.toLowerCase() === cleanId)
   );
   if (byName) return byName;
-
-  // 4. Fallback for demo routes like "demo" or unknown pupilId when pupils exist
-  if (cleanId === "demo" || cleanId === "test" || cleanId.startsWith("pupil-")) {
-    return pupils[0];
-  }
 
   return null;
 }
@@ -2675,13 +2641,6 @@ export function setupClassroomWithWizard(config: ClassroomWizardConfig): {
       updatedAt: now,
     }));
     saveBehaviours(formattedBehaviours);
-  }
-
-  // 6. Seed Classroom Marketplace Rewards directly to Firestore
-  try {
-    seedDefaultRewardsForClass(newClass.classId);
-  } catch (err) {
-    console.warn("Firestore seedDefaultRewardsForClass warning:", err);
   }
 
   return {

@@ -42,7 +42,7 @@ interface TeacherMarketplaceProps {
 const PRESET_ICONS = ["🚀", "🪑", "🎵", "🧸", "☕", "🎟️", "⚽", "📚", "🎨", "🌟", "👑", "🍕"];
 
 export const TeacherMarketplace: React.FC<TeacherMarketplaceProps> = ({
-  classId = "class-year-4-teal",
+  classId = "",
 }) => {
   const normalizedClassId = normalizeClassId(classId);
   const [rewards, setRewards] = useState<MarketplaceRewardDocument[]>([]);
@@ -81,11 +81,11 @@ export const TeacherMarketplace: React.FC<TeacherMarketplaceProps> = ({
 
     // Listen to real-time Firestore rewards and cache without wiping local state
     const unsubRewards = subscribeToRewards((liveRewards) => {
+      setRewards(liveRewards || []);
       if (liveRewards && liveRewards.length > 0) {
         cacheRewardsLocally(liveRewards);
       }
-      loadData();
-    }, normalizedClassId);
+    }, normalizedClassId || undefined);
 
     // Listen to real-time marketplace events and storage changes
     const handleSync = () => loadData();
