@@ -110,7 +110,16 @@ export function subscribeToTenant(
     tenantRef,
     (snap) => {
       if (snap.exists()) {
-        callback(snap.data() as TenantDocument);
+        const data = snap.data() as TenantDocument;
+        if (data.allowedDomains && Array.isArray(data.allowedDomains)) {
+          if (
+            data.allowedDomains.some((d) => d.includes("gbshp")) &&
+            !data.allowedDomains.includes("@gbshp.org")
+          ) {
+            data.allowedDomains = ["@gbshp.org", ...data.allowedDomains];
+          }
+        }
+        callback(data);
       } else {
         callback(null);
       }

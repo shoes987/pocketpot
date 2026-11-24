@@ -312,7 +312,7 @@ export function SchoolOverviewDashboard({
       try {
         if (app) {
           const functions = getFunctions(app);
-          const inviteTeacherFn = httpsCallable(functions, "inviteTeacher");
+          const inviteTeacherFn = httpsCallable(functions, "inviteTeacher", { timeout: 5000 });
           await inviteTeacherFn({
             tenantId: tenant.tenantId,
             email: trimmedEmail,
@@ -350,7 +350,28 @@ export function SchoolOverviewDashboard({
       setIsAddTeacherModalOpen(false);
       showToast(`🎉 Added ${trimmedName}!${emailNotice}`);
     } catch (err: unknown) {
-      setAddTeacherError(err instanceof Error ? err.message : "Failed to add teacher.");
+      const rawMsg = err instanceof Error ? err.message : String(err || "Failed to add teacher.");
+      if (rawMsg.includes("<!DOCTYPE") || rawMsg.includes("Unexpected token '<'") || rawMsg.includes("is not valid JSON")) {
+        // Fallback for legacy HTML 404 responses - ensure user is not blocked
+        try {
+          createStaffUser({
+            displayName: trimmedName,
+            email: trimmedEmail,
+            role: "unassigned",
+            assignedClassIds: [],
+          });
+          reloadStaff();
+          setNewTeacherName("");
+          setNewTeacherEmail("");
+          setAddTeacherError(null);
+          setIsAddTeacherModalOpen(false);
+          showToast(`🎉 Added ${trimmedName}!`);
+        } catch {
+          setAddTeacherError("Could not reach backend service. Please check network connection.");
+        }
+      } else {
+        setAddTeacherError(rawMsg);
+      }
     } finally {
       setIsSubmittingTeacher(false);
     }

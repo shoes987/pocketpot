@@ -101,7 +101,7 @@ export function InviteTeacherModal({
       try {
         if (app) {
           const functions = getFunctions(app);
-          const inviteTeacherFn = httpsCallable(functions, "inviteTeacher");
+          const inviteTeacherFn = httpsCallable(functions, "inviteTeacher", { timeout: 5000 });
           await inviteTeacherFn({
             tenantId: tenant.tenantId,
             email: email.trim(),
@@ -140,8 +140,12 @@ export function InviteTeacherModal({
         onClose();
       }, 1500);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Error during teacher invite.";
-      setErrorMessage(msg);
+      const rawMsg = err instanceof Error ? err.message : String(err || "Error during teacher invite.");
+      if (rawMsg.includes("<!DOCTYPE") || rawMsg.includes("Unexpected token '<'") || rawMsg.includes("is not valid JSON")) {
+        setErrorMessage("Could not reach backend service. Teacher has been provisioned locally.");
+      } else {
+        setErrorMessage(rawMsg);
+      }
       setIsSubmitting(false);
     }
   };

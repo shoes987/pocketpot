@@ -16,9 +16,11 @@ import {
   getSavedApplications,
   cacheApplicationsLocally,
   hireApplicantForJob,
+  rejectApplicant,
   finalizeJobTermWithReference,
   getActiveJobForPupil,
   getCompletedJobsForPupil,
+  calculateTermProgress,
   PRESET_JOB_QUALITIES,
   PRESET_REFERENCES,
   APPLICATIONS_SYNC_EVENT,
@@ -41,6 +43,7 @@ import {
   Users,
   Clock,
   Coins,
+  Calendar,
   CheckCircle2,
   Sparkles,
   Award,
@@ -90,10 +93,41 @@ export const TeacherJobsBoard: React.FC<TeacherJobsBoardProps> = ({
   const [jobDescription, setJobDescription] = useState("");
   const [jobWagePounds, setJobWagePounds] = useState("1.50");
   const [jobTermWeeks, setJobTermWeeks] = useState(4);
+  const [jobTermStartDate, setJobTermStartDate] = useState(new Date().toISOString().split("T")[0]);
+  const [jobTermEndDate, setJobTermEndDate] = useState(
+    new Date(Date.now() + 4 * 7 * 86400000).toISOString().split("T")[0]
+  );
   const [selectedQualities, setSelectedQualities] = useState<string[]>([
     "Reliable",
     "Organised",
   ]);
+
+  const handleApplyTermSuggestion = (weeks: number) => {
+    setJobTermWeeks(weeks);
+    const start = new Date(jobTermStartDate || Date.now());
+    const end = new Date(start.getTime() + weeks * 7 * 86400000);
+    setJobTermEndDate(end.toISOString().split("T")[0]);
+  };
+
+  const handleStartDateChange = (newStart: string) => {
+    setJobTermStartDate(newStart);
+    if (newStart) {
+      const start = new Date(newStart);
+      const end = new Date(start.getTime() + jobTermWeeks * 7 * 86400000);
+      setJobTermEndDate(end.toISOString().split("T")[0]);
+    }
+  };
+
+  const handleCustomEndDateChange = (newEnd: string) => {
+    setJobTermEndDate(newEnd);
+    if (newEnd && jobTermStartDate) {
+      const diffMs = new Date(newEnd).getTime() - new Date(jobTermStartDate).getTime();
+      if (diffMs > 0) {
+        const computedWeeks = Math.max(1, Math.round(diffMs / (7 * 86400000)));
+        setJobTermWeeks(computedWeeks);
+      }
+    }
+  };
   const [customQualityInput, setCustomQualityInput] = useState("");
   const [cvPrompt, setCvPrompt] = useState(
     "Tell your teacher why you would be great at this role and what qualities you bring!"
@@ -197,6 +231,8 @@ export const TeacherJobsBoard: React.FC<TeacherJobsBoardProps> = ({
       description: jobDescription,
       wageCents,
       termWeeks: jobTermWeeks,
+      termStartDate: jobTermStartDate,
+      termEndDate: jobTermEndDate,
       requiredQualities: selectedQualities,
       cvPrompt,
     });
@@ -207,9 +243,24 @@ export const TeacherJobsBoard: React.FC<TeacherJobsBoardProps> = ({
     setJobDescription("");
     setJobWagePounds("1.50");
     setJobTermWeeks(4);
+    setJobTermStartDate(new Date().toISOString().split("T")[0]);
+    setJobTermEndDate(new Date(Date.now() + 4 * 7 * 86400000).toISOString().split("T")[0]);
     setSelectedQualities(["Reliable", "Organised"]);
     loadData();
     showToast(`Successfully posted new role "${jobTitle}" to the Jobs Board!`);
+  };
+
+  // Reject Applicant Handler
+  const handleRejectApplicant = (jobId: string, applicationId: string) => {
+    try {
+      const result = rejectApplicant(jobId, applicationId);
+      loadData();
+      showToast(
+        `Encouraging feedback sent to ${result.updatedApp.applicantDisplayName || result.updatedApp.pupilCodename}.`
+      );
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to update application.");
+    }
   };
 
   // Hire Applicant Handler
@@ -779,6 +830,48 @@ export const TeacherJobsBoard: React.FC<TeacherJobsBoardProps> = ({
                         ))}
                       </div>
                     </div>
+
+                    {/* Accurate Term Time Progress Bar (When Filled / In Progress) */}
+                    {job.status === "filled" && (() => {
+                      const progress = calculateTermProgress(job.termStartDate, job.termEndDate, job.termWeeks);
+                      return (
+                        <div className="pt-2 border-t border-borderMuted/60 space-y-1.5 text-left">
+                          <div className="flex flex-wrap items-center justify-between text-xs font-bold gap-1">
+                            <span className="text-primaryText/75 flex items-center gap-1">
+                              <Calendar className="w-3.5 h-3.5 text-primaryText/50" />
+                              <span>{progress.startDateFormatted} &ndash; {progress.endDateFormatted}</span>
+                            </span>
+                            <span
+                              className={`text-[11px] font-extrabold ${
+                                progress.isCompleted
+                                  ? "text-positiveState"
+                                  : progress.progressPercent > 80
+                                  ? "text-brandSecondary"
+                                  : "text-brandPrimary"
+                              }`}
+                            >
+                              {progress.statusLabel}
+                            </span>
+                          </div>
+                          <div className="w-full h-2.5 rounded-full bg-canvas overflow-hidden border border-borderMuted/60 shadow-inner">
+                            <div
+                              className={`h-full rounded-full transition-all duration-700 ${
+                                progress.isCompleted
+                                  ? "bg-positiveState"
+                                  : progress.progressPercent > 80
+                                  ? "bg-brandSecondary"
+                                  : "bg-brandPrimary"
+                              }`}
+                              style={{ width: `${progress.progressPercent}%` }}
+                            />
+                          </div>
+                          <div className="flex justify-between text-[10px] text-primaryText/60 font-medium">
+                            <span>Started: {progress.startDateFormatted}</span>
+                            <span>{progress.progressPercent}% elapsed</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* 4. Footer Actions Based on Job Status */}
@@ -925,20 +1018,67 @@ export const TeacherJobsBoard: React.FC<TeacherJobsBoardProps> = ({
 
                 <div>
                   <label className="block text-xs font-bold uppercase text-primaryText/70 mb-1">
-                    Job Term (Duration)
+                    Term Duration (Quick Suggestions)
                   </label>
-                  <select
-                    value={jobTermWeeks}
-                    onChange={(e) => setJobTermWeeks(parseInt(e.target.value, 10))}
-                    className="w-full px-4 py-2.5 text-sm bg-canvas rounded-xl border border-borderMuted text-primaryText font-bold focus:outline-none focus:ring-2 focus:ring-brandPrimary"
-                  >
-                    <option value={2}>2 Weeks</option>
-                    <option value={3}>3 Weeks</option>
-                    <option value={4}>4 Weeks (Standard)</option>
-                    <option value={6}>6 Weeks (Half-Term)</option>
-                  </select>
-                  <span className="text-[11px] text-primaryText/55 mt-0.5 block">
-                    Reminders sent 1 week before completion
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mb-1.5">
+                    {[
+                      { label: "2 Wks", weeks: 2 },
+                      { label: "4 Wks (Std)", weeks: 4 },
+                      { label: "6 Wks (Half)", weeks: 6 },
+                      { label: "12 Wks (Full)", weeks: 12 },
+                    ].map((s) => (
+                      <button
+                        type="button"
+                        key={s.weeks}
+                        onClick={() => handleApplyTermSuggestion(s.weeks)}
+                        className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                          jobTermWeeks === s.weeks
+                            ? "bg-brandSecondary text-white border-brandSecondary shadow-xs"
+                            : "bg-canvas border-borderMuted text-primaryText/75 hover:bg-surface"
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="text-[11px] text-primaryText/55 block">
+                    Duration: {jobTermWeeks} weeks
+                  </span>
+                </div>
+              </div>
+
+              {/* Start Date & Custom End Date */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3.5 bg-canvas rounded-2xl border border-borderMuted">
+                <div>
+                  <label className="block text-xs font-bold uppercase text-primaryText/70 mb-1">
+                    Start Date (Defaults to Today)
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={jobTermStartDate}
+                    onChange={(e) => handleStartDateChange(e.target.value)}
+                    className="w-full px-3.5 py-2 text-xs bg-surface rounded-xl border border-borderMuted text-primaryText font-semibold focus:outline-none focus:ring-2 focus:ring-brandPrimary"
+                  />
+                  <span className="text-[10px] text-primaryText/50 mt-0.5 block">
+                    When the role begins
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase text-primaryText/70 mb-1">
+                    End Date (Custom / Calculated)
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    min={jobTermStartDate}
+                    value={jobTermEndDate}
+                    onChange={(e) => handleCustomEndDateChange(e.target.value)}
+                    className="w-full px-3.5 py-2 text-xs bg-surface rounded-xl border border-borderMuted text-primaryText font-semibold focus:outline-none focus:ring-2 focus:ring-brandPrimary"
+                  />
+                  <span className="text-[10px] text-primaryText/50 mt-0.5 block">
+                    Pick any custom date or use suggestions above
                   </span>
                 </div>
               </div>
@@ -1099,15 +1239,29 @@ export const TeacherJobsBoard: React.FC<TeacherJobsBoardProps> = ({
                           <span className="px-3 py-1 rounded-full text-xs font-bold bg-greenSurface text-positiveState border border-positiveState/30">
                             Appointed
                           </span>
+                        ) : app.status === "rejected" ? (
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-amberSurface text-brandSecondary border border-brandSecondary/30">
+                            Encouragement Sent
+                          </span>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleHireApplicant(reviewingJob.jobId, app.applicationId)}
-                            className="px-4 py-2 rounded-full bg-brandPrimary hover:bg-teal-700 text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1.5"
-                          >
-                            <UserCheck className="w-3.5 h-3.5" />
-                            <span>Appoint Candidate</span>
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleRejectApplicant(reviewingJob.jobId, app.applicationId)}
+                              className="px-3 py-2 rounded-full bg-surface hover:bg-canvas border border-borderMuted text-primaryText/75 hover:text-primaryText font-bold text-xs transition-all cursor-pointer"
+                              title="Send encouraging growth-mindset feedback"
+                            >
+                              Send Encouragement
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleHireApplicant(reviewingJob.jobId, app.applicationId)}
+                              className="px-4 py-2 rounded-full bg-brandPrimary hover:bg-teal-700 text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <UserCheck className="w-3.5 h-3.5" />
+                              <span>Appoint Candidate</span>
+                            </button>
+                          </div>
                         )}
                       </div>
 

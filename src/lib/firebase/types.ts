@@ -224,6 +224,9 @@ export interface CompletedJobRecord {
   jobId: string;
   title: string;
   termWeeks: number;
+  wageCents?: number;
+  termStartDate?: string;
+  termEndDate?: string;
   completedDate: string;
   teacherReference: string;
 }

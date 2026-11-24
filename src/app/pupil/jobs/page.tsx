@@ -19,8 +19,10 @@ import {
   getCompletedJobsForPupil,
   getSavedNotifications,
   markNotificationRead,
+  calculateTermProgress,
   APPLICATIONS_SYNC_EVENT,
   JOBS_SYNC_EVENT,
+  COMPLETED_JOBS_SYNC_EVENT,
 } from "@/lib/services/jobs-service";
 import {
   PupilDocument,
@@ -171,6 +173,7 @@ function PupilJobsContent() {
     };
     window.addEventListener(APPLICATIONS_SYNC_EVENT, handleSync);
     window.addEventListener(JOBS_SYNC_EVENT, handleSync);
+    window.addEventListener(COMPLETED_JOBS_SYNC_EVENT, handleSync);
     window.addEventListener("pocketpot_balance_updated", handleSync);
 
     return () => {
@@ -180,6 +183,7 @@ function PupilJobsContent() {
       unsubPots();
       window.removeEventListener(APPLICATIONS_SYNC_EVENT, handleSync);
       window.removeEventListener(JOBS_SYNC_EVENT, handleSync);
+      window.removeEventListener(COMPLETED_JOBS_SYNC_EVENT, handleSync);
       window.removeEventListener("pocketpot_balance_updated", handleSync);
     };
   }, [activeId]);
@@ -598,18 +602,50 @@ function PupilJobsContent() {
                       {activeJob.description}
                     </p>
 
-                    <div className="pt-3 border-t border-borderMuted/70 space-y-1.5 text-left">
-                      <div className="flex justify-between text-xs font-bold text-primaryText/75">
-                        <span>Term Duration: {activeJob.termWeeks} Weeks</span>
-                        <span className="text-brandPrimary font-extrabold">Active Role</span>
-                      </div>
-                      <div className="w-full h-3 rounded-full bg-slate-100 overflow-hidden border border-borderMuted/40">
-                        <div
-                          className="h-full bg-brandPrimary rounded-full transition-all"
-                          style={{ width: "50%" }}
-                        />
-                      </div>
-                    </div>
+                    {(() => {
+                      const progress = calculateTermProgress(
+                        activeJob.termStartDate,
+                        activeJob.termEndDate,
+                        activeJob.termWeeks
+                      );
+                      return (
+                        <div className="pt-3 border-t border-borderMuted/70 space-y-2 text-left">
+                          <div className="flex flex-wrap items-center justify-between text-xs font-bold gap-2">
+                            <span className="text-primaryText/80 flex items-center gap-1.5">
+                              <Calendar className="w-3.5 h-3.5 text-primaryText/60" />
+                              <span>{progress.startDateFormatted} &ndash; {progress.endDateFormatted}</span>
+                            </span>
+                            <span
+                              className={`font-black ${
+                                progress.isCompleted
+                                  ? "text-positiveState"
+                                  : progress.progressPercent > 80
+                                  ? "text-brandSecondary"
+                                  : "text-brandPrimary"
+                              }`}
+                            >
+                              {progress.statusLabel}
+                            </span>
+                          </div>
+                          <div className="w-full h-3.5 rounded-full bg-slate-100 overflow-hidden border border-borderMuted/40 shadow-inner">
+                            <div
+                              className={`h-full rounded-full transition-all duration-700 ${
+                                progress.isCompleted
+                                  ? "bg-positiveState"
+                                  : progress.progressPercent > 80
+                                  ? "bg-brandSecondary"
+                                  : "bg-brandPrimary"
+                              }`}
+                              style={{ width: `${progress.progressPercent}%` }}
+                            />
+                          </div>
+                          <div className="flex justify-between text-[11px] font-semibold text-primaryText/60">
+                            <span>Started: {progress.startDateFormatted}</span>
+                            <span>{progress.progressPercent}% elapsed</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               ) : (
@@ -723,6 +759,9 @@ function PupilJobsContent() {
                         </div>
                         <span className="text-xs font-bold text-primaryText/60">
                           {cj.termWeeks} Weeks Completed
+                          {cj.completedDate && (
+                            <> &bull; {new Date(cj.completedDate).toLocaleDateString("en-GB", { month: "short", year: "numeric" })}</>
+                          )}
                         </span>
                       </div>
 

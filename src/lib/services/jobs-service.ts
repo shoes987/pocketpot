@@ -43,8 +43,126 @@ const STORAGE_KEY_DELETED_CLASSES = "pocketpot_deleted_classes_v1";
 
 export const APPLICATIONS_SYNC_EVENT = "pocketpot_applications_updated";
 export const JOBS_SYNC_EVENT = "pocketpot_jobs_updated";
+export const COMPLETED_JOBS_SYNC_EVENT = "pocketpot_completed_jobs_updated";
 
 const memoryJobsCache = new Map<string, JobPostingDocument>();
+
+function findPupilRealId(pupilIdOrAlias: string): string {
+  if (typeof window === "undefined" || !pupilIdOrAlias) return pupilIdOrAlias;
+  try {
+    const raw = safeLocalStorageGetItem("pocketpot_pupils_v1");
+    if (raw) {
+      const pupils = JSON.parse(raw);
+      if (Array.isArray(pupils)) {
+        const found = pupils.find(
+          (p) =>
+            p.pupilId === pupilIdOrAlias ||
+            p.deskBadgeNumber === pupilIdOrAlias ||
+            String(p.deskBadgeNumber) === pupilIdOrAlias ||
+            p.educationalCodename?.toLowerCase() === pupilIdOrAlias.toLowerCase()
+        );
+        if (found) return found.pupilId;
+      }
+    }
+  } catch {
+    // fallback
+  }
+  return pupilIdOrAlias;
+}
+
+export interface TermProgressInfo {
+  progressPercent: number; // 0 to 100
+  daysRemaining: number;
+  daysElapsed: number;
+  totalDays: number;
+  weeksElapsed: number;
+  totalWeeks: number;
+  isCompleted: boolean;
+  startDateFormatted: string;
+  endDateFormatted: string;
+  statusLabel: string;
+}
+
+/**
+ * Calculates accurate progress, elapsed/remaining time, and labels for a job's term.
+ */
+export function calculateTermProgress(
+  termStartDate?: string,
+  termEndDate?: string,
+  termWeeks: number = 4
+): TermProgressInfo {
+  const now = new Date();
+  const nowTime = now.getTime();
+
+  let start: Date;
+  if (termStartDate) {
+    start = new Date(termStartDate);
+    if (isNaN(start.getTime())) start = now;
+  } else {
+    start = now;
+  }
+
+  let end: Date;
+  if (termEndDate) {
+    end = new Date(termEndDate);
+    if (isNaN(end.getTime())) {
+      end = new Date(start.getTime() + Math.max(1, termWeeks) * 7 * 86400000);
+    }
+  } else {
+    end = new Date(start.getTime() + Math.max(1, termWeeks) * 7 * 86400000);
+  }
+
+  const startTime = start.getTime();
+  const endTime = end.getTime();
+  const totalMs = Math.max(86400000, endTime - startTime); // At least 1 day
+  const elapsedMs = Math.max(0, nowTime - startTime);
+
+  const rawPercent = (elapsedMs / totalMs) * 100;
+  const progressPercent = Math.min(100, Math.max(0, Math.round(rawPercent)));
+
+  const msRemaining = endTime - nowTime;
+  const daysRemaining = Math.max(0, Math.ceil(msRemaining / (1000 * 60 * 60 * 24)));
+  const daysElapsed = Math.max(0, Math.floor(elapsedMs / (1000 * 60 * 60 * 24)));
+  const totalDays = Math.max(1, Math.round(totalMs / (1000 * 60 * 60 * 24)));
+
+  const totalWeeks = Math.max(1, Math.round(totalDays / 7));
+  const weeksElapsed = Math.min(totalWeeks, Math.floor(daysElapsed / 7) + 1);
+
+  const isCompleted = nowTime >= endTime || progressPercent >= 100;
+
+  const formatDate = (d: Date) => {
+    return d.toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  const startDateFormatted = formatDate(start);
+  const endDateFormatted = formatDate(end);
+
+  let statusLabel = "";
+  if (isCompleted) {
+    statusLabel = "Term Completed";
+  } else if (daysRemaining <= 7) {
+    statusLabel = `${daysRemaining} day${daysRemaining === 1 ? "" : "s"} remaining (Final Week!)`;
+  } else {
+    statusLabel = `Week ${weeksElapsed} of ${totalWeeks} • ${daysRemaining} days remaining`;
+  }
+
+  return {
+    progressPercent,
+    daysRemaining,
+    daysElapsed,
+    totalDays,
+    weeksElapsed,
+    totalWeeks,
+    isCompleted,
+    startDateFormatted,
+    endDateFormatted,
+    statusLabel,
+  };
+}
 
 function getDeletedClassIds(): Set<string> {
   if (typeof window === "undefined") return new Set();
@@ -147,11 +265,18 @@ export function createJob(payload: {
   description: string;
   wageCents: number;
   termWeeks: number;
+  termStartDate?: string;
+  termEndDate?: string;
   requiredQualities: string[];
   cvPrompt?: string;
 }): JobPostingDocument {
   const jobs = getSavedJobs();
-  const now = new Date().toISOString();
+  const now = new Date();
+  const startDateStr = payload.termStartDate || now.toISOString().split("T")[0];
+  const termWeeks = Math.max(1, payload.termWeeks || 4);
+  const calculatedEndDate =
+    payload.termEndDate ||
+    new Date(new Date(startDateStr).getTime() + termWeeks * 7 * 86400000).toISOString().split("T")[0];
 
   const newJob: JobPostingDocument = {
     jobId: crypto.randomUUID(),
@@ -160,16 +285,29 @@ export function createJob(payload: {
     title: payload.title.trim(),
     description: payload.description.trim(),
     wageCents: Math.max(50, payload.wageCents),
-    termWeeks: Math.max(1, payload.termWeeks),
+    termWeeks,
+    termStartDate: startDateStr,
+    termEndDate: calculatedEndDate,
     requiredQualities: payload.requiredQualities.length > 0 ? payload.requiredQualities : ["Reliable", "Helpful"],
     cvPrompt: payload.cvPrompt?.trim() || "Tell your teacher why you would be great at this role and what qualities you bring!",
     status: "open",
-    createdAt: now,
-    updatedAt: now,
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
   };
 
   assertZeroPII(newJob as unknown as Record<string, unknown>);
   saveJobs([newJob, ...jobs]);
+
+  // Stage 1 Notification: Announce new job opening to pupils in the class
+  addNotification({
+    classId: newJob.classId,
+    title: "New Classroom Job Posted! 💼",
+    message: `"${newJob.title}" is now open on the Jobs Board (${formatCurrency(newJob.wageCents)}/wk, ${newJob.termWeeks}-week term). Apply now!`,
+    type: "general",
+    jobId: newJob.jobId,
+    jobTitle: newJob.title,
+  });
+
   return newJob;
 }
 
@@ -271,12 +409,22 @@ export function saveApplications(apps: JobApplicationDocument[]): void {
  * COMPLETED JOBS & REFERENCES STORE
  */
 export function getCompletedJobsForPupil(pupilId: string): CompletedJobRecord[] {
-  if (typeof window === "undefined") return [];
+  if (typeof window === "undefined" || !pupilId) return [];
   const stored = safeLocalStorageGetItem(STORAGE_KEY_COMPLETED_JOBS);
   if (stored) {
     try {
       const parsed: Record<string, CompletedJobRecord[]> = JSON.parse(stored);
-      return parsed[pupilId] || [];
+      const realId = findPupilRealId(pupilId);
+      const listA = parsed[pupilId] || [];
+      const listB = realId && realId !== pupilId ? (parsed[realId] || []) : [];
+      const combined = [...listA, ...listB];
+      const seen = new Set<string>();
+      return combined.filter((item) => {
+        const key = `${item.jobId}-${item.completedDate}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
     } catch {
       // Fallback
     }
@@ -285,7 +433,7 @@ export function getCompletedJobsForPupil(pupilId: string): CompletedJobRecord[] 
 }
 
 export function saveCompletedJobForPupil(pupilId: string, record: CompletedJobRecord): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || !pupilId) return;
   const stored = safeLocalStorageGetItem(STORAGE_KEY_COMPLETED_JOBS);
   let parsed: Record<string, CompletedJobRecord[]> = {};
   if (stored) {
@@ -295,9 +443,18 @@ export function saveCompletedJobForPupil(pupilId: string, record: CompletedJobRe
       parsed = {};
     }
   }
-  const existing = parsed[pupilId] || [];
-  parsed[pupilId] = [record, ...existing];
+  const realId = findPupilRealId(pupilId);
+
+  const existingA = parsed[pupilId] || [];
+  parsed[pupilId] = [record, ...existingA.filter((r) => r.jobId !== record.jobId)];
+
+  if (realId && realId !== pupilId) {
+    const existingB = parsed[realId] || [];
+    parsed[realId] = [record, ...existingB.filter((r) => r.jobId !== record.jobId)];
+  }
+
   safeLocalStorageSetItem(STORAGE_KEY_COMPLETED_JOBS, JSON.stringify(parsed));
+  window.dispatchEvent(new Event(COMPLETED_JOBS_SYNC_EVENT));
 }
 
 export const NOTIFICATIONS_SYNC_EVENT = "pocketpot_notifications_sync";
@@ -432,12 +589,23 @@ export function submitJobApplication(payload: {
   assertZeroPII(newApp as unknown as Record<string, unknown>);
   saveApplications([newApp, ...getSavedApplications()]);
 
-  // Create Notification for Teacher (Bell Icon)
+  // 1. Create Notification for Teacher (Bell Icon)
   addNotification({
     classId: newApp.classId,
     isTeacherNotification: true,
     title: "New Job Application Submitted",
     message: `${displayName} submitted an application for "${job.title}".`,
+    type: "job_application_submitted",
+    jobId: job.jobId,
+    jobTitle: job.title,
+  });
+
+  // 2. Create Confirmation Notification for Pupil (Bell Icon)
+  addNotification({
+    pupilId: newApp.pupilId,
+    classId: newApp.classId,
+    title: "Application Submitted! 📋",
+    message: `You applied for "${job.title}". Your teacher will review your application soon.`,
     type: "job_application_submitted",
     jobId: job.jobId,
     jobTitle: job.title,
@@ -470,7 +638,15 @@ export function hireApplicantForJob(
   if (!targetApp) throw new Error("Application not found");
 
   const now = new Date();
-  const termEndDate = new Date(now.getTime() + (jobs[jobIdx].termWeeks || 4) * 7 * 86400000);
+  const rawStartDate = jobs[jobIdx].termStartDate || now.toISOString();
+  // Ensure start date is at least today if it was past before hiring
+  const effectiveStart =
+    new Date(rawStartDate).getTime() < now.getTime() - 86400000 ? now.toISOString() : rawStartDate;
+  const termWeeks = jobs[jobIdx].termWeeks || 4;
+  const termEndDate =
+    jobs[jobIdx].termEndDate && new Date(jobs[jobIdx].termEndDate!).getTime() > new Date(effectiveStart).getTime()
+      ? jobs[jobIdx].termEndDate!
+      : new Date(new Date(effectiveStart).getTime() + termWeeks * 7 * 86400000).toISOString();
   const applicantLabel = targetApp.applicantDisplayName || targetApp.pupilCodename;
 
   // 1. Update Job
@@ -479,8 +655,8 @@ export function hireApplicantForJob(
     status: "filled",
     assignedPupilId: targetApp.pupilId,
     assignedPupilName: applicantLabel,
-    termStartDate: now.toISOString(),
-    termEndDate: termEndDate.toISOString(),
+    termStartDate: effectiveStart,
+    termEndDate: termEndDate,
     weeksElapsed: 0,
     reminderOneWeekSent: false,
     completionReminderSent: false,
@@ -537,6 +713,17 @@ export function hireApplicantForJob(
     jobTitle: updatedJob.title,
   });
 
+  // 4. Send Confirmation Notification to Teacher
+  addNotification({
+    classId: updatedJob.classId,
+    isTeacherNotification: true,
+    title: "Candidate Appointed! 🌟",
+    message: `${applicantLabel} has been appointed as ${updatedJob.title} (${updatedJob.termWeeks}-week term).`,
+    type: "job_hired",
+    jobId: updatedJob.jobId,
+    jobTitle: updatedJob.title,
+  });
+
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event("pocketpot_balance_updated"));
   }
@@ -546,6 +733,54 @@ export function hireApplicantForJob(
     hiredApp: { ...targetApp, status: "accepted" },
     rejectionsSentCount: rejectionsCount,
   };
+}
+
+/**
+ * REJECT AN INDIVIDUAL APPLICANT WITH GROWTH-MINDSET ENCOURAGEMENT
+ */
+export function rejectApplicant(
+  jobId: string,
+  applicationId: string
+): { updatedApp: JobApplicationDocument } {
+  const allApps = getSavedApplications();
+  const appIdx = allApps.findIndex((a) => a.applicationId === applicationId);
+  if (appIdx === -1) throw new Error("Application not found");
+
+  const app = allApps[appIdx];
+  const job = getJobById(jobId);
+  const jobTitle = job ? job.title : "this role";
+
+  const updatedApp: JobApplicationDocument = {
+    ...app,
+    status: "rejected",
+    reviewedAt: new Date().toISOString(),
+  };
+  allApps[appIdx] = updatedApp;
+  saveApplications(allApps);
+
+  // Send growth-mindset encouraging notification to pupil
+  addNotification({
+    pupilId: app.pupilId,
+    classId: app.classId,
+    title: "Thank You for Applying! 🌟",
+    message: `Thank you for putting yourself forward for ${jobTitle}! Your application demonstrated thoughtful qualities and effort. Keep developing your skills and look out for new roles opening on the Jobs Board!`,
+    type: "job_encouragement_rejection",
+    jobId,
+    jobTitle,
+  });
+
+  // Notify teacher
+  addNotification({
+    classId: app.classId,
+    isTeacherNotification: true,
+    title: "Application Feedback Sent",
+    message: `Encouraging feedback sent to ${app.applicantDisplayName || app.pupilCodename} for ${jobTitle}.`,
+    type: "job_encouragement_rejection",
+    jobId,
+    jobTitle,
+  });
+
+  return { updatedApp };
 }
 
 /**
@@ -697,7 +932,10 @@ export function finalizeJobTermWithReference(
     saveCompletedJobForPupil(pupilId, {
       jobId: job.jobId,
       title: job.title,
+      wageCents: job.wageCents,
       termWeeks: job.termWeeks,
+      termStartDate: job.termStartDate,
+      termEndDate: job.termEndDate,
       completedDate: new Date().toISOString(),
       teacherReference: personalizedRef,
     });
@@ -714,18 +952,55 @@ export function finalizeJobTermWithReference(
     });
   }
 
+  // Send confirmation notification to teacher
+  addNotification({
+    classId: job.classId,
+    isTeacherNotification: true,
+    title: "Term Finalized & Reference Recorded",
+    message: `Reference recorded for ${pupilName} as ${job.title}. Job has been ${
+      postTermAction === "re-advertise" ? "re-advertised on the Jobs Board" : "archived"
+    }.`,
+    type: "job_term_completed",
+    jobId: job.jobId,
+    jobTitle: job.title,
+  });
+
   // Update job posting based on teacher choice:
   if (postTermAction === "re-advertise") {
+    // Archive previous applications for this job so new or returning pupils can apply in the new rotation
+    const allApps = getSavedApplications();
+    const updatedApps = allApps.map((a) => {
+      if (a.jobId === jobId && (a.status === "accepted" || a.status === "pending")) {
+        return { ...a, status: "rejected" as const, reviewedAt: new Date().toISOString() };
+      }
+      return a;
+    });
+    saveApplications(updatedApps);
+
+    const now = new Date();
+    const newStart = now.toISOString().split("T")[0];
+    const newEnd = new Date(now.getTime() + (job.termWeeks || 4) * 7 * 86400000).toISOString().split("T")[0];
+
     job.status = "open";
     job.assignedPupilId = undefined;
     job.assignedPupilName = undefined;
-    job.termStartDate = undefined;
-    job.termEndDate = undefined;
+    job.termStartDate = newStart;
+    job.termEndDate = newEnd;
     job.weeksElapsed = 0;
     job.reminderOneWeekSent = false;
     job.completionReminderSent = false;
     job.teacherReference = undefined;
-    job.updatedAt = new Date().toISOString();
+    job.updatedAt = now.toISOString();
+
+    // Notify pupils that role is open again!
+    addNotification({
+      classId: job.classId,
+      title: "Classroom Role Re-Advertised! 🔄",
+      message: `"${job.title}" has been re-advertised on the Jobs Board. Submit your application for the new rotation!`,
+      type: "general",
+      jobId: job.jobId,
+      jobTitle: job.title,
+    });
   } else {
     job.status = "archived";
     job.teacherReference = personalizedRef;
@@ -734,5 +1009,12 @@ export function finalizeJobTermWithReference(
 
   jobs[jobIdx] = job;
   saveJobs(jobs);
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(COMPLETED_JOBS_SYNC_EVENT));
+    window.dispatchEvent(new Event("pocketpot_balance_updated"));
+    window.dispatchEvent(new Event(JOBS_SYNC_EVENT));
+  }
+
   return job;
 }
