@@ -67,6 +67,52 @@ const STORAGE_KEY_POTS = "pocketpot_pots_v1";
 const STORAGE_KEY_TRANSACTIONS = "pocketpot_transactions_v1";
 const STORAGE_KEY_DELETED_PUPILS = "pocketpot_deleted_pupils_v1";
 const STORAGE_KEY_DELETED_CLASSES = "pocketpot_deleted_classes_v1";
+const STORAGE_KEY_DELETED_POTS = "pocketpot_deleted_pots_v1";
+
+/**
+ * Retrieve set of permanently deleted pot IDs to prevent synthetic resurrection.
+ */
+export function getDeletedPotIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = safeLocalStorageGetItem(STORAGE_KEY_DELETED_POTS);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return new Set(parsed);
+    }
+  } catch {
+    // fallback
+  }
+  return new Set();
+}
+
+/**
+ * Mark a pot ID as permanently deleted in local persistence.
+ */
+export function recordDeletedPot(potId: string): void {
+  if (typeof window === "undefined" || !potId) return;
+  try {
+    const set = getDeletedPotIds();
+    set.add(potId);
+    safeLocalStorageSetItem(STORAGE_KEY_DELETED_POTS, JSON.stringify(Array.from(set)));
+  } catch {
+    // fallback
+  }
+}
+
+/**
+ * Remove a pot ID from deleted tombstones (e.g. when creating or re-creating a pot).
+ */
+export function unmarkDeletedPot(potId: string): void {
+  if (typeof window === "undefined" || !potId) return;
+  try {
+    const set = getDeletedPotIds();
+    set.delete(potId);
+    safeLocalStorageSetItem(STORAGE_KEY_DELETED_POTS, JSON.stringify(Array.from(set)));
+  } catch {
+    // fallback
+  }
+}
 
 /**
  * Retrieve set of permanently deleted pupil IDs to prevent synthetic resurrection.
@@ -681,18 +727,13 @@ export function getSavedPots(): SavingsPotDocument[] {
         const unique = deduplicatePots(cleanPots);
         const deletedPupilIds = getDeletedPupilIds();
         const deletedClasses = getDeletedClassIds();
-        const activeClasses = getSavedClasses();
-        const activeClassIds = new Set(
-          activeClasses
-            .filter((c) => !deletedClasses.has(c.classId) && !deletedClasses.has(c.className?.trim().toLowerCase() || ""))
-            .map((c) => c.classId)
-        );
+        const deletedPotIds = getDeletedPotIds();
 
         const validPots = unique.filter((p) => {
           if (!p || !p.potId) return false;
+          if (deletedPotIds.has(p.potId)) return false;
           if (p.pupilId && deletedPupilIds.has(p.pupilId)) return false;
           if (p.classId && (deletedClasses.has(p.classId) || deletedClasses.has(p.classId.trim().toLowerCase()))) return false;
-          if (activeClassIds.size > 0 && p.classId && !activeClassIds.has(p.classId)) return false;
           return true;
         });
 
@@ -962,7 +1003,9 @@ export function getPotsForPupil(pupilId: string): SavingsPotDocument[] {
   const pupil = getPupilById(pupilId);
   const realId = pupil ? pupil.pupilId : pupilId;
   const pots = getSavedPots();
-  return pots.filter((p) => p.pupilId === realId);
+  return pots.filter(
+    (p) => p.pupilId === realId || p.pupilId === pupilId || (pupil && p.pupilId === pupil.pupilId)
+  );
 }
 
 /**
@@ -1243,6 +1286,7 @@ export function createPupilPot(
     updatedAt: now,
   };
 
+  unmarkDeletedPot(newPot.potId);
   const pots = getSavedPots();
   const updatedPots = [...pots, newPot];
   savePots(updatedPots);
@@ -1316,6 +1360,7 @@ export function deleteSavingsPot(
   }
 
   // Remove pot from saved list
+  recordDeletedPot(potId);
   const filteredPots = pots.filter((p) => !(p.potId === potId && p.pupilId === realPupilId));
   savePots(filteredPots);
   deletePotFromFirestore(potId);
@@ -1389,6 +1434,7 @@ export function deletePupil(pupilId: string): { success: boolean; deletedPupilId
   const updatedPots = pots.filter((p) => p.pupilId !== pupilId);
   savePots(updatedPots);
   pupilPots.forEach((pot) => {
+    recordDeletedPot(pot.potId);
     try {
       deletePotFromFirestore(pot.potId);
     } catch {
@@ -1822,6 +1868,7 @@ export function deleteClass(
       classPupilIds.has(p.pupilId)
   );
   classPots.forEach((pot) => {
+    recordDeletedPot(pot.potId);
     try {
       deletePotFromFirestore(pot.potId);
     } catch {

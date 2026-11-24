@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   getPupilById,
   getPotsForPupil,
+  getSavedPots,
+  savePots,
   depositToPotFromAccount,
   withdrawFromPotToAccount,
   createPupilPot,
@@ -95,7 +97,21 @@ function PupilPotsContent() {
     });
 
     const unsubPots = subscribeToPots((livePots) => {
-      setPots(livePots);
+      if (livePots && livePots.length > 0) {
+        const currentPots = getPotsForPupil(targetRealId);
+        const potMap = new Map<string, SavingsPotDocument>();
+        currentPots.forEach((p) => potMap.set(p.potId, p));
+        livePots.forEach((p) => potMap.set(p.potId, { ...(potMap.get(p.potId) || {}), ...p }));
+        const mergedForPupil = Array.from(potMap.values());
+        setPots(mergedForPupil);
+        const otherPots = getSavedPots().filter((p) => p.pupilId !== targetRealId);
+        savePots([...otherPots, ...mergedForPupil]);
+      } else {
+        const local = getPotsForPupil(targetRealId);
+        if (local.length > 0) {
+          setPots(local);
+        }
+      }
     }, targetRealId);
 
     const handleSync = () => loadPupilData();

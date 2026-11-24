@@ -94,10 +94,12 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
 
     // Real-time Firestore listeners
     const unsubRewards = subscribeToRewards((liveRewards) => {
-      setRewards(liveRewards || []);
       if (liveRewards && liveRewards.length > 0) {
         cacheRewardsLocally(liveRewards);
       }
+      const allRewards = getSavedRewards(targetClassId);
+      const activeRewards = allRewards.filter((r) => r.isAvailable);
+      setRewards(activeRewards);
     }, targetClassId || undefined);
 
     const unsubPupil = subscribeToPupil(targetRealId, (livePupil) => {

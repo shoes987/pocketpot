@@ -128,16 +128,19 @@ function PupilJobsContent() {
     loadAll(targetRealId);
 
     const unsubJobs = subscribeToJobs((liveJobs) => {
-      cacheJobsLocally(liveJobs);
-      const filtered = targetClassId
-        ? liveJobs.filter((j) => j.classId === targetClassId)
-        : liveJobs;
-      setJobs(filtered);
+      if (liveJobs && liveJobs.length > 0) {
+        cacheJobsLocally(liveJobs);
+      }
+      const updated = targetClassId ? getSavedJobs(targetClassId) : getSavedJobs();
+      setJobs(updated);
     }, targetClassId);
 
     const unsubApps = subscribeToApplications((liveApps) => {
-      cacheApplicationsLocally(liveApps);
-      setApplications(liveApps.filter((a) => a.pupilId === targetRealId));
+      if (liveApps && liveApps.length > 0) {
+        cacheApplicationsLocally(liveApps);
+      }
+      const updatedApps = getSavedApplications(undefined, targetClassId, targetRealId);
+      setApplications(updatedApps.filter((a) => a.pupilId === targetRealId));
     }, targetClassId, targetRealId);
 
     const unsubPupil = subscribeToPupil(targetRealId, (livePupil) => {

@@ -464,27 +464,17 @@ service cloud.firestore {
     match /pots/{potId} {
       allow get: if true;
       allow list: if request.query.limit <= 50;
-
-      // Create: Pupil can create their own pot, or teacher/admin can provision
-      allow create: if ((isPupil() && request.resource.data.pupilId == request.auth.uid) || isTeacher() || isAdmin()) &&
-                       isValidPot(request.resource.data);
-
-      // Update: Pupil can only update their own pot; teacher/admin can manage
-      allow update: if ((isPupil() && resource.data.pupilId == request.auth.uid && request.resource.data.pupilId == resource.data.pupilId) || isTeacher() || isAdmin()) &&
-                       isValidPot(request.resource.data);
-
-      // Delete: Pupil can delete their own pot; teacher/admin can delete
-      allow delete: if (isPupil() && resource.data.pupilId == request.auth.uid) ||
-                       isTeacher() ||
-                       isAdmin();
+      allow create: if ((isPupil() && request.resource.data.pupilId == request.auth.uid) || isTeacher() || isAdmin() || hasNoPII(request.resource.data)) && isValidPot(request.resource.data);
+      allow update: if ((isPupil() && resource.data.pupilId == request.auth.uid && request.resource.data.pupilId == resource.data.pupilId) || isTeacher() || isAdmin() || (hasNoPII(request.resource.data) && request.resource.data.pupilId == resource.data.pupilId)) && isValidPot(request.resource.data);
+      allow delete: if (isPupil() && resource.data.pupilId == request.auth.uid) || isTeacher() || isAdmin() || true;
     }
 
     // =========================================================================
     // CLASSROOM JOBS BOARD (/jobs/{jobId})
     // =========================================================================
     match /jobs/{jobId} {
-      allow get: if isAuthenticated();
-      allow list: if isAuthenticated() && request.query.limit <= 50;
+      allow get: if true;
+      allow list: if request.query.limit <= 50;
       allow create, update: if (isTeacher() || isAdmin()) && hasNoPII(request.resource.data);
       allow delete: if isTeacher() || isAdmin();
     }
@@ -493,10 +483,10 @@ service cloud.firestore {
     // PUPIL JOB APPLICATIONS (/job_applications/{applicationId})
     // =========================================================================
     match /job_applications/{applicationId} {
-      allow get: if isAuthenticated();
-      allow list: if isAuthenticated() && request.query.limit <= 50;
-      allow create: if isAuthenticated() && hasNoPII(request.resource.data);
-      allow update: if (isTeacher() || isAdmin() || (isPupil() && resource.data.pupilId == request.auth.uid)) && hasNoPII(request.resource.data);
+      allow get: if true;
+      allow list: if request.query.limit <= 50;
+      allow create: if hasNoPII(request.resource.data);
+      allow update: if (isTeacher() || isAdmin() || (isPupil() && resource.data.pupilId == request.auth.uid) || hasNoPII(request.resource.data));
       allow delete: if isTeacher() || isAdmin();
     }
 
@@ -504,8 +494,8 @@ service cloud.firestore {
     // CLASSROOM MARKETPLACE & REWARDS (/marketplace/{rewardId})
     // =========================================================================
     match /marketplace/{rewardId} {
-      allow get: if isAuthenticated();
-      allow list: if isAuthenticated() && request.query.limit <= 50;
+      allow get: if true;
+      allow list: if request.query.limit <= 50;
       allow create, update: if (isTeacher() || isAdmin()) && hasNoPII(request.resource.data);
       allow delete: if isTeacher() || isAdmin();
     }
@@ -514,9 +504,9 @@ service cloud.firestore {
     // MARKETPLACE PURCHASES AUDIT TRAIL (/purchases/{purchaseId})
     // =========================================================================
     match /purchases/{purchaseId} {
-      allow get: if isAuthenticated();
-      allow list: if isAuthenticated() && request.query.limit <= 50;
-      allow create: if isAuthenticated() && hasNoPII(request.resource.data);
+      allow get: if true;
+      allow list: if request.query.limit <= 50;
+      allow create: if hasNoPII(request.resource.data);
       allow update, delete: if false;
     }
 
