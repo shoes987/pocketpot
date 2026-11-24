@@ -226,13 +226,25 @@ export default function TeacherPortalPage() {
     }
   };
 
-  const handleWizardComplete = (newClass: ClassDocument) => {
+  const handleWizardComplete = (newClass: ClassDocument, newPupils?: PupilDocument[]) => {
     unmarkDeletedClass(newClass.classId);
     if (newClass.className) unmarkDeletedClass(newClass.className);
     setClasses((prev) => [newClass, ...prev.filter((c) => c.classId !== newClass.classId)]);
-    setCurrentTeacher(getCurrentTeacherUser());
+    if (newPupils && newPupils.length > 0) {
+      setPupils((prev) => {
+        const ids = new Set(newPupils.map((p) => p.pupilId));
+        return [...newPupils, ...prev.filter((p) => !ids.has(p.pupilId))];
+      });
+    }
+    setCurrentTeacher((prev) => {
+      const base = prev || getCurrentTeacherUser();
+      const existing = base.assignedClassIds || [];
+      return {
+        ...base,
+        assignedClassIds: existing.includes(newClass.classId) ? existing : [...existing, newClass.classId],
+      };
+    });
     setActiveClassId(newClass.classId);
-    refreshState();
     setActiveTab("class-setup");
   };
 
@@ -240,9 +252,15 @@ export default function TeacherPortalPage() {
     unmarkDeletedClass(newClass.classId);
     if (newClass.className) unmarkDeletedClass(newClass.className);
     setClasses((prev) => [newClass, ...prev.filter((c) => c.classId !== newClass.classId)]);
-    setCurrentTeacher(getCurrentTeacherUser());
+    setCurrentTeacher((prev) => {
+      const base = prev || getCurrentTeacherUser();
+      const existing = base.assignedClassIds || [];
+      return {
+        ...base,
+        assignedClassIds: existing.includes(newClass.classId) ? existing : [...existing, newClass.classId],
+      };
+    });
     setActiveClassId(newClass.classId);
-    refreshState();
   };
 
   // Strictly filter classes to those assigned to this educator

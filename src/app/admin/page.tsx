@@ -59,7 +59,15 @@ import {
 export default function AdminPortalPage() {
   const [activeTab, setActiveTab] = useState<"overview" | "class-setup" | "jobs-board" | "bonuses" | "faqs">("overview");
   const [activeClassId, setActiveClassId] = useState<string>("overview"); // "overview" or specific classId
+  const [lastSelectedClassId, setLastSelectedClassId] = useState<string>("");
   const [isSetupWizardOpen, setIsSetupWizardOpen] = useState(false);
+
+  const selectClassId = (id: string) => {
+    setActiveClassId(id);
+    if (id && id !== "overview") {
+      setLastSelectedClassId(id);
+    }
+  };
 
   // Modals for Admin Actions
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
@@ -199,12 +207,17 @@ export default function AdminPortalPage() {
     };
   }, []);
 
-  const handleWizardComplete = (newClass: ClassDocument) => {
+  const handleWizardComplete = (newClass: ClassDocument, newPupils?: PupilDocument[]) => {
     unmarkDeletedClass(newClass.classId);
     if (newClass.className) unmarkDeletedClass(newClass.className);
     setClasses((prev) => [newClass, ...prev.filter((c) => c.classId !== newClass.classId)]);
-    setActiveClassId(newClass.classId);
-    refreshState();
+    if (newPupils && newPupils.length > 0) {
+      setPupils((prev) => {
+        const ids = new Set(newPupils.map((p) => p.pupilId));
+        return [...newPupils, ...prev.filter((p) => !ids.has(p.pupilId))];
+      });
+    }
+    selectClassId(newClass.classId);
     setActiveTab("class-setup");
   };
 
@@ -212,8 +225,7 @@ export default function AdminPortalPage() {
     unmarkDeletedClass(newClass.classId);
     if (newClass.className) unmarkDeletedClass(newClass.className);
     setClasses((prev) => [newClass, ...prev.filter((c) => c.classId !== newClass.classId)]);
-    setActiveClassId(newClass.classId);
-    refreshState();
+    selectClassId(newClass.classId);
   };
 
   const activeClass = classes.find((c) => c.classId === activeClassId) || (classes.length > 0 ? classes[0] : null);
@@ -279,9 +291,8 @@ export default function AdminPortalPage() {
             type="button"
             onClick={() => {
               setActiveTab("class-setup");
-              if (activeClassId === "overview" && classes.length > 0) {
-                setActiveClassId(classes[0].classId);
-              }
+              const target = (activeClassId !== "overview" && activeClassId) || lastSelectedClassId || classes[0]?.classId || "";
+              if (target) selectClassId(target);
             }}
             className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all shrink-0 ${
               activeTab === "class-setup"
@@ -297,9 +308,8 @@ export default function AdminPortalPage() {
             type="button"
             onClick={() => {
               setActiveTab("jobs-board");
-              if (activeClassId === "overview" && classes.length > 0) {
-                setActiveClassId(classes[0].classId);
-              }
+              const target = (activeClassId !== "overview" && activeClassId) || lastSelectedClassId || classes[0]?.classId || "";
+              if (target) selectClassId(target);
             }}
             className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all shrink-0 ${
               activeTab === "jobs-board"
@@ -315,9 +325,8 @@ export default function AdminPortalPage() {
             type="button"
             onClick={() => {
               setActiveTab("bonuses");
-              if (activeClassId === "overview" && classes.length > 0) {
-                setActiveClassId(classes[0].classId);
-              }
+              const target = (activeClassId !== "overview" && activeClassId) || lastSelectedClassId || classes[0]?.classId || "";
+              if (target) selectClassId(target);
             }}
             className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all shrink-0 ${
               activeTab === "bonuses"
@@ -354,7 +363,7 @@ export default function AdminPortalPage() {
                 setActiveClassId("overview");
                 setActiveTab("overview");
               } else {
-                setActiveClassId(val);
+                selectClassId(val);
                 if (activeTab === "overview") {
                   setActiveTab("class-setup");
                 }
@@ -429,7 +438,7 @@ export default function AdminPortalPage() {
               pots={pots}
               onOpenSetupWizard={() => setIsSetupWizardOpen(true)}
               activeClassId={activeClass?.classId}
-              onSelectClassId={(id) => setActiveClassId(id)}
+              onSelectClassId={(id) => selectClassId(id)}
               isAdmin={true}
               onOpenAssignModal={(cls) => {
                 setAssignTargetClass(cls);

@@ -9,6 +9,7 @@ import {
   getSavedClasses,
   getSavedPupils,
   savePupils,
+  saveClasses,
 } from "@/lib/services/class-service";
 import { PupilDocument, ClassDocument } from "@/lib/firebase/types";
 import { PocketPotLogo } from "@/components/ui/PocketPotLogo";
@@ -50,107 +51,115 @@ export default function PupilLoginPage() {
       let matchedPupil: PupilDocument | null = null;
       let matchedClassId: string | null = null;
 
-      // 1. Query Cloud Firestore /classes collection for matching active joinCode / classJoinCode
-      try {
-        const classesRef = collection(db, "classes");
-        let classSnap = await getDocs(
-          query(classesRef, where("joinCode", "==", enteredCode), limit(1))
+      // 1. Instant Local Cache Lookup (0ms on teacher preview or previously cached pupil device)
+      const localClasses = getSavedClasses();
+      const localClass = localClasses.find(
+        (c) =>
+          c.classJoinCode?.trim().toUpperCase() === enteredCode ||
+          c.joinCode?.trim().toUpperCase() === enteredCode
+      );
+
+      if (localClass) {
+        const localPupils = getSavedPupils();
+        const localPupil = localPupils.find(
+          (p) =>
+            p.classId === localClass.classId &&
+            (String(p.pinNumber || "").trim() === enteredPin ||
+             String(p.cardLastFour || "").trim() === enteredPin ||
+             String((p as unknown as { pin?: string }).pin || "").trim() === enteredPin)
         );
-        if (classSnap.empty) {
-          classSnap = await getDocs(
-            query(classesRef, where("classJoinCode", "==", enteredCode), limit(1))
-          );
+
+        if (localPupil) {
+          matchedPupil = localPupil;
+          matchedClassId = localClass.classId;
         }
-
-        if (!classSnap.empty) {
-          const classDoc = classSnap.docs[0];
-          matchedClassId = classDoc.id || (classDoc.data() as ClassDocument).classId;
-
-          // 2. Query /pupils matching that classId and pin (or cardLastFour)
-          const pupilsRef = collection(db, "pupils");
-          let pupilSnap = await getDocs(
-            query(
-              pupilsRef,
-              where("classId", "==", matchedClassId),
-              where("pinNumber", "==", enteredPin),
-              limit(1)
-            )
-          );
-
-          if (pupilSnap.empty) {
-            pupilSnap = await getDocs(
-              query(
-                pupilsRef,
-                where("classId", "==", matchedClassId),
-                where("pin", "==", enteredPin),
-                limit(1)
-              )
-            );
-          }
-
-          if (pupilSnap.empty) {
-            pupilSnap = await getDocs(
-              query(
-                pupilsRef,
-                where("classId", "==", matchedClassId),
-                where("cardLastFour", "==", enteredPin),
-                limit(1)
-              )
-            );
-          }
-
-          // 3. Fallback to subcollection: /classes/{classId}/pupils
-          if (pupilSnap.empty && matchedClassId) {
-            const subPupilsRef = collection(db, "classes", matchedClassId, "pupils");
-            pupilSnap = await getDocs(
-              query(subPupilsRef, where("pinNumber", "==", enteredPin), limit(1))
-            );
-            if (pupilSnap.empty) {
-              pupilSnap = await getDocs(
-                query(subPupilsRef, where("pin", "==", enteredPin), limit(1))
-              );
-            }
-            if (pupilSnap.empty) {
-              pupilSnap = await getDocs(
-                query(subPupilsRef, where("cardLastFour", "==", enteredPin), limit(1))
-              );
-            }
-          }
-
-          if (!pupilSnap.empty) {
-            const pDoc = pupilSnap.docs[0];
-            matchedPupil = {
-              pupilId: pDoc.id,
-              ...(pDoc.data() as Omit<PupilDocument, "pupilId">),
-            };
-          }
-        }
-      } catch (firestoreErr) {
-        // Offline IndexedDB or unauthenticated pupil fallback
-        console.warn("Firestore query fallback to local cache:", firestoreErr);
       }
 
-      // Offline / Local Mock Fallback (ensures classroom iPads work without internet)
+      // 2. Cloud Firestore Lookup (for fresh student tablets or cross-device login)
       if (!matchedPupil) {
-        const localClasses = getSavedClasses();
-        const localClass = localClasses.find(
-          (c) =>
-            c.classJoinCode?.trim().toUpperCase() === enteredCode ||
-            c.joinCode?.trim().toUpperCase() === enteredCode
-        );
-
-        if (localClass) {
-          const localPupils = getSavedPupils();
-          const localPupil = localPupils.find(
-            (p) =>
-              p.classId === localClass.classId &&
-              (p.pinNumber === enteredPin || p.cardLastFour === enteredPin)
+        try {
+          const classesRef = collection(db, "classes");
+          let classSnap = await getDocs(
+            query(classesRef, where("joinCode", "==", enteredCode), limit(1))
           );
-
-          if (localPupil) {
-            matchedPupil = localPupil;
-            matchedClassId = localClass.classId;
+          if (classSnap.empty) {
+            classSnap = await getDocs(
+              query(classesRef, where("classJoinCode", "==", enteredCode), limit(1))
+            );
           }
+
+          if (!classSnap.empty) {
+            const classDoc = classSnap.docs[0];
+            const classData = classDoc.data() as ClassDocument;
+            matchedClassId = classDoc.id || classData.classId;
+
+            // Cache class document locally on this device
+            const currentClasses = getSavedClasses();
+            if (!currentClasses.some((c) => c.classId === matchedClassId)) {
+              saveClasses([{ ...classData, classId: matchedClassId }, ...currentClasses]);
+            }
+
+            // Query /pupils matching that classId and pin (or cardLastFour)
+            const pupilsRef = collection(db, "pupils");
+            let pupilSnap = await getDocs(
+              query(
+                pupilsRef,
+                where("classId", "==", matchedClassId),
+                where("pinNumber", "==", enteredPin),
+                limit(1)
+              )
+            );
+
+            if (pupilSnap.empty) {
+              pupilSnap = await getDocs(
+                query(
+                  pupilsRef,
+                  where("classId", "==", matchedClassId),
+                  where("cardLastFour", "==", enteredPin),
+                  limit(1)
+                )
+              );
+            }
+
+            if (pupilSnap.empty) {
+              pupilSnap = await getDocs(
+                query(
+                  pupilsRef,
+                  where("classId", "==", matchedClassId),
+                  where("pin", "==", enteredPin),
+                  limit(1)
+                )
+              );
+            }
+
+            // Fallback to subcollection: /classes/{classId}/pupils
+            if (pupilSnap.empty && matchedClassId) {
+              const subPupilsRef = collection(db, "classes", matchedClassId, "pupils");
+              pupilSnap = await getDocs(
+                query(subPupilsRef, where("pinNumber", "==", enteredPin), limit(1))
+              );
+              if (pupilSnap.empty) {
+                pupilSnap = await getDocs(
+                  query(subPupilsRef, where("cardLastFour", "==", enteredPin), limit(1))
+                );
+              }
+              if (pupilSnap.empty) {
+                pupilSnap = await getDocs(
+                  query(subPupilsRef, where("pin", "==", enteredPin), limit(1))
+                );
+              }
+            }
+
+            if (!pupilSnap.empty) {
+              const pDoc = pupilSnap.docs[0];
+              matchedPupil = {
+                pupilId: pDoc.id,
+                ...(pDoc.data() as Omit<PupilDocument, "pupilId">),
+              };
+            }
+          }
+        } catch (firestoreErr) {
+          console.warn("Firestore query fallback to local cache:", firestoreErr);
         }
       }
 

@@ -195,11 +195,9 @@ export function purgeLegacyMockStorage(): void {
         staff.includes("stmarys") ||
         staff.includes("davis") ||
         classes.includes("Hazel") ||
-        classes.includes("st-marys") ||
         classes.includes("class-year-3") ||
         classes.includes("cls_year_4_oak") ||
         classes.includes("Year 4 Oak") ||
-        pupils.includes("st-marys") ||
         pupils.includes("hazel") ||
         tenant.includes("St Mary")
       );
@@ -356,20 +354,16 @@ export function getSavedClasses(): ClassDocument[] {
     try {
       const parsed: ClassDocument[] = JSON.parse(stored);
       if (Array.isArray(parsed)) {
-        // Auto-purge if legacy mock classes detected (e.g. Year 3 Hazel, st-marys-primary)
-        const hasLegacy = parsed.some(
+        // Auto-filter legacy mock classes (e.g. Year 3 Hazel, class-year-3) without wiping user data
+        const cleanClasses = parsed.filter(
           (c) =>
-            c.schoolId === "st-marys-primary" ||
-            c.className?.includes("Hazel") ||
-            c.classId?.includes("hazel") ||
-            c.classId?.startsWith("class-year-3")
+            c &&
+            c.classId !== "cls_year_4_oak" &&
+            !c.className?.includes("Hazel") &&
+            !c.classId?.includes("hazel") &&
+            !c.classId?.startsWith("class-year-3")
         );
-        if (hasLegacy) {
-          safeLocalStorageRemoveItem(STORAGE_KEY_CLASSES);
-          return [];
-        }
-
-        const unique = deduplicateClasses(parsed);
+        const unique = deduplicateClasses(cleanClasses);
         const nonDeleted = unique.filter(
           (c) =>
             !deleted.has(c.classId) &&
@@ -589,19 +583,14 @@ export function getSavedPupils(): PupilDocument[] {
     try {
       const parsed: PupilDocument[] = JSON.parse(stored);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        // Auto-purge if legacy mock pupils detected
-        const hasLegacy = parsed.some(
+        // Auto-filter legacy mock pupils without wiping user data
+        const cleanPupils = parsed.filter(
           (p) =>
-            (p as { schoolId?: string }).schoolId === "st-marys-primary" ||
-            p.classId?.includes("hazel") ||
-            p.pupilId?.includes("stmarys")
+            p &&
+            !p.classId?.includes("hazel") &&
+            !p.pupilId?.includes("stmarys")
         );
-        if (hasLegacy) {
-          safeLocalStorageRemoveItem(STORAGE_KEY_PUPILS);
-          return [];
-        }
-
-        const unique = deduplicatePupils(parsed);
+        const unique = deduplicatePupils(cleanPupils);
         const deletedPupilIds = getDeletedPupilIds();
         const deletedClasses = getDeletedClassIds();
         const activeClasses = getSavedClasses();
@@ -685,16 +674,11 @@ export function getSavedPots(): SavingsPotDocument[] {
     try {
       const parsed: SavingsPotDocument[] = JSON.parse(stored);
       if (Array.isArray(parsed)) {
-        // Auto-purge if legacy mock pots detected
-        const hasLegacy = parsed.some(
-          (p) => p.potId?.includes("stmarys") || p.classId?.includes("hazel")
+        // Auto-filter legacy mock pots without wiping user data
+        const cleanPots = parsed.filter(
+          (p) => p && !p.potId?.includes("stmarys") && !p.classId?.includes("hazel")
         );
-        if (hasLegacy) {
-          safeLocalStorageRemoveItem(STORAGE_KEY_POTS);
-          return [];
-        }
-
-        const unique = deduplicatePots(parsed);
+        const unique = deduplicatePots(cleanPots);
         const deletedPupilIds = getDeletedPupilIds();
         const deletedClasses = getDeletedClassIds();
         const activeClasses = getSavedClasses();
@@ -876,7 +860,7 @@ export function createClassWithQuickAdd(
   const newClass: ClassDocument = {
     classId,
     className: trimmedClassName,
-    schoolId: "st-marys-primary",
+    schoolId: payload.tenantId || "sch_local_pilot",
     tenantId: payload.tenantId || "sch_local_pilot",
     teacherId: leadTeacherId,
     leadTeacherId,

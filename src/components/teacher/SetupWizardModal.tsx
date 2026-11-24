@@ -1220,7 +1220,7 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
                       {getPupilDisplayName(pupil, createdClass)}
                     </strong>
                     <div className="text-xs text-primaryText/70 space-y-0.5">
-                      <div>Card PIN: **** {pupil.cardLastFour}</div>
+                      <div>Child PIN: {pupil.pinNumber || pupil.cardLastFour || "1234"}</div>
                       <div>Class Code: {createdClass.joinCode}</div>
                       <div className="text-[11px] font-bold text-brandPrimary pt-1">
                         Weekly Basic Income: {formatCurrency(createdClass.weeklyBasicIncomeCents || 500)}

@@ -156,8 +156,8 @@ export function createAnonymousPupilProfile(
   const randomAdj = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
   const randomAnimal = ANIMALS[Math.floor(Math.random() * ANIMALS.length)];
   const deskBadgeNumber = 100 + badgeSequenceNumber;
-  const cardLastFour = Math.floor(1000 + Math.random() * 9000).toString();
   const pinNumber = Math.floor(1000 + Math.random() * 9000).toString();
+  const cardLastFour = pinNumber;
 
   const rawDisplayName = options?.localDisplayName?.trim();
   const hasLocalName = Boolean(rawDisplayName && rawDisplayName.length > 0);
