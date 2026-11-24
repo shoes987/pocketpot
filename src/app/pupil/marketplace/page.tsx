@@ -66,7 +66,18 @@ function PupilMarketplaceContent() {
     });
 
     const unsubPots = subscribeToPots((livePots) => {
-      setPots(livePots);
+      if (livePots && livePots.length > 0) {
+        const currentPots = getPotsForPupil(targetRealId);
+        const potMap = new Map<string, SavingsPotDocument>();
+        currentPots.forEach((p) => potMap.set(p.potId, p));
+        livePots.forEach((p) => potMap.set(p.potId, { ...(potMap.get(p.potId) || {}), ...p }));
+        setPots(Array.from(potMap.values()));
+      } else {
+        const local = getPotsForPupil(targetRealId);
+        if (local.length > 0) {
+          setPots(local);
+        }
+      }
     }, targetRealId);
 
     return () => {

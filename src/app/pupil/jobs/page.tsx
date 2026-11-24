@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   getPupilById,
+  getPotsForPupil,
   getSavedClasses,
   autoReconcileAllClassesWeeklyIncome,
 } from "@/lib/services/class-service";
@@ -32,6 +33,7 @@ import {
   subscribeToJobs,
   subscribeToApplications,
   subscribeToPupil,
+  subscribeToPots,
 } from "@/lib/firebase/firestore-service";
 import {
   formatCurrency,
@@ -67,6 +69,7 @@ function PupilJobsContent() {
   const [applications, setApplications] = useState<JobApplicationDocument[]>([]);
   const [completedJobs, setCompletedJobs] = useState<CompletedJobRecord[]>([]);
   const [notifications, setNotifications] = useState<PupilNotificationDocument[]>([]);
+  const [potsCount, setPotsCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
 
   // Application Modal State
@@ -113,6 +116,7 @@ function PupilJobsContent() {
     setApplications(loadedApps.filter((a) => a.pupilId === targetId));
     setCompletedJobs(loadedCompleted);
     setNotifications(loadedNotifs);
+    setPotsCount(getPotsForPupil(targetId).length);
   };
 
   useEffect(() => {
@@ -150,18 +154,33 @@ function PupilJobsContent() {
       setLoading(false);
     });
 
+    const unsubPots = subscribeToPots((livePots) => {
+      if (livePots && livePots.length > 0) {
+        const currentPots = getPotsForPupil(targetRealId);
+        const potMap = new Map<string, any>();
+        currentPots.forEach((p) => potMap.set(p.potId, p));
+        livePots.forEach((p) => potMap.set(p.potId, { ...(potMap.get(p.potId) || {}), ...p }));
+        setPotsCount(potMap.size);
+      } else {
+        setPotsCount(getPotsForPupil(targetRealId).length);
+      }
+    }, targetRealId);
+
     const handleSync = () => {
       loadAll(targetRealId);
     };
     window.addEventListener(APPLICATIONS_SYNC_EVENT, handleSync);
     window.addEventListener(JOBS_SYNC_EVENT, handleSync);
+    window.addEventListener("pocketpot_balance_updated", handleSync);
 
     return () => {
       unsubJobs();
       unsubApps();
       unsubPupil();
+      unsubPots();
       window.removeEventListener(APPLICATIONS_SYNC_EVENT, handleSync);
       window.removeEventListener(JOBS_SYNC_EVENT, handleSync);
+      window.removeEventListener("pocketpot_balance_updated", handleSync);
     };
   }, [activeId]);
 
@@ -857,6 +876,7 @@ function PupilJobsContent() {
       <PupilBottomNav
         pupilId={safePupilId}
         activeTab="jobs"
+        potsCount={potsCount}
         availableJobsCount={availableJobs.length}
       />
     </div>

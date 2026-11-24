@@ -181,7 +181,12 @@ function PupilPotsContent() {
     if (!pupil?.pupilId) return;
     try {
       const { pot: newPot, updatedPupil } = createPupilPot(pupil.pupilId, payload);
-      setPots((prev) => [...prev, newPot]);
+      setPots((prev) => {
+        const map = new Map<string, SavingsPotDocument>();
+        prev.forEach((p) => map.set(p.potId, p));
+        map.set(newPot.potId, newPot);
+        return Array.from(map.values());
+      });
       setPupil(updatedPupil);
       setFeedbackMessage(
         `Created new pot "${newPot.title}" with a target of ${formatCurrency(newPot.targetAmountCents)}!`
