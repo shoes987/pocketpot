@@ -8,6 +8,7 @@ import {
   getPotsForPupil,
   getSavedClasses,
   autoReconcileAllClassesWeeklyIncome,
+  reconcileLivePupil,
 } from "@/lib/services/class-service";
 import {
   getSavedJobs,
@@ -151,7 +152,8 @@ function PupilJobsContent() {
 
     const unsubPupil = subscribeToPupil(targetRealId, (livePupil) => {
       if (livePupil) {
-        setPupil(livePupil);
+        const reconciled = reconcileLivePupil(livePupil);
+        setPupil(reconciled);
       }
       setLoading(false);
     });

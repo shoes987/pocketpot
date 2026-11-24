@@ -12,6 +12,7 @@ import {
   getSavedClasses,
   autoReconcileAllClassesWeeklyIncome,
   getNextScheduledPayoutTime,
+  reconcileLivePupil,
   BALANCE_SYNC_EVENT,
 } from "@/lib/services/class-service";
 import { PupilDocument, PotLedgerEntry, SavingsPotDocument, ClassDocument } from "@/lib/firebase/types";
@@ -102,7 +103,8 @@ function PupilCardContent() {
     // Real-time Firestore onSnapshot listeners
     const unsubPupil = subscribeToPupil(targetRealId, (livePupil) => {
       if (livePupil) {
-        setPupil(livePupil);
+        const reconciled = reconcileLivePupil(livePupil);
+        setPupil(reconciled);
       }
       setLoading(false);
     });

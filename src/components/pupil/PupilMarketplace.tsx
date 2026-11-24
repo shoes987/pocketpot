@@ -16,7 +16,14 @@ import {
   createPotForReward,
   normalizeClassId,
 } from "@/lib/services/marketplace-service";
-import { getPupilById, getPotsForPupil, getSavedPupils, BALANCE_SYNC_EVENT } from "@/lib/services/class-service";
+import {
+  getPupilById,
+  getPotsForPupil,
+  getSavedPupils,
+  reconcileLivePupil,
+  autoReconcileAllClassesWeeklyIncome,
+  BALANCE_SYNC_EVENT,
+} from "@/lib/services/class-service";
 import { subscribeToRewards, subscribeToPupil } from "@/lib/firebase/firestore-service";
 import { formatCurrency } from "@/lib/firebase/zero-pii";
 import { CoinBuddyMascot } from "@/components/ui/CoinBuddyMascot";
@@ -82,6 +89,8 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
   };
 
   useEffect(() => {
+    // Run automated reconciliation check on marketplace component mount
+    autoReconcileAllClassesWeeklyIncome();
     loadData();
 
     let p = getPupilById(pupilId);
@@ -104,7 +113,8 @@ export const PupilMarketplace: React.FC<PupilMarketplaceProps> = ({ pupilId }) =
 
     const unsubPupil = subscribeToPupil(targetRealId, (livePupil) => {
       if (livePupil) {
-        setPupil(livePupil);
+        const reconciled = reconcileLivePupil(livePupil);
+        setPupil(reconciled);
       }
     });
 

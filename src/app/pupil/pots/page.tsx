@@ -13,6 +13,8 @@ import {
   createPupilPot,
   deleteSavingsPot,
   getSavedClasses,
+  autoReconcileAllClassesWeeklyIncome,
+  reconcileLivePupil,
   BALANCE_SYNC_EVENT,
 } from "@/lib/services/class-service";
 import { PupilDocument, SavingsPotDocument, PotAccentTheme, ClassDocument } from "@/lib/firebase/types";
@@ -73,6 +75,9 @@ function PupilPotsContent() {
   useEffect(() => {
     if (!activeId) return;
 
+    // Run automated reconciliation check on pots view mount
+    autoReconcileAllClassesWeeklyIncome();
+
     let targetRealId = activeId;
 
     const loadPupilData = () => {
@@ -91,7 +96,8 @@ function PupilPotsContent() {
     // Real-time Firestore onSnapshot listeners
     const unsubPupil = subscribeToPupil(targetRealId, (livePupil) => {
       if (livePupil) {
-        setPupil(livePupil);
+        const reconciled = reconcileLivePupil(livePupil);
+        setPupil(reconciled);
       }
       setLoading(false);
     });

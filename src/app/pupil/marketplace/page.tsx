@@ -6,6 +6,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   getPupilById,
   getPotsForPupil,
+  autoReconcileAllClassesWeeklyIncome,
+  reconcileLivePupil,
+  BALANCE_SYNC_EVENT,
 } from "@/lib/services/class-service";
 import { PupilDocument, SavingsPotDocument } from "@/lib/firebase/types";
 import { getPupilDisplayName } from "@/lib/firebase/zero-pii";
@@ -49,18 +52,26 @@ function PupilMarketplaceContent() {
   useEffect(() => {
     if (!activeId) return;
 
+    // Run automated reconciliation check on marketplace view mount
+    autoReconcileAllClassesWeeklyIncome();
+
     let targetRealId = activeId;
-    const foundPupil = getPupilById(activeId);
-    if (foundPupil) {
-      targetRealId = foundPupil.pupilId;
-      setPupil(foundPupil);
-      setPots(getPotsForPupil(foundPupil.pupilId));
-      setLoading(false);
-    }
+    const loadPupilData = () => {
+      const foundPupil = getPupilById(activeId);
+      if (foundPupil) {
+        targetRealId = foundPupil.pupilId;
+        setPupil(foundPupil);
+        setPots(getPotsForPupil(foundPupil.pupilId));
+        setLoading(false);
+      }
+    };
+
+    loadPupilData();
 
     const unsubPupil = subscribeToPupil(targetRealId, (livePupil) => {
       if (livePupil) {
-        setPupil(livePupil);
+        const reconciled = reconcileLivePupil(livePupil);
+        setPupil(reconciled);
       }
       setLoading(false);
     });
@@ -80,9 +91,16 @@ function PupilMarketplaceContent() {
       }
     }, targetRealId);
 
+    // Cross-tab and reactive balance synchronization
+    const handleSync = () => loadPupilData();
+    window.addEventListener("storage", handleSync);
+    window.addEventListener(BALANCE_SYNC_EVENT, handleSync);
+
     return () => {
       unsubPupil();
       unsubPots();
+      window.removeEventListener("storage", handleSync);
+      window.removeEventListener(BALANCE_SYNC_EVENT, handleSync);
     };
   }, [activeId]);
 

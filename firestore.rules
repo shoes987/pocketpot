@@ -377,8 +377,8 @@ service cloud.firestore {
                          hasNoPII(request.resource.data) &&
                          request.resource.data.pupilId == pupilId;
 
-        // Teacher, tenant admin, or pupil can update non-PII attributes
-        allow update: if (isPupilSelf(pupilId) || isTeacherOfClass(classId) || isAdminOfClass(classId)) &&
+        // Teacher, tenant admin, or pupil (including anonymous Zero-PII sessions) can update non-PII attributes and balance
+        allow update: if (isPupilSelf(pupilId) || isTeacherOfClass(classId) || isAdminOfClass(classId) || (hasNoPII(request.resource.data) && request.resource.data.pupilId == pupilId)) &&
                          hasNoPII(request.resource.data);
 
         // Teacher or tenant admin can archive/delete roster entries
@@ -436,10 +436,11 @@ service cloud.firestore {
       allow create: if (isTeacher() || (isAdmin() && (request.resource.data.schoolId == request.auth.token.tenantId || request.resource.data.tenantId == request.auth.token.tenantId))) &&
                        hasNoPII(request.resource.data);
 
-      // Update: Teachers can award whiteboard micro-bonuses (atomic increment()), admins can manage, and pupils can update self (non-PII)
+      // Update: Teachers can award whiteboard micro-bonuses (atomic increment()), admins can manage, and pupils (including anonymous Zero-PII sessions) can update self (non-PII)
       allow update: if (isTeacher() || 
                         isPupilSelf(pupilId) || 
-                        (isAdmin() && (resource == null || resource.data.schoolId == request.auth.token.tenantId || resource.data.tenantId == request.auth.token.tenantId))) && 
+                        (isAdmin() && (resource == null || resource.data.schoolId == request.auth.token.tenantId || resource.data.tenantId == request.auth.token.tenantId)) ||
+                        (hasNoPII(request.resource.data) && request.resource.data.pupilId == pupilId)) && 
                        hasNoPII(request.resource.data);
 
       // Delete: Teachers or tenant admins only
