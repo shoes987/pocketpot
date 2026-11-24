@@ -31,7 +31,7 @@ export const DEFAULT_TENANT: TenantDocument = {
   tenantId: DEFAULT_TENANT_ID,
   schoolName: "Pilot Primary School",
   schoolUrn: "100123",
-  allowedDomains: ["@gbshp"],
+  allowedDomains: ["@gbshp.org", "@gbshp"],
   status: "Production Live",
   activeTeacherCount: 1,
   pendingInviteCount: 0,
@@ -94,10 +94,14 @@ export function getTenant(tenantId: string = DEFAULT_TENANT_ID): TenantDocument 
         if (
           tenants[tenantId].schoolName?.includes("St Mary") ||
           (tenants[tenantId] as { schoolId?: string }).schoolId?.includes("stmarys") ||
-          !tenants[tenantId].allowedDomains?.includes("@gbshp")
+          (!tenants[tenantId].allowedDomains?.includes("@gbshp") && !tenants[tenantId].allowedDomains?.includes("@gbshp.org"))
         ) {
           saveTenant(DEFAULT_TENANT);
           return DEFAULT_TENANT;
+        }
+        if (!tenants[tenantId].allowedDomains?.some((d) => d.includes("gbshp.org"))) {
+          tenants[tenantId].allowedDomains = ["@gbshp.org", ...(tenants[tenantId].allowedDomains || [])];
+          saveTenant(tenants[tenantId]);
         }
         return tenants[tenantId];
       }

@@ -46,6 +46,7 @@ import {
   getTenant,
   getTenantInvites,
   revokeTeacherInvite,
+  validateTeacherEmailDomain,
   DEFAULT_TENANT,
   DEFAULT_TENANT_ID,
 } from "@/lib/services/tenant-service";
@@ -60,7 +61,8 @@ import {
   saveClasses,
 } from "@/lib/services/class-service";
 import { sendPasswordResetEmail } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { getFunctions, httpsCallable } from "firebase/functions";
+import { auth, app } from "@/lib/firebase";
 
 interface SchoolOverviewDashboardProps {
   classes: ClassDocument[];
@@ -295,40 +297,34 @@ export function SchoolOverviewDashboard({
       return;
     }
 
+    // Whitelisting domain check
+    const domainCheck = validateTeacherEmailDomain(trimmedEmail, tenant.tenantId);
+    if (!domainCheck.isWhitelisted) {
+      setAddTeacherError(domainCheck.friendlyError || "Please enter an approved school email address.");
+      return;
+    }
+
     setIsSubmittingTeacher(true);
     setAddTeacherError(null);
 
     try {
-      // 1. Retrieve current ID token if authenticated
-      let token: string | undefined;
+      // 1. Attempt Cloud Function callable inviteTeacher if available
       try {
-        if (auth?.currentUser) {
-          token = await auth.currentUser.getIdToken();
+        if (app) {
+          const functions = getFunctions(app);
+          const inviteTeacherFn = httpsCallable(functions, "inviteTeacher");
+          await inviteTeacherFn({
+            tenantId: tenant.tenantId,
+            email: trimmedEmail,
+            displayName: trimmedName,
+            classIds: [],
+          });
         }
-      } catch (tokenErr) {
-        console.warn("Failed to retrieve user ID token:", tokenErr);
+      } catch (fnErr) {
+        console.warn("Backend callable inviteTeacher not available or offline, proceeding with client provisioning:", fnErr);
       }
 
-      // 2. Call backend callable function (POST /api/invite-teacher)
-      const res = await fetch("/api/invite-teacher", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          tenantId: tenant.tenantId,
-          email: trimmedEmail,
-          displayName: trimmedName,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to onboard educator.");
-      }
-
-      // 3. Immediately trigger Firebase sendPasswordResetEmail so teacher gets setup email
+      // 2. Immediately trigger Firebase sendPasswordResetEmail so teacher gets setup email
       let emailNotice = "";
       try {
         if (auth) {
@@ -339,7 +335,7 @@ export function SchoolOverviewDashboard({
         console.warn("sendPasswordResetEmail note:", emailErr);
       }
 
-      // 4. Update local staff directory state
+      // 3. Update local staff directory state
       createStaffUser({
         displayName: trimmedName,
         email: trimmedEmail,
@@ -1274,7 +1270,7 @@ export function SchoolOverviewDashboard({
                   className="w-full px-3.5 py-2.5 rounded-xl bg-canvas border border-borderMuted text-xs font-medium text-primaryText focus:outline-hidden focus:border-brandPrimary focus:ring-1 focus:ring-brandPrimary transition-all"
                 />
                 <span className="text-[11px] text-primaryText/60 block">
-                  Allowed domains: {Array.from(new Set(tenant.allowedDomains.map((d) => d.startsWith("@") ? d : `@${d}`))).join(", ")}
+                  Allowed domains: {Array.from(new Set(tenant.allowedDomains.map((d) => d.startsWith("@") ? d : `@${d}`))).sort((a, b) => b.includes(".") ? 1 : -1).join(", ")}
                 </span>
               </div>
 

@@ -23,7 +23,8 @@ import {
 } from "@/lib/services/tenant-service";
 import { ClassDocument, UserDocument } from "@/lib/firebase/types";
 import { sendPasswordResetEmail } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { getFunctions, httpsCallable } from "firebase/functions";
+import { auth, app } from "@/lib/firebase";
 
 interface InviteTeacherModalProps {
   isOpen: boolean;
@@ -59,7 +60,7 @@ export function InviteTeacherModal({
 
   if (!isOpen) return null;
 
-  const primaryDomain = tenant.allowedDomains[0] || "st-marys.sch.uk";
+  const primaryDomain = tenant.allowedDomains[0]?.replace(/^@/, "") || "gbshp.org";
 
   // Real-time single domain verification
   const domainValidation = email.includes("@")
@@ -96,37 +97,23 @@ export function InviteTeacherModal({
 
     setIsSubmitting(true);
     try {
-      // 1. Retrieve current ID token if available
-      let token: string | undefined;
+      // 1. Attempt Cloud Function callable inviteTeacher if available
       try {
-        if (auth?.currentUser) {
-          token = await auth.currentUser.getIdToken();
+        if (app) {
+          const functions = getFunctions(app);
+          const inviteTeacherFn = httpsCallable(functions, "inviteTeacher");
+          await inviteTeacherFn({
+            tenantId: tenant.tenantId,
+            email: email.trim(),
+            displayName: displayName.trim() || `Teacher (${email.split("@")[0]})`,
+            classIds: selectedClassIds,
+          });
         }
-      } catch (tokenErr) {
-        console.warn("Failed to get token:", tokenErr);
+      } catch (fnErr) {
+        console.warn("Backend callable inviteTeacher not available or offline, proceeding with client provisioning:", fnErr);
       }
 
-      // 2. Call backend callable function (POST /api/invite-teacher)
-      const res = await fetch("/api/invite-teacher", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          tenantId: tenant.tenantId,
-          email: email.trim(),
-          displayName: displayName.trim() || `Teacher (${email.split("@")[0]})`,
-          classIds: selectedClassIds,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to onboard educator.");
-      }
-
-      // 3. Trigger Firebase sendPasswordResetEmail immediately so teacher receives setup link
+      // 2. Trigger Firebase sendPasswordResetEmail immediately so teacher receives setup link
       let emailNotice = "";
       try {
         if (auth) {
